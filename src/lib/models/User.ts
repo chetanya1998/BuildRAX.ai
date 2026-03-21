@@ -7,6 +7,10 @@ export interface IUser extends Document {
   xp: number;
   level: number;
   badges: string[];
+  encryptedApiKeys?: {
+    openai?: string;
+    anthropic?: string;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,6 +23,10 @@ const UserSchema: Schema = new Schema(
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
     badges: { type: [String], default: [] },
+    encryptedApiKeys: {
+      openai: { type: String, default: "" },
+      anthropic: { type: String, default: "" },
+    },
   },
   { timestamps: true }
 );

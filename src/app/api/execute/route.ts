@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { ExecutionEngine } from "@/lib/execution-engine";
 import dbConnect from "@/lib/mongodb";
 import { Execution } from "@/lib/models/Execution";
+import { inngest } from "@/inngest/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,96 +27,21 @@ export async function POST(req: NextRequest) {
       status: "running"
     });
 
-    const engine = new ExecutionEngine(nodes, edges);
-    let order: string[];
-    
-    try {
-      order = engine.getExecutionOrder();
-    } catch (e: any) {
-      executionRec.status = "failed";
-      executionRec.completedAt = new Date();
-      await executionRec.save();
-      return NextResponse.json({ error: e.message }, { status: 400 });
-    }
-
-    const nodeResults: any[] = [];
-    const executionState: Record<string, any> = {};
-
-    for (const nodeId of order) {
-      const node = nodes.find((n: any) => n.id === nodeId);
-      if (!node) continue;
-
-      const startTime = Date.now();
-      let output: any = null;
-      let error: string | undefined = undefined;
-
-      try {
-        // Collect inputs from upstream nodes
-        const incomingEdges = edges.filter((e: any) => e.target === nodeId);
-        const inputs: any = {};
-        incomingEdges.forEach((e: any) => {
-          inputs[e.sourceHandle || "default"] = executionState[e.source];
-        });
-
-        // Evaluate based on node type
-        switch (node.type) {
-          case "inputNode":
-            output = node.data?.value || "";
-            break;
-            
-          case "promptNode":
-            // simple string replacement template
-            let promptText = node.data?.template || "";
-            for (const [key, val] of Object.entries(inputs)) {
-              promptText = promptText.replace(`{{${key}}}`, String(val));
-            }
-            output = promptText;
-            break;
-            
-          case "llmNode":
-            const systemPrompt = node.data?.systemPrompt || "";
-            const userPrompt = inputs["prompt"] || inputs["default"] || "";
-            const { generateText } = await import("@/lib/litellm");
-            
-            output = await generateText(userPrompt, systemPrompt, {
-              model: node.data?.model,
-              temperature: node.data?.temperature
-            });
-            break;
-            
-          case "outputNode":
-            output = inputs["default"] || Object.values(inputs)[0] || "";
-            break;
-            
-          default:
-            output = `Unsupported node type: ${node.type}`;
-        }
-      } catch (err: any) {
-        error = err.message;
-        output = null;
-      }
-
-      executionState[nodeId] = output;
-      nodeResults.push({
-        nodeId,
-        output,
-        executionTimeMs: Date.now() - startTime,
-        error
-      });
-
-      if (error) break; // Halts pipeline on first error
-    }
-
-    executionRec.status = nodeResults.some(r => r.error) ? "failed" : "completed";
-    executionRec.results = nodeResults;
-    executionRec.completedAt = new Date();
-    await executionRec.save();
+    // Dispatch the task to the Inngest queue instead of running it here
+    await inngest.send({
+      name: "workflow.execute",
+      data: {
+        executionId: executionRec._id.toString(),
+        workflowId,
+        nodes,
+        edges,
+      },
+    });
 
     return NextResponse.json({ 
       success: true, 
       executionId: executionRec._id,
-      executionOrder: order,
-      results: nodeResults
+      status: "queued"
     });
 
   } catch (error: any) {

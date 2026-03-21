@@ -38,18 +38,61 @@ const initialEdges = [
   { id: "e2-3", source: "2", target: "3", animated: true },
 ];
 
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 
-export default function BuilderPage() {
+// Predefined mock template data to load based on ?template=id
+const templatesData: Record<string, { nodes: any[], edges: any[] }> = {
+  "0": { // Resume Analyzer
+    nodes: [
+      { id: "1", position: { x: 250, y: 150 }, data: { value: "Resume Details:\nTarget Job:\n" }, type: "inputNode" },
+      { id: "2", position: { x: 500, y: 150 }, data: { template: "Analyze this resume against the target job. {{default}}" }, type: "promptNode" },
+      { id: "3", position: { x: 750, y: 150 }, data: { model: "gpt-4o", systemPrompt: "You are an expert HR reviewer.", temperature: 0.5 }, type: "llmNode" },
+      { id: "4", position: { x: 1000, y: 150 }, data: { label: "Output" }, type: "outputNode" }
+    ],
+    edges: [
+      { id: "e1-2", source: "1", target: "2", animated: true },
+      { id: "e2-3", source: "2", target: "3", animated: true },
+      { id: "e3-4", source: "3", target: "4", animated: true }
+    ]
+  },
+  "1": { // Research Synthesizer
+    nodes: [
+      { id: "1", position: { x: 250, y: 150 }, data: { value: "Context:\n" }, type: "inputNode" },
+      { id: "2", position: { x: 500, y: 150 }, data: { template: "Summarize into 3 key themes. {{default}}" }, type: "promptNode" },
+      { id: "3", position: { x: 750, y: 150 }, data: { model: "gpt-3.5-turbo", systemPrompt: "You are a research bot.", temperature: 0.2 }, type: "llmNode" },
+      { id: "4", position: { x: 1000, y: 150 }, data: { label: "Output" }, type: "outputNode" }
+    ],
+    edges: [
+      { id: "e1-2", source: "1", target: "2", animated: true },
+      { id: "e2-3", source: "2", target: "3", animated: true },
+      { id: "e3-4", source: "3", target: "4", animated: true }
+    ]
+  }
+};
+
+function BuilderCanvas() {
+  const searchParams = useSearchParams();
+  const templateId = searchParams?.get("template") || null;
+
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+
+  useEffect(() => {
+    if (templateId && templatesData[templateId]) {
+      setNodes(templatesData[templateId].nodes);
+      setEdges(templatesData[templateId].edges);
+    }
+  }, [templateId, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: any) => setEdges((eds) => addEdge(params, eds)),
@@ -267,5 +310,13 @@ export default function BuilderPage() {
 
       <ExecutionPanel open={isExecutionPanelOpen} onOpenChange={setIsExecutionPanelOpen} />
     </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <Suspense fallback={<div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground">Loading builder...</div>}>
+      <BuilderCanvas />
+    </Suspense>
   );
 }

@@ -115,7 +115,7 @@ export default function TemplatesPage() {
                 <CardFooter className="pt-4 border-t border-border/20 flex justify-between items-center relative z-10">
                   <span className="text-xs text-muted-foreground">{tmpl.time} to build</span>
                   <Button size="sm" className="rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all -translate-y-2 group-hover:translate-y-0" asChild>
-                    <Link href={`/builder/new?template=${index}`}>
+                    <Link href={`/builder?template=${index}`}>
                       <Play className="w-3.5 h-3.5 mr-1" /> Clone to Builder
                     </Link>
                   </Button>
