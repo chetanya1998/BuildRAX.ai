@@ -1,56 +1,82 @@
-import dbConnect from "@/lib/mongodb";
-import { Execution, ExecutionStatus } from "@/lib/models/Execution";
-import { Workflow } from "@/lib/models/Workflow";
+export type Node = {
+  id: string;
+  type: string;
+  data: any;
+};
 
-/**
- * A simplified mock Execution Engine structure.
- * In production, this would be handled by a queue worker like Inngest, Trigger.dev, or BullMQ,
- * to bypass the Next.js serverless timeout limits.
- */
-export async function executeWorkflow(executionId: string) {
-  await dbConnect();
+export type Edge = {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+};
 
-  try {
-    const execution = await Execution.findById(executionId);
-    if (!execution) throw new Error("Execution not found");
+export class ExecutionEngine {
+  private nodes: Node[];
+  private edges: Edge[];
+  private nodeMap: Map<string, Node>;
+  private results: Record<string, any>;
 
-    const workflow = await Workflow.findById(execution.workflowId);
-    if (!workflow) throw new Error("Workflow not found");
+  constructor(nodes: Node[], edges: Edge[]) {
+    this.nodes = nodes;
+    this.edges = edges;
+    this.nodeMap = new Map(nodes.map(n => [n.id, n]));
+    this.results = {};
+  }
 
-    execution.status = ExecutionStatus.RUNNING;
-    await execution.save();
+  // Find execution order using Kahn's algorithm for Topological Sorting
+  public getExecutionOrder(): string[] {
+    const inDegrees: Map<string, number> = new Map();
+    const adjList: Map<string, string[]> = new Map();
 
-    const { nodes, edges } = workflow;
+    this.nodes.forEach(n => {
+      inDegrees.set(n.id, 0);
+      adjList.set(n.id, []);
+    });
 
-    // TODO: Parse the DAG (nodes and edges) physically.
-    // 1. Find root nodes (nodes with no incoming edges)
-    // 2. Execute root nodes
-    // 3. Pass outputs to children
-    // 4. Repeat until all nodes execute or an error occurs
+    this.edges.forEach(e => {
+      if (inDegrees.has(e.target)) {
+        inDegrees.set(e.target, (inDegrees.get(e.target) || 0) + 1);
+      }
+      if (adjList.has(e.source)) {
+        adjList.get(e.source)!.push(e.target);
+      }
+    });
 
-    const logs = [];
-    for (const node of nodes) {
-      // Simulate execution of a node taking time (e.g., an LLM call)
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      logs.push({
-        nodeId: node.id,
-        status: "success",
-        message: `Executed node: ${node.data?.label || node.id}`,
-        timestamp: new Date().toISOString(),
+    const queue: string[] = [];
+    inDegrees.forEach((deg, id) => {
+      if (deg === 0) queue.push(id);
+    });
+
+    const order: string[] = [];
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      order.push(current);
+
+      const neighbors = adjList.get(current) || [];
+      neighbors.forEach(neighbor => {
+        const currentDeg = inDegrees.get(neighbor)! - 1;
+        inDegrees.set(neighbor, currentDeg);
+        if (currentDeg === 0) {
+          queue.push(neighbor);
+        }
       });
     }
 
-    execution.status = ExecutionStatus.COMPLETED;
-    execution.completedAt = new Date();
-    execution.logs = logs;
-    await execution.save();
+    if (order.length !== this.nodes.length) {
+      throw new Error("Cycle detected in the workflow graph, cannot execute.");
+    }
+    return order;
+  }
 
-  } catch (error: any) {
-    console.error("Workflow Execution Error:", error);
-    await Execution.findByIdAndUpdate(executionId, {
-      status: ExecutionStatus.FAILED,
-      logs: [{ error: error.message }],
-      completedAt: new Date(),
+  // Prepares the context for a node by gathering outputs from its source connections
+  public getInputsForNode(nodeId: string): any {
+    const incomingEdges = this.edges.filter(e => e.target === nodeId);
+    const inputs: any = {};
+    incomingEdges.forEach(e => {
+      inputs[e.sourceHandle || e.source] = this.results[e.source];
     });
+    return inputs;
   }
 }

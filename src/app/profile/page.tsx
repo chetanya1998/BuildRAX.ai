@@ -3,9 +3,16 @@ import { ArrowLeft, Edit3, Github, Globe, Hexagon, Shield, Star, Trophy, Users }
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
-export default function ProfilePage() {
+export default async function ProfilePage() {
+  const session = await getServerSession(authOptions);
+  
+  const userName = session?.user?.name || "Test User";
+  const userEmail = session?.user?.email || "No Email";
+  const userInitial = userName.charAt(0).toUpperCase();
+
   return (
     <div className="flex flex-col min-h-screen bg-background pb-20">
       <header className="h-16 flex items-center px-6 border-b border-border/40 backdrop-blur-md sticky top-0 z-50 bg-card/50">
@@ -23,16 +30,20 @@ export default function ProfilePage() {
           
           <div className="w-24 h-24 rounded-2xl bg-gradient-primary p-0.5 shrink-0 relative z-10">
             <div className="w-full h-full bg-card rounded-2xl flex items-center justify-center overflow-hidden">
-              <span className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-primary">U</span>
+              {session?.user?.image ? (
+                <img src={session.user.image} alt={userName} className="w-full h-full object-cover rounded-xl" />
+              ) : (
+                <span className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-primary">{userInitial}</span>
+              )}
             </div>
           </div>
           
           <div className="flex-1 relative z-10 w-full">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
               <div>
-                <h1 className="text-3xl font-semibold mb-1">Test User</h1>
+                <h1 className="text-3xl font-semibold mb-1">{userName}</h1>
                 <p className="text-muted-foreground flex items-center gap-2">
-                  @testbuilder <span className="w-1 h-1 rounded-full bg-border/80" /> Joined March 2026
+                  {userEmail} <span className="w-1 h-1 rounded-full bg-border/80" /> Joined Today
                 </p>
               </div>
               <Button variant="outline" size="sm" className="rounded-full bg-background"><Edit3 className="w-4 h-4 mr-2"/> Edit Profile</Button>

@@ -1,29 +1,31 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { 
-  ReactFlow, 
-  MiniMap, 
-  Controls, 
-  Background, 
-  useNodesState, 
-  useEdgesState, 
+import {
+  ReactFlow,
+  MiniMap,
+  Controls,
+  Background,
+  useNodesState,
+  useEdgesState,
   addEdge,
-  Panel,
-  BackgroundVariant
+  BackgroundVariant,
+  Panel
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { 
-  ArrowLeft, Play, Save, Share2, 
-  Type, MessageSquareCode, Database, 
-  Bot, Cog, TerminalSquare
+import {
+  ArrowLeft, Play, Save, Share2,
+  MessageSquare, Cpu, Database,
+  Wrench, FileOutput, CheckCircle2, ChevronRight, Settings,
+  Type, MessageSquareCode, Bot, Cog, TerminalSquare
 } from "lucide-react";
 import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
+import { PublishModal } from "@/components/PublishModal";
 
 const initialNodes = [
   { id: "1", position: { x: 250, y: 150 }, data: { label: "Input Node" }, type: "default" },
@@ -36,17 +38,36 @@ const initialEdges = [
   { id: "e2-3", source: "2", target: "3", animated: true },
 ];
 
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
+
 export default function BuilderPage() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
 
   const onConnect = useCallback(
     (params: any) => setEdges((eds) => addEdge(params, eds)),
     [setEdges],
   );
+
+  const updateNodeData = (nodeId: string, newData: any) => {
+    setNodes((nds) => nds.map((node) => {
+      if (node.id === nodeId) {
+        return {
+          ...node,
+          data: { ...node.data, ...newData }
+        };
+      }
+      return node;
+    }));
+    setSelectedNode((prev: any) => prev?.id === nodeId ? { ...prev, data: { ...prev.data, ...newData } } : prev);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden">
@@ -146,8 +167,9 @@ export default function BuilderPage() {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onSelectionChange={(params) => setSelectedNode(params.nodes[0] || null)}
             fitView
-            className="bg-[#0A0A0B]"
+            className="bg-transparent"
           >
             <Background color="#ffffff" gap={24} size={1} variant={BackgroundVariant.Dots} className="opacity-5" />
             <Controls className="bg-card border-border/40 fill-foreground shadow-xl rounded-lg overflow-hidden" showInteractive={false} />
@@ -167,17 +189,80 @@ export default function BuilderPage() {
         </main>
         
         {/* Right Properties Panel Placeholder */}
-        <aside className="w-80 border-l border-border/40 bg-card/30 flex flex-col shrink-0 z-10 hidden xl:flex">
-          <div className="p-4 border-b border-border/40">
-            <h2 className="text-sm font-medium">Properties</h2>
-          </div>
-          <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-            <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center mb-4">
-              <Cog className="w-8 h-8 text-muted-foreground" />
+        <div className="w-80 border-l border-border/40 bg-card/30 backdrop-blur-sm p-4 flex flex-col hidden lg:flex">
+          <h2 className="text-sm font-semibold mb-4 uppercase tracking-wider text-muted-foreground">Properties</h2>
+          {selectedNode ? (
+            <div className="space-y-4">
+              <div className="mb-2 pb-2 border-b border-border/40">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{selectedNode.type} Node</p>
+                <p className="text-sm font-medium">{selectedNode.id}</p>
+              </div>
+              
+              {selectedNode.type === "inputNode" && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Input Value</Label>
+                  <Textarea 
+                    className="text-sm"
+                    value={selectedNode.data?.value || ""}
+                    onChange={(e) => updateNodeData(selectedNode.id, { value: e.target.value })}
+                  />
+                </div>
+              )}
+              
+              {selectedNode.type === "promptNode" && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Template String</Label>
+                  <Textarea 
+                    className="text-sm h-32"
+                    placeholder="Use {{input}} for variables"
+                    value={selectedNode.data?.template || ""}
+                    onChange={(e) => updateNodeData(selectedNode.id, { template: e.target.value })}
+                  />
+                </div>
+              )}
+              
+              {selectedNode.type === "llmNode" && (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-xs">Model</Label>
+                    <Select 
+                      value={selectedNode.data?.model || "gpt-3.5-turbo"}
+                      onValueChange={(val) => updateNodeData(selectedNode.id, { model: val })}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Select model" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
+                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>
+                        <SelectItem value="llama3">Llama 3 (Ollama)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">System Prompt</Label>
+                    <Textarea 
+                      className="text-sm h-32"
+                      value={selectedNode.data?.systemPrompt || ""}
+                      onChange={(e) => updateNodeData(selectedNode.id, { systemPrompt: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Temperature ({selectedNode.data?.temperature || 0.7})</Label>
+                    <Slider 
+                      max={2} step={0.1} 
+                      value={[selectedNode.data?.temperature || 0.7]}
+                      onValueChange={(vals) => updateNodeData(selectedNode.id, { temperature: (vals as number[])[0] })}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground">Select a node on the canvas to configure its properties.</p>
-          </div>
-        </aside>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm p-4 text-center border-2 border-dashed border-border/40 rounded-xl">
+              <Settings className="w-8 h-8 mb-2 opacity-50" />
+              <p>Select a node to edit its properties</p>
+            </div>
+          )}
+        </div>
       </div>
 
       <ExecutionPanel open={isExecutionPanelOpen} onOpenChange={setIsExecutionPanelOpen} />

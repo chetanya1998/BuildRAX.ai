@@ -1,54 +1,53 @@
 import { NextRequest, NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
-import { Workflow } from "@/lib/models/Workflow";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import dbConnect from "@/lib/mongodb";
+import { Workflow } from "@/lib/models/Workflow";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
 
-    // @ts-ignore
-    const workflows = await Workflow.find({ userId: session.user.id }).sort({ updatedAt: -1 });
+    // Fetch workflows for the logged in user
+    const workflows = await Workflow.find({ creatorId: (session.user as any).id })
+      .sort({ updatedAt: -1 })
+      .lean();
 
     return NextResponse.json(workflows);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  } catch (error) {
+    console.error("Error fetching workflows:", error);
+    return NextResponse.json({ error: "Failed to fetch workflows" }, { status: 500 });
   }
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { name, description, nodes, edges } = body;
-
-    if (!name) {
-      return NextResponse.json({ error: "Name is required" }, { status: 400 });
-    }
-
     await dbConnect();
 
-    const workflow = await Workflow.create({
-      name,
-      description,
-      nodes: nodes || [],
-      edges: edges || [],
-      // @ts-ignore
-      userId: session.user.id,
+    const newWorkflow = await Workflow.create({
+      name: body.name || "Untitled Workflow",
+      description: body.description || "",
+      nodes: body.nodes || [],
+      edges: body.edges || [],
+      viewport: body.viewport || { x: 0, y: 0, zoom: 1 },
+      creatorId: (session.user as any).id,
+      isPublic: body.isPublic || false,
     });
 
-    return NextResponse.json(workflow, { status: 201 });
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(newWorkflow, { status: 201 });
+  } catch (error) {
+    console.error("Error creating workflow:", error);
+    return NextResponse.json({ error: "Failed to create workflow" }, { status: 500 });
   }
 }

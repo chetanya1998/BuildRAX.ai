@@ -1,23 +1,26 @@
-import mongoose, { Schema, Document, Model } from "mongoose";
+import mongoose, { Schema, Document } from "mongoose";
 
 export interface IUser extends Document {
-  name?: string;
+  name: string;
   email: string;
-  workflows: mongoose.Types.ObjectId[];
-  templates: mongoose.Types.ObjectId[];
+  image: string;
+  xp: number;
+  level: number;
+  badges: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
 const UserSchema: Schema = new Schema(
   {
-    name: { type: String, required: false },
+    name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
-    workflows: [{ type: Schema.Types.ObjectId, ref: "Workflow" }],
-    templates: [{ type: Schema.Types.ObjectId, ref: "Template" }],
+    image: { type: String, default: "" },
+    xp: { type: Number, default: 0 },
+    level: { type: Number, default: 1 },
+    badges: { type: [String], default: [] },
   },
   { timestamps: true }
 );
 
-export const User: Model<IUser> =
-  mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
+export const User = mongoose.models.User || mongoose.model<IUser>("User", UserSchema);
