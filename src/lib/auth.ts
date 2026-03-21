@@ -1,10 +1,26 @@
 import { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
+import CredentialsProvider from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
 import clientPromise from "./mongodb-client";
 
-const providers: any[] = [];
+const providers: any[] = [
+  CredentialsProvider({
+    id: "guest",
+    name: "Guest",
+    credentials: {},
+    async authorize() {
+      // Always return a valid guest user object
+      return {
+        id: `guest_${Date.now()}`,
+        name: "Guest User",
+        email: `guest${Date.now()}@buildrax.sandbox`,
+        image: "",
+      };
+    },
+  })
+];
 
 if (process.env.GITHUB_ID && process.env.GITHUB_SECRET) {
   providers.push(
