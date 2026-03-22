@@ -6,10 +6,6 @@ import OpenAI from "openai";
 // Optionally enforce auth for this expensive operation
 // If testing in Builder without auth, this can be removed or mocked.
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
-
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -59,6 +55,10 @@ export async function POST(req: NextRequest) {
         "suggestions": ["<actionable improvement 1>", "<actionable improvement 2>"]
       }
     `;
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY || "",
+    });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",

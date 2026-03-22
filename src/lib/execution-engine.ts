@@ -14,10 +14,6 @@ export type Edge = {
   targetHandle?: string;
 };
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
-
 export class ExecutionEngine {
   private nodes: Node[];
   private edges: Edge[];
@@ -136,6 +132,10 @@ export class ExecutionEngine {
         if (!process.env.OPENAI_API_KEY) {
           return `[MOCK LLM RESULT for ${model}]: ` + prompt;
         }
+
+        const openai = new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY || "",
+        });
 
         const completion = await openai.chat.completions.create({
           model,
