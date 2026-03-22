@@ -25,7 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Workflows", href: "/dashboard#workflows", icon: Layers },
-  { name: "Builder", href: "/builder", icon: PlusCircle },
+  { name: "AI Architect", href: "/builder", icon: BrainCircuit },
   { name: "Templates", href: "/templates", icon: Library },
   { name: "Learn", href: "/learn", icon: GraduationCap },
 ];
