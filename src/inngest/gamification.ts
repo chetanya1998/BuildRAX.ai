@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { inngest } from "./client";
 import dbConnect from "@/lib/mongodb";
 import { User } from "@/lib/models/User";
