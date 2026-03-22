@@ -117,6 +117,16 @@ export const executeWorkflowBackground = inngest.createFunction(
       });
     });
 
+    if (!hasError) {
+      await step.sendEvent("user.reward_xp", {
+        name: "user.reward_xp",
+        data: {
+          userId: executionRec.userId,
+          type: "EXECUTE_WORKFLOW",
+        },
+      });
+    }
+
     return { success: !hasError, results: nodeResults };
   }
 );
