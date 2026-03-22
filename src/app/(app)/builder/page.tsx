@@ -437,11 +437,15 @@ function BuilderCanvas() {
             className="z-10"
           >
             <Background color="#ffffff" gap={24} size={1} variant={BackgroundVariant.Dots} className="opacity-[0.03]" />
-            <Controls className="bg-card border-border/40 fill-foreground shadow-xl rounded-lg overflow-hidden" showInteractive={false} />
+            <Controls 
+              className="bg-[#161618] border border-white/10 fill-white/70 shadow-2xl rounded-xl overflow-hidden [&_button]:border-white/5 [&_button:hover]:bg-white/5" 
+              showInteractive={false} 
+            />
             <MiniMap 
-              nodeColor="#16181D" 
-              maskColor="rgba(10, 10, 11, 0.8)"
-              className="bg-card/80 border border-border/40 rounded-lg shadow-xl" 
+              nodeColor="#2A2A2E" 
+              maskColor="rgba(0, 0, 0, 0.7)"
+              className="bg-[#161618] border border-white/10 rounded-xl shadow-2xl scale-90 origin-bottom-right" 
+              style={{ height: 120 }}
             />
             
             <Panel position="bottom-center" className="mb-4">
