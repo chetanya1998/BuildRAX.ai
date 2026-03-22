@@ -25,7 +25,7 @@ import { ProgressSummary } from "@/lib/gamification";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "My Workflows", href: "/dashboard#workflows", icon: Layers },
+  { name: "My Workflows", href: "/workflows", icon: Layers },
   { name: "AI Architect", href: "/builder", icon: BrainCircuit },
   { name: "Templates", href: "/templates", icon: Library },
   { name: "Learn", href: "/learn", icon: GraduationCap },

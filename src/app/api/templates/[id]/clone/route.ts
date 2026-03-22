@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { Template } from "@/lib/models/Template";
 import { Workflow } from "@/lib/models/Workflow";
+import { AGENT_TEMPLATES } from "@/lib/data/templates";
 
 export async function POST(
   req: NextRequest,
@@ -12,31 +13,38 @@ export async function POST(
   try {
     const { id } = await params;
     const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    if (!session?.user || !(session.user as any).id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await dbConnect();
     
-    const template = await Template.findById(id);
-    if (!template) {
-      return NextResponse.json({ error: "Template not found" }, { status: 404 });
+    let tmplData = AGENT_TEMPLATES.find((t) => t.id === id) as any;
+    let isStatic = !!tmplData;
+
+    if (!tmplData) {
+      tmplData = await Template.findById(id);
+      if (!tmplData) {
+        return NextResponse.json({ error: "Template not found" }, { status: 404 });
+      }
     }
 
     // Deep copy template into a new Workflow owned by the current user
     const newWorkflow = await Workflow.create({
-      name: `${template.name} (Cloned)`,
-      description: template.description || `Cloned from ${template.name}`,
-      nodes: template.nodes || [],
-      edges: template.edges || [],
+      name: `${tmplData.title || tmplData.name} (Cloned)`,
+      description: tmplData.description || `Cloned from ${tmplData.title || tmplData.name}`,
+      nodes: tmplData.nodes || [],
+      edges: tmplData.edges || [],
       viewport: { x: 0, y: 0, zoom: 1 },
       creatorId: (session.user as any).id,
       isPublic: false,
     });
 
-    // Increment template clone count
-    template.clones = (template.clones || 0) + 1;
-    await template.save();
+    // Increment template clone count if it's a dynamic template in DB
+    if (!isStatic) {
+      tmplData.clones = (tmplData.clones || 0) + 1;
+      await tmplData.save();
+    }
 
     return NextResponse.json({
       success: true,
