@@ -1,4 +1,4 @@
-<![CDATA[<div align="center">
+<div align="center">
 
 # 🧠 BuildRAX.ai
 
@@ -238,4 +238,3 @@ Copyright (c) 2025 BuildRAX.ai
 [GitHub](https://github.com/chetanya1998/BuildRAX.ai) · [Templates](#-choose-your-path) · [Contribute](#-contributing)
 
 </div>
-]]>
