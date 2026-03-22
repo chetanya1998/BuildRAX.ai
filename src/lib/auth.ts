@@ -5,19 +5,30 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
 import clientPromise from "./mongodb-client";
 
+import crypto from "crypto";
+
 const providers: any[] = [
   CredentialsProvider({
     id: "guest",
     name: "Guest",
-    credentials: {},
-    async authorize() {
-      // Always return a valid guest user object with a valid ObjectId
-      // Pad a random hex string to 24 characters to safely satisfy mongoose schemas
-      const randomHex = Math.floor(Math.random() * 0xffffffffffffff).toString(16).padEnd(24, '0');
+    credentials: {
+      deviceId: { label: "Device ID", type: "text" },
+    },
+    async authorize(credentials) {
+      // Return a valid guest user object with a valid ObjectId
+      // If we have a deviceId, we hash it into a deterministic 24-character hex string
+      let hexId = "";
+      if (credentials?.deviceId) {
+        const hash = crypto.createHash('md5').update(credentials.deviceId).digest('hex');
+        hexId = hash.slice(0, 24);
+      } else {
+        hexId = Math.floor(Math.random() * 0xffffffffffffff).toString(16).padEnd(24, '0');
+      }
+
       return {
-        id: randomHex,
+        id: hexId,
         name: "Guest User",
-        email: `guest${Date.now()}@buildrax.sandbox`,
+        email: `guest-${hexId.slice(0, 6)}@buildrax.sandbox`,
         image: "",
       };
     },

@@ -43,7 +43,14 @@ function LoginContent() {
             variant="default" 
             size="lg" 
             className="w-full rounded-xl"
-            onClick={() => signIn("guest", { callbackUrl: "/dashboard" })}
+            onClick={() => {
+              let deviceId = localStorage.getItem("buildrax_device_id");
+              if (!deviceId) {
+                deviceId = crypto.randomUUID();
+                localStorage.setItem("buildrax_device_id", deviceId);
+              }
+              signIn("guest", { deviceId, callbackUrl: "/dashboard" });
+            }}
           >
             Sign in as Guest (Instant)
           </Button>
