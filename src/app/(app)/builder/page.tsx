@@ -22,7 +22,11 @@ import {
   ArrowLeft, Play, Save, Share2,
   MessageSquare, Cpu, Database,
   Wrench, FileOutput, CheckCircle2, ChevronRight, Settings,
-  Type, MessageSquareCode, Bot, Cog, TerminalSquare, Sparkles
+  Type, MessageSquareCode, Bot, Cog, TerminalSquare, Sparkles,
+  Globe, Search, Newspaper, BookOpen, Warehouse, Table, Mail, 
+  Slack, Disc, Twitter, Clock, Zap, Code, ShieldCheck, 
+  Image as ImageIcon, Mic, AudioLines, ShoppingCart, CreditCard,
+  Repeat, BrainCircuit, Layers
 } from "lucide-react";
 import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
@@ -77,18 +81,52 @@ const templatesData: Record<string, { nodes: any[], edges: any[] }> = {
 };
 
 import { nodeTypes } from "@/components/nodes";
-import { PlusSquare, Repeat } from "lucide-react";
+import { PlusSquare } from "lucide-react";
 
 const NODE_LIBRARY = [
-  { type: "inputNode", label: "Input", description: "Receive initial data", icon: <Type className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10" },
-  { type: "promptNode", label: "Prompt", description: "Template strings", icon: <MessageSquareCode className="w-4 h-4" />, color: "text-orange-400 bg-orange-500/10" },
-  { type: "llmNode", label: "LLM", description: "Generate text", icon: <Bot className="w-4 h-4" />, color: "text-purple-400 bg-purple-500/10" },
-  { type: "outputNode", label: "Output", description: "Final response", icon: <TerminalSquare className="w-4 h-4" />, color: "text-green-400 bg-green-500/10" },
-  { type: "memoryNode", label: "Memory", description: "Vector search", icon: <Database className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10" },
-  { type: "toolNode", label: "Tool", description: "Custom functions", icon: <Cog className="w-4 h-4" />, color: "text-red-400 bg-red-500/10" },
-  { type: "conditionNode", label: "Condition", description: "If/Else branching", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-yellow-400 bg-yellow-500/10" },
-  { type: "combineNode", label: "Combine", description: "Merge strings", icon: <PlusSquare className="w-4 h-4" />, color: "text-teal-400 bg-teal-500/10" },
-  { type: "loopNode", label: "Loop", description: "Iterate arrays", icon: <Repeat className="w-4 h-4" />, color: "text-pink-400 bg-pink-500/10" }
+  // --- AI & LLM Models ---
+  { type: "llmNode", label: "GPT-4o (OpenAI)", description: "Most capable model", icon: <Bot className="w-4 h-4" />, color: "text-purple-400 bg-purple-500/10", category: "AI Models" },
+  { type: "llmNode", label: "Claude 3.5 Sonnet", description: "Nuanced & Fast", icon: <BrainCircuit className="w-4 h-4" />, color: "text-orange-400 bg-orange-500/10", category: "AI Models" },
+  { type: "llmNode", label: "Gemini 1.5 Pro", description: "Large Context", icon: <Sparkles className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "AI Models" },
+  { type: "llmNode", label: "Llama 3 (Local)", description: "Privacy-focused", icon: <TerminalSquare className="w-4 h-4" />, color: "text-green-400 bg-green-500/10", category: "AI Models" },
+  { type: "imageGenNode", label: "DALL-E 3", description: "High-quality images", icon: <ImageIcon className="w-4 h-4" />, color: "text-pink-400 bg-pink-500/10", category: "AI Models" },
+
+  // --- Search & intelligence ---
+  { type: "searchNode", label: "Google Search", description: "Live web results", icon: <Search className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Search" },
+  { type: "scraperNode", label: "Web Scraper", description: "Extract page content", icon: <Globe className="w-4 h-4" />, color: "text-teal-400 bg-teal-500/10", category: "Search" },
+  { type: "newsNode", label: "News Feed", description: "Latest headlines", icon: <Newspaper className="w-4 h-4" />, color: "text-red-400 bg-red-500/10", category: "Search" },
+  { type: "wikiNode", label: "Wikipedia", description: "Knowledge lookup", icon: <BookOpen className="w-4 h-4" />, color: "text-slate-400 bg-slate-500/10", category: "Search" },
+
+  // --- Data & Persistence ---
+  { type: "memoryNode", label: "Vector Search", description: "Pinecone / Weaviate", icon: <Database className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10", category: "Data" },
+  { type: "mongoNode", label: "MongoDB", description: "Read/Write JSON", icon: <Warehouse className="w-4 h-4" />, color: "text-green-400 bg-green-500/10", category: "Data" },
+  { type: "sheetsNode", label: "Google Sheets", description: "Spreadsheet sync", icon: <Table className="w-4 h-4" />, color: "text-emerald-400 bg-emerald-500/10", category: "Data" },
+  { type: "notionNode", label: "Notion", description: "Create pages/rows", icon: <Layers className="w-4 h-4" />, color: "text-slate-500 bg-slate-500/10", category: "Data" },
+  { type: "airtableNode", label: "Airtable", description: "Low-code database", icon: <Table className="w-4 h-4" />, color: "text-blue-500 bg-blue-500/10", category: "Data" },
+
+  // --- Social & Communication ---
+  { type: "emailNode", label: "Send Email", description: "SMTP / SendGrid", icon: <Mail className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Communication" },
+  { type: "slackNode", label: "Slack Notify", description: "Post to channel", icon: <Slack className="w-4 h-4" />, color: "text-purple-400 bg-purple-500/10", category: "Communication" },
+  { type: "discordNode", label: "Discord Hook", description: "Webhook posting", icon: <Disc className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10", category: "Communication" },
+  { type: "twitterNode", label: "Twitter Post", description: "Automated tweet", icon: <Twitter className="w-4 h-4" />, color: "text-sky-400 bg-sky-500/10", category: "Communication" },
+
+  // --- Logic & Process ---
+  { type: "inputNode", label: "Input", description: "Receive initial data", icon: <Type className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Logic" },
+  { type: "promptNode", label: "Prompt", description: "Template strings", icon: <MessageSquareCode className="w-4 h-4" />, color: "text-orange-400 bg-orange-500/10", category: "Logic" },
+  { type: "conditionNode", label: "Condition", description: "If/Else branching", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-yellow-400 bg-yellow-500/10", category: "Logic" },
+  { type: "combineNode", label: "Combine", description: "Merge strings", icon: <PlusSquare className="w-4 h-4" />, color: "text-teal-400 bg-teal-500/10", category: "Logic" },
+  { type: "loopNode", label: "Loop", description: "Iterate arrays", icon: <Repeat className="w-4 h-4" />, color: "text-pink-400 bg-pink-500/10", category: "Logic" },
+  { type: "delayNode", label: "Delay", description: "Wait (Sleep)", icon: <Clock className="w-4 h-4" />, color: "text-slate-400 bg-slate-500/10", category: "Logic" },
+  { type: "webhookNode", label: "Webhook", description: "API (GET/POST)", icon: <Zap className="w-4 h-4" />, color: "text-amber-400 bg-amber-500/10", category: "Logic" },
+  { type: "codeNode", label: "JS Sandbox", description: "Custom logic", icon: <Code className="w-4 h-4" />, color: "text-gray-400 bg-gray-500/10", category: "Logic" },
+  { type: "outputNode", label: "Output", description: "Final response", icon: <TerminalSquare className="w-4 h-4" />, color: "text-green-400 bg-green-500/10", category: "Logic" },
+
+  // --- Multimodal & Auth ---
+  { type: "whisperNode", label: "Whisper", description: "Voice-to-Text", icon: <Mic className="w-4 h-4" />, color: "text-cyan-400 bg-cyan-500/10", category: "Audio/Vision" },
+  { type: "ttsNode", label: "Speech", description: "Text-to-Voice", icon: <AudioLines className="w-4 h-4" />, color: "text-violet-400 bg-violet-500/10", category: "Audio/Vision" },
+  { type: "authNode", label: "Auth Guard", description: "API Key Security", icon: <ShieldCheck className="w-4 h-4" />, color: "text-zinc-400 bg-zinc-500/10", category: "Security" },
+  { type: "stripeNode", label: "Stripe", description: "Invoices & Payments", icon: <CreditCard className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10", category: "Commerce" },
+  { type: "shopifyNode", label: "Shopify", description: "Store products", icon: <ShoppingCart className="w-4 h-4" />, color: "text-lime-400 bg-lime-500/10", category: "Commerce" },
 ];
 
 function BuilderCanvas() {
@@ -341,28 +379,28 @@ function BuilderCanvas() {
               <p className="text-[10px] text-muted-foreground/40 mt-1 uppercase tracking-tighter">Tools & Integrations</p>
             </div>
             
-            <div className="flex-1 p-5 space-y-6">
-              <div className="space-y-3">
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Available Nodes</h3>
-                <div className="grid gap-3">
-                  {NODE_LIBRARY.map((node) => (
-                    <div 
-                      key={node.type}
-                      className="flex flex-col gap-1 p-3 rounded-xl border border-border/50 bg-background hover:bg-muted/50 cursor-grab hover:border-primary/50 transition-all shadow-sm hover:shadow"
-                      draggable
-                      onDragStart={(e) => onDragStart(e, node.type)}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${node.color}`}>{node.icon}</div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold">{node.label}</p>
-                          <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{node.description}</p>
+            <div className="flex-1 p-5 space-y-8 overflow-y-auto scrollbar-thin">
+              {Array.from(new Set(NODE_LIBRARY.map(n => n.category))).map(category => (
+                <div key={category} className="space-y-3">
+                  <h3 className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-3 px-1">{category}</h3>
+                  <div className="grid gap-2">
+                    {NODE_LIBRARY.filter(n => n.category === category).map((node) => (
+                      <div 
+                        key={node.label}
+                        className="flex items-center gap-3 p-2.5 rounded-xl border border-white/[0.03] bg-white/[0.02] hover:bg-white/[0.05] cursor-grab hover:border-primary/30 transition-all hover:shadow-[0_0_20px_rgba(124,58,237,0.05)] group"
+                        draggable
+                        onDragStart={(e) => onDragStart(e, node.type)}
+                      >
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${node.color} group-hover:scale-110 transition-transform`}>{node.icon}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-bold truncate">{node.label}</p>
+                          <p className="text-[9px] text-muted-foreground/40 leading-tight mt-0.5 truncate">{node.description}</p>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </aside>
         )}
