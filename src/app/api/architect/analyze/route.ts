@@ -1,46 +1,81 @@
-import { NextResponse } from "next/server";
-import { generateText } from "@/lib/litellm";
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import OpenAI from "openai";
 
-const SYSTEM_PROMPT = `
-You are an expert AI Systems Reviewer. Your task is to analyze a React Flow based AI architecture (nodes/edges) and provide professional feedback.
-You return a JSON object with the following fields:
-- rating: 1-10 (number)
-- feedback: A short professional summary of the design.
-- suggestions: An array of 3 actionable improvements.
-- edgeCases: An array of 3 potential failures or logical gaps (e.g., "What if LLM returns empty?").
-- healthChecks: An array of boolean checks (e.g., "Has Input Node", "Has Output Node", "Connected").
+// Optionally enforce auth for this expensive operation
+// If testing in Builder without auth, this can be removed or mocked.
 
-Input will be a JSON containing { nodes, edges }.
-If the design is broken (e.g., disconnected nodes), give a low rating and specific fix instructions.
-`;
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    // Allowing guest mode for now to support the demo state where users might not be logged in
+    
     const { nodes, edges } = await req.json();
 
     if (!nodes || !edges) {
       return NextResponse.json({ error: "Missing nodes or edges" }, { status: 400 });
     }
 
-    const response = await generateText(
-      `Analyze this AI architecture: ${JSON.stringify({ nodes, edges })}`,
-      SYSTEM_PROMPT,
-      {
-        model: "gpt-4o",
-        temperature: 0.1,
-        response_format: { type: "json_object" }
-      }
-    );
-
-    if (!response) {
-      throw new Error("AI failed to analyze the architecture");
+    if (!process.env.OPENAI_API_KEY) {
+      // Mock response for missing keys
+      return NextResponse.json({
+        rating: 8,
+        feedback: "Your setup looks solid, but this is a mock analysis because OPENAI_API_KEY is not configured.",
+        edgeCases: ["What happens if the API responds slowly?", "Missing fallback node for failure states."],
+        suggestions: ["Add a condition node to check success.", "Incorporate memory for better context retrieval."]
+      });
     }
 
-    const analysis = JSON.parse(response);
+    // Prepare a structured representation of the workflow DAG for the LLM to understand
+    const workflowDescription = nodes.map((n: any) => 
+      `Node [${n.id}] (${n.type}): ${JSON.stringify(n.data).substring(0, 100)}`
+    ).join("\n");
 
-    return NextResponse.json(analysis);
-  } catch (error: any) {
-    console.error("Architect Analysis Error:", error);
-    return NextResponse.json({ error: "Failed to analyze architecture" }, { status: 500 });
+    const edgeDescription = edges.map((e: any) => 
+      `${e.source} -> ${e.target}`
+    ).join("\n");
+
+    const prompt = `
+      You are an expert AI Systems Architect auditing a user's node-based workflow.
+      The workflow is represented as a Directed Acyclic Graph (DAG).
+      
+      Nodes:
+      ${workflowDescription}
+      
+      Connections (Edges):
+      ${edgeDescription}
+      
+      Analyze the logic, data flow, and potential failure points of this system.
+      Provide your response strictly in the following JSON format:
+      {
+        "rating": <number from 1 to 10>,
+        "feedback": "<2-3 sentences of overall conceptual feedback>",
+        "edgeCases": ["<edge case 1>", "<edge case 2>"],
+        "suggestions": ["<actionable improvement 1>", "<actionable improvement 2>"]
+      }
+    `;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: "You are a senior workflow optimization engineer." },
+        { role: "user", content: prompt }
+      ]
+    });
+
+    const resultStr = completion.choices[0]?.message?.content || "{}";
+    const resultJson = JSON.parse(resultStr);
+
+    return NextResponse.json(resultJson);
+
+  } catch (error) {
+    console.error("AI Architect Audit Error:", error);
+    return NextResponse.json({ error: "Failed to audit workflow" }, { status: 500 });
   }
 }

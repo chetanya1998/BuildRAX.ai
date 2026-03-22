@@ -1,3 +1,5 @@
+import OpenAI from "openai";
+
 export type Node = {
   id: string;
   type: string;
@@ -12,11 +14,15 @@ export type Edge = {
   targetHandle?: string;
 };
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY || "",
+});
+
 export class ExecutionEngine {
   private nodes: Node[];
   private edges: Edge[];
   private nodeMap: Map<string, Node>;
-  private results: Record<string, any>;
+  public results: Record<string, any>;
 
   constructor(nodes: Node[], edges: Edge[]) {
     this.nodes = nodes;
@@ -75,8 +81,91 @@ export class ExecutionEngine {
     const incomingEdges = this.edges.filter(e => e.target === nodeId);
     const inputs: any = {};
     incomingEdges.forEach(e => {
-      inputs[e.sourceHandle || e.source] = this.results[e.source];
+      // Default mapping mechanism
+      inputs[e.source] = this.results[e.source];
     });
     return inputs;
+  }
+
+  // Evaluate the entire DAG
+  public async evaluate(): Promise<Record<string, any>> {
+    const order = this.getExecutionOrder();
+
+    for (const nodeId of order) {
+      const node = this.nodeMap.get(nodeId);
+      if (!node) continue;
+
+      const inputs = this.getInputsForNode(nodeId);
+      
+      try {
+        this.results[nodeId] = await this.evaluateNode(node, inputs);
+      } catch (error: any) {
+        console.error(`Error evaluating node ${nodeId}:`, error);
+        this.results[nodeId] = { error: error.message };
+        throw new Error(`Node Execution Failed [${node.type}]: ${error.message}`);
+      }
+    }
+
+    return this.results;
+  }
+
+  // Route evaluation based on node type
+  private async evaluateNode(node: Node, inputs: any): Promise<any> {
+    switch (node.type) {
+      case "inputNode":
+        return node.data?.value || "";
+
+      case "promptNode": {
+        let template = node.data?.template || "";
+        // Basic {{default}} or {{sourceId}} replacement
+        Object.keys(inputs).forEach(key => {
+          const val = inputs[key] || "";
+          template = template.replace(new RegExp(`{{${key}}}`, "g"), val);
+          template = template.replace(new RegExp(`{{default}}`, "g"), val); // fallback matcher
+        });
+        return template;
+      }
+
+      case "llmNode": {
+        const prompt = Object.values(inputs).join("\n");
+        const systemPrompt = node.data?.systemPrompt || "You are a helpful assistant.";
+        const temperature = parseFloat(node.data?.temperature || "0.7");
+        const model = node.data?.model || "gpt-3.5-turbo"; // or gpt-4o
+
+        // Ensure key exists
+        if (!process.env.OPENAI_API_KEY) {
+          return `[MOCK LLM RESULT for ${model}]: ` + prompt;
+        }
+
+        const completion = await openai.chat.completions.create({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: prompt }
+          ],
+          temperature,
+        });
+
+        return completion.choices[0].message.content;
+      }
+
+      case "combineNode": {
+        return Object.values(inputs).join("\n");
+      }
+
+      case "conditionNode": {
+        // Safe evaluation of boolean
+        const val = Object.values(inputs).join("").toLowerCase();
+        // A real implementation would parse an expression, but for demo:
+        return val.includes("true") || val.includes("yes");
+      }
+
+      case "outputNode":
+        return Object.values(inputs).join("\n");
+
+      default:
+        console.warn(`No handler for node type: ${node.type}`);
+        return inputs;
+    }
   }
 }

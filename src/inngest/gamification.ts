@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { inngest } from "./client";
 import dbConnect from "@/lib/mongodb";
 import { User } from "@/lib/models/User";
@@ -37,10 +36,11 @@ export const processUserReward = inngest.createFunction(
         newXp: user.xp,
         newLevel: user.level,
         levelUp,
+        reason: undefined
       };
     });
 
-    if (result.levelUp) {
+    if (result.levelUp && result.newLevel) {
       await step.sendEvent("user.leveled_up", {
         name: "user.leveled_up",
         data: {
@@ -71,8 +71,10 @@ export const handleDailyStreak = inngest.createFunction(
       const now = new Date();
       const lastActive = user.lastActive ? new Date(user.lastActive) : null;
       
+      let reward = false;
       if (!lastActive) {
         user.streak = 1;
+        reward = true;
       } else {
         const diffInHours = (now.getTime() - lastActive.getTime()) / (1000 * 60 * 60);
         
@@ -82,16 +84,18 @@ export const handleDailyStreak = inngest.createFunction(
         } else if (diffInHours < 48) {
           // Continuous daily visit
           user.streak = (user.streak || 0) + 1;
+          reward = true;
         } else {
           // Streak broken
           user.streak = 1;
+          reward = true;
         }
       }
 
       user.lastActive = now;
       await user.save();
 
-      return { success: true, streak: user.streak, reward: true };
+      return { success: true, streak: user.streak, reward };
     });
 
     if (result.reward) {

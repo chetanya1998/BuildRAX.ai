@@ -13,17 +13,17 @@ export async function GET(req: NextRequest) {
     }
 
     await dbConnect();
-    const user = await User.findById((session.user as any).id).lean();
-
+    const user = await User.findById((session.user as any).id).select("xp level streak lastActive").lean();
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const progress = getProgressSummary(user.xp || 0);
+    const summary = getProgressSummary(user.xp || 0);
 
     return NextResponse.json({
-      ...progress,
-      badges: user.badges || [],
+      ...summary,
+      streak: user.streak || 0,
+      lastActive: user.lastActive,
     });
   } catch (error) {
     console.error("Error fetching user progress:", error);

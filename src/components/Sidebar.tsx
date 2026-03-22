@@ -17,10 +17,11 @@ import {
   ChevronRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useEffect, useState } from "react";
+import { ProgressSummary } from "@/lib/gamification";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -33,12 +34,23 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const { data: session } = useSession();
 
+  useEffect(() => {
+    if (session?.user) {
+      fetch("/api/user/progress")
+        .then((res) => res.json())
+        .then((data) => setProgress(data))
+        .catch((err) => console.error("Error fetching progress:", err));
+    }
+  }, [session]);
+
   const user = session?.user;
-  const xp = (user as any)?.xp || 240;
-  const level = (user as any)?.level || 2;
-  const xpThreshold = 1000;
+  const xp = progress?.xpInCurrentLevel || 0;
+  const level = progress?.level || 1;
+  const xpThreshold = progress?.xpRequiredForNextLevel || 1000;
+  const progressPercentage = progress?.progressPercentage || 0;
 
   return (
     <aside 
@@ -93,9 +105,9 @@ export function Sidebar() {
           <div className="space-y-2">
             <div className="flex justify-between items-end px-1">
               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Level {level} Builder</span>
-              <span className="text-[10px] text-muted-foreground">{xp}/{xpThreshold} XP</span>
+              <span className="text-[10px] text-muted-foreground">{Math.floor(xp)}/{Math.floor(xpThreshold)} XP</span>
             </div>
-            <Progress value={(xp / xpThreshold) * 100} className="h-1.5 bg-secondary/50" />
+            <Progress value={progressPercentage} className="h-1.5 bg-secondary/50" />
           </div>
         )}
 
