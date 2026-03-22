@@ -15,6 +15,7 @@ export interface AIOptions {
   model?: string;
   temperature?: number;
   max_tokens?: number;
+  response_format?: { type: "text" | "json_object" };
 }
 
 export const generateText = async (prompt: string, systemPrompt?: string, options: AIOptions = {}) => {
@@ -32,6 +33,7 @@ export const generateText = async (prompt: string, systemPrompt?: string, option
       messages,
       temperature: options.temperature || 0.7,
       max_tokens: options.max_tokens,
+      response_format: options.response_format,
     });
 
     return response.choices[0].message.content;

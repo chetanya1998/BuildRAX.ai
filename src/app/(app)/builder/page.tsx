@@ -21,7 +21,7 @@ import {
   ArrowLeft, Play, Save, Share2,
   MessageSquare, Cpu, Database,
   Wrench, FileOutput, CheckCircle2, ChevronRight, Settings,
-  Type, MessageSquareCode, Bot, Cog, TerminalSquare
+  Type, MessageSquareCode, Bot, Cog, TerminalSquare, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
@@ -102,6 +102,50 @@ function BuilderCanvas() {
   const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState(false);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [architectPrompt, setArchitectPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isArchitectSidebarOpen, setIsArchitectSidebarOpen] = useState(false);
+
+  const handleGenerateArchitecture = async () => {
+    if (!architectPrompt.trim()) return;
+    try {
+      setIsGenerating(true);
+      const res = await fetch("/api/architect/generate", {
+        method: "POST",
+        body: JSON.stringify({ prompt: architectPrompt }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setNodes(data.nodes);
+        setEdges(data.edges);
+        setArchitectPrompt("");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleAnalyzeArchitecture = async () => {
+    try {
+      setIsAnalyzing(true);
+      setIsArchitectSidebarOpen(true);
+      const res = await fetch("/api/architect/analyze", {
+        method: "POST",
+        body: JSON.stringify({ nodes, edges }),
+      });
+      if (res.ok) {
+        setAnalysisResult(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   useEffect(() => {
     if (templateId && templatesData[templateId]) {
@@ -183,6 +227,9 @@ function BuilderCanvas() {
           <Badge variant="outline" className="hidden md:inline-flex bg-primary/5 text-primary border-primary/20">
             Lvl 2 Builder
           </Badge>
+          <Button variant="ghost" size="sm" className="hidden sm:inline-flex rounded-full" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
+             <Sparkles className={`w-4 h-4 mr-2 ${isAnalyzing ? "animate-spin" : ""}`} /> Architect AI
+          </Button>
           <Button variant="ghost" size="sm" className="hidden sm:inline-flex rounded-full">
              <Save className="w-4 h-4 mr-2" /> Save
           </Button>
@@ -194,6 +241,28 @@ function BuilderCanvas() {
           </Button>
         </div>
       </header>
+
+      {/* AI Architect Bar */}
+      <div className="h-14 bg-surface/50 border-b border-border/40 flex items-center px-6 gap-4 z-30 backdrop-blur-sm">
+        <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+        <input 
+          type="text" 
+          placeholder="Describe your AI System (e.g. 'Build a research agent that uses Google Search and saves to Notion')"
+          className="flex-1 bg-transparent border-none outline-none text-sm font-medium placeholder:text-muted-foreground/60"
+          value={architectPrompt}
+          onChange={(e) => setArchitectPrompt(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleGenerateArchitecture()}
+        />
+        <Button 
+          variant="secondary" 
+          size="sm" 
+          className="rounded-xl h-9 px-4 font-medium" 
+          disabled={isGenerating || !architectPrompt.trim()}
+          onClick={handleGenerateArchitecture}
+        >
+          {isGenerating ? "Designing..." : "AI Design"}
+        </Button>
+      </div>
 
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Node Library Panel */}
@@ -339,6 +408,82 @@ function BuilderCanvas() {
             </div>
           )}
         </div>
+
+        {/* AI Architect Analysis Sidebar */}
+        {isArchitectSidebarOpen && (
+          <aside className="w-80 border-l border-border/40 bg-card/50 backdrop-blur-xl p-5 flex flex-col z-40 shadow-2xl animate-in slide-in-from-right duration-300">
+            <div className="flex items-center justify-between mb-6">
+               <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" /> Architect Feedback
+               </h2>
+               <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setIsArchitectSidebarOpen(false)}>
+                  <ArrowLeft className="w-4 h-4 rotate-180" />
+               </Button>
+            </div>
+
+            {isAnalyzing ? (
+              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                 <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                 <p className="text-sm text-muted-foreground">Architect AI is reviewing your system design...</p>
+              </div>
+            ) : analysisResult ? (
+              <div className="flex-1 space-y-8 overflow-y-auto pr-2 scrollbar-thin">
+                 {/* Rating */}
+                 <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                       <span className="text-xs font-medium text-muted-foreground uppercase">System Rating</span>
+                       <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold text-lg px-3 py-1">
+                          {analysisResult.rating}/10
+                       </Badge>
+                    </div>
+                    {/* Add conditional progress import or use native if available */}
+                    <div className="h-2 w-full bg-surface rounded-full overflow-hidden">
+                       <div 
+                          className="h-full bg-primary transition-all duration-1000" 
+                          style={{ width: `${analysisResult.rating * 10}%` }}
+                       />
+                    </div>
+                 </div>
+
+                 {/* Feedback */}
+                 <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
+                       <p className="text-sm leading-relaxed">{analysisResult.feedback}</p>
+                    </div>
+
+                    <div className="space-y-3">
+                       <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Critical Edge Cases</h3>
+                       <div className="space-y-2">
+                          {analysisResult.edgeCases?.map((ec: string, i: number) => (
+                             <div key={i} className="flex gap-3 text-xs p-3 rounded-xl bg-surface/30 border border-border/20">
+                                <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">!</div>
+                                <span className="text-muted-foreground">{ec}</span>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+
+                    <div className="space-y-3">
+                       <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Suggestions</h3>
+                       <div className="space-y-2">
+                          {analysisResult.suggestions?.map((s: string, i: number) => (
+                             <div key={i} className="flex gap-3 text-xs p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
+                                <span className="text-muted-foreground">{s}</span>
+                             </div>
+                          ))}
+                       </div>
+                    </div>
+                 </div>
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-border/40 rounded-2xl">
+                 <Sparkles className="w-10 h-10 text-muted-foreground mb-4 opacity-50" />
+                 <p className="text-sm text-muted-foreground">Click "Architect AI" to analyze your current system architecture.</p>
+              </div>
+            )}
+          </aside>
+        )}
       </div>
 
       <ExecutionPanel open={isExecutionPanelOpen} onOpenChange={setIsExecutionPanelOpen} />
