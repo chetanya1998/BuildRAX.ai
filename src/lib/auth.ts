@@ -11,9 +11,11 @@ const providers: any[] = [
     name: "Guest",
     credentials: {},
     async authorize() {
-      // Always return a valid guest user object
+      // Always return a valid guest user object with a valid ObjectId
+      // Pad a random hex string to 24 characters to safely satisfy mongoose schemas
+      const randomHex = Math.floor(Math.random() * 0xffffffffffffff).toString(16).padEnd(24, '0');
       return {
-        id: `guest_${Date.now()}`,
+        id: randomHex,
         name: "Guest User",
         email: `guest${Date.now()}@buildrax.sandbox`,
         image: "",
