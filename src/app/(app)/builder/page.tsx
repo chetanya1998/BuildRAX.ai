@@ -31,6 +31,7 @@ import {
 import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { PublishModal } from "@/components/PublishModal";
+import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
 
 const initialNodes: any[] = [
   { id: "1", position: { x: 250, y: 150 }, data: { label: "Input Node", value: "" }, type: "inputNode" },
@@ -457,83 +458,13 @@ function BuilderCanvas() {
           </ReactFlow>
         </main>
         
-        {/* Right Properties Panel Placeholder */}
+        {/* Right Properties Panel */}
         {viewMode === "build" && (
-          <div className="w-80 border-l border-white/[0.05] bg-card/10 backdrop-blur-3xl p-6 flex flex-col hidden lg:flex animate-in slide-in-from-right duration-500">
+          <div className="w-80 border-l border-white/[0.05] bg-card/10 backdrop-blur-3xl p-6 flex flex-col hidden lg:flex animate-in slide-in-from-right duration-500 z-40 relative">
             <h2 className="text-[10px] font-bold mb-6 uppercase tracking-widest text-muted-foreground/60">Node Configuration</h2>
-            {selectedNode ? (
-            <div className="space-y-4">
-              <div className="mb-2 pb-2 border-b border-border/40">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider">{selectedNode.type} Node</p>
-                <p className="text-sm font-medium">{selectedNode.id}</p>
-              </div>
-              
-              {selectedNode.type === "inputNode" && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Input Value</Label>
-                  <Textarea 
-                    className="text-sm"
-                    value={selectedNode.data?.value || ""}
-                    onChange={(e) => updateNodeData(selectedNode.id, { value: e.target.value })}
-                  />
-                </div>
-              )}
-              
-              {selectedNode.type === "promptNode" && (
-                <div className="space-y-2">
-                  <Label className="text-xs">Template String</Label>
-                  <Textarea 
-                    className="text-sm h-32"
-                    placeholder="Use {{input}} for variables"
-                    value={selectedNode.data?.template || ""}
-                    onChange={(e) => updateNodeData(selectedNode.id, { template: e.target.value })}
-                  />
-                </div>
-              )}
-              
-              {selectedNode.type === "llmNode" && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-xs">Model</Label>
-                    <Select 
-                      value={selectedNode.data?.model || "gpt-3.5-turbo"}
-                      onValueChange={(val) => updateNodeData(selectedNode.id, { model: val })}
-                    >
-                      <SelectTrigger><SelectValue placeholder="Select model" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                        <SelectItem value="gpt-4o">GPT-4o</SelectItem>
-                        <SelectItem value="llama3">Llama 3 (Ollama)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">System Prompt</Label>
-                    <Textarea 
-                      className="text-sm h-32"
-                      value={selectedNode.data?.systemPrompt || ""}
-                      onChange={(e) => updateNodeData(selectedNode.id, { systemPrompt: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs">Temperature ({selectedNode.data?.temperature || 0.7})</Label>
-                    <Slider 
-                      max={2} step={0.1} 
-                      value={[selectedNode.data?.temperature || 0.7]}
-                      onValueChange={(vals) => updateNodeData(selectedNode.id, { temperature: (vals as number[])[0] })}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm p-4 text-center border-2 border-dashed border-border/40 rounded-xl">
-              <Settings className="w-8 h-8 mb-2 opacity-50" />
-              <p>Select a node to edit its properties</p>
-            </div>
-          )}
-        </div>
-      )}
+            <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
+          </div>
+        )}
 
       {/* AI Architect Analysis Sidebar */}
       {isArchitectSidebarOpen && (
