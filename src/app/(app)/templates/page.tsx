@@ -51,23 +51,8 @@ const TEMPLATES = [
 
 export default function TemplatesPage() {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <header className="h-16 flex items-center justify-between px-6 border-b border-border/40 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex flex-row items-center gap-4">
-          <Link href="/dashboard" className="flex items-center gap-2 text-foreground font-semibold">
-            <BrainCircuit className="w-5 h-5 text-primary" />
-            <span className="hidden sm:inline">BuildRAX</span>
-          </Link>
-          <div className="h-4 w-px bg-border/50 hidden sm:block" />
-          <nav className="flex gap-4 text-sm font-medium">
-            <Link href="/dashboard" className="text-muted-foreground hover:text-foreground transition-colors">Dashboard</Link>
-            <span className="text-foreground">Templates</span>
-          </nav>
-        </div>
-      </header>
-
-      <main className="flex-1 p-6 md:p-8 max-w-7xl mx-auto w-full space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-border/40">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 pb-6 border-b border-border/40">
           <div>
             <h1 className="text-3xl font-semibold mb-2">Starter Templates</h1>
             <p className="text-muted-foreground">Don't start from scratch. Clone a template and learn how it works.</p>
@@ -124,7 +109,6 @@ export default function TemplatesPage() {
             ))}
           </div>
         </Tabs>
-      </main>
-    </div>
+      </div>
   );
 }

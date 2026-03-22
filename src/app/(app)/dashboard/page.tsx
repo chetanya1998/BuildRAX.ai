@@ -7,7 +7,7 @@ import { Play, Plus, Sparkles, Clock, Globe } from "lucide-react";
 
 export default function DashboardPage() {
   return (
-    <div className="space-y-8 pb-10">
+    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
       {/* Welcome Banner */}
       <div className="glass-panel p-6 md:p-8 rounded-3xl relative overflow-hidden bg-card/40 border border-border/40">
         <div className="absolute top-0 right-0 w-64 h-64 bg-primary/20 rounded-full blur-[80px] -translate-y-1/2 translate-x-1/3" />
@@ -22,7 +22,7 @@ export default function DashboardPage() {
           <Progress value={30} className="w-full h-2 mb-6 bg-surface-secondary" />
           <div className="flex gap-4">
             <Button className="rounded-full px-6" asChild>
-              <Link href="/builder/new">
+              <Link href="/builder">
                 <Plus className="w-4 h-4 mr-2" /> New Project
               </Link>
             </Button>
