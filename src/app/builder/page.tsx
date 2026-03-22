@@ -75,12 +75,28 @@ const templatesData: Record<string, { nodes: any[], edges: any[] }> = {
   }
 };
 
+import { nodeTypes } from "@/components/nodes";
+import { PlusSquare, Repeat } from "lucide-react";
+
+const NODE_LIBRARY = [
+  { type: "inputNode", label: "Input", description: "Receive initial data", icon: <Type className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10" },
+  { type: "promptNode", label: "Prompt", description: "Template strings", icon: <MessageSquareCode className="w-4 h-4" />, color: "text-orange-400 bg-orange-500/10" },
+  { type: "llmNode", label: "LLM", description: "Generate text", icon: <Bot className="w-4 h-4" />, color: "text-purple-400 bg-purple-500/10" },
+  { type: "outputNode", label: "Output", description: "Final response", icon: <TerminalSquare className="w-4 h-4" />, color: "text-green-400 bg-green-500/10" },
+  { type: "memoryNode", label: "Memory", description: "Vector search", icon: <Database className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10" },
+  { type: "toolNode", label: "Tool", description: "Custom functions", icon: <Cog className="w-4 h-4" />, color: "text-red-400 bg-red-500/10" },
+  { type: "conditionNode", label: "Condition", description: "If/Else branching", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-yellow-400 bg-yellow-500/10" },
+  { type: "combineNode", label: "Combine", description: "Merge strings", icon: <PlusSquare className="w-4 h-4" />, color: "text-teal-400 bg-teal-500/10" },
+  { type: "loopNode", label: "Loop", description: "Iterate arrays", icon: <Repeat className="w-4 h-4" />, color: "text-pink-400 bg-pink-500/10" }
+];
+
 function BuilderCanvas() {
   const searchParams = useSearchParams();
   const templateId = searchParams?.get("template") || null;
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
   
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState(false);
@@ -99,6 +115,42 @@ function BuilderCanvas() {
     [setEdges],
   );
 
+  const onDragStart = (event: React.DragEvent, nodeType: string) => {
+    event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.effectAllowed = "move";
+  };
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      if (!reactFlowInstance) return;
+
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (typeof type === "undefined" || !type) return;
+
+      const position = reactFlowInstance.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      const newNode = {
+        id: `node_${Date.now()}`,
+        type,
+        position,
+        data: { label: `${type} node` },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [reactFlowInstance, setNodes]
+  );
+
   const updateNodeData = (nodeId: string, newData: any) => {
     setNodes((nds) => nds.map((node) => {
       if (node.id === nodeId) {
@@ -113,9 +165,9 @@ function BuilderCanvas() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden">
+    <div className="flex flex-col h-screen bg-background overflow-hidden relative">
       {/* Topbar */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-border/40 bg-card/50 backdrop-blur-md shrink-0 z-50">
+      <header className="h-14 flex items-center justify-between px-4 border-b border-border shadow-sm bg-card/90 backdrop-blur-md shrink-0 z-50">
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full" asChild>
             <Link href="/dashboard"><ArrowLeft className="w-4 h-4" /></Link>
@@ -146,56 +198,32 @@ function BuilderCanvas() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Node Library Panel */}
         {isSidebarOpen && (
-          <aside className="w-64 border-r border-border/40 bg-card/30 flex flex-col shrink-0 overflow-y-auto hidden md:flex z-10">
-            <div className="p-4 border-b border-border/40">
-              <h2 className="text-sm font-medium">Node Library</h2>
+          <aside className="w-72 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col shrink-0 overflow-y-auto hidden md:flex z-40 shadow-xl">
+            <div className="p-5 border-b border-border/50 bg-card/80 sticky top-0 z-10">
+              <h2 className="text-sm font-semibold text-foreground">Node Library</h2>
               <p className="text-xs text-muted-foreground mt-1">Drag and drop to canvas</p>
             </div>
             
-            <div className="flex-1 p-4 space-y-4">
-              <div className="space-y-2">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Core</h3>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-background/50 cursor-grab hover:border-primary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400"><Type className="w-4 h-4" /></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Input</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-background/50 cursor-grab hover:border-primary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center text-orange-400"><MessageSquareCode className="w-4 h-4" /></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Prompt</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-background/50 cursor-grab hover:border-primary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400"><Bot className="w-4 h-4" /></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">LLM</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-background/50 cursor-grab hover:border-primary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center text-green-400"><TerminalSquare className="w-4 h-4" /></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Output</p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="bg-border/40" />
-              
-              <div className="space-y-2">
-                <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Advanced</h3>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-background/50 cursor-grab hover:border-primary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-400"><Database className="w-4 h-4" /></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Memory</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-border/40 bg-background/50 cursor-grab hover:border-primary/50 transition-colors">
-                  <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400"><Cog className="w-4 h-4" /></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Tool</p>
-                  </div>
+            <div className="flex-1 p-5 space-y-6">
+              <div className="space-y-3">
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Available Nodes</h3>
+                <div className="grid gap-3">
+                  {NODE_LIBRARY.map((node) => (
+                    <div 
+                      key={node.type}
+                      className="flex flex-col gap-1 p-3 rounded-xl border border-border/50 bg-background hover:bg-muted/50 cursor-grab hover:border-primary/50 transition-all shadow-sm hover:shadow"
+                      draggable
+                      onDragStart={(e) => onDragStart(e, node.type)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${node.color}`}>{node.icon}</div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold">{node.label}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">{node.description}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -203,23 +231,28 @@ function BuilderCanvas() {
         )}
 
         {/* Center Canvas */}
-        <main className="flex-1 relative bg-surface">
+        <main className="flex-1 relative bg-dot-pattern bg-[length:24px_24px]">
+          <div className="absolute inset-0 bg-background/90 z-0 drop-shadow-2xl" />
           <ReactFlow
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onInit={setReactFlowInstance}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            nodeTypes={nodeTypes}
             onSelectionChange={(params) => setSelectedNode(params.nodes[0] || null)}
             fitView
-            className="bg-transparent"
+            className="z-10"
           >
-            <Background color="#ffffff" gap={24} size={1} variant={BackgroundVariant.Dots} className="opacity-5" />
+            <Background color="#ffffff" gap={24} size={1} variant={BackgroundVariant.Dots} className="opacity-[0.03]" />
             <Controls className="bg-card border-border/40 fill-foreground shadow-xl rounded-lg overflow-hidden" showInteractive={false} />
             <MiniMap 
               nodeColor="#16181D" 
               maskColor="rgba(10, 10, 11, 0.8)"
-              className="bg-card/50 border border-border/40 rounded-lg shadow-xl" 
+              className="bg-card/80 border border-border/40 rounded-lg shadow-xl" 
             />
             
             <Panel position="bottom-center" className="mb-4">
