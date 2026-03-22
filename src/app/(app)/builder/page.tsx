@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { cn } from "@/lib/utils";
 import {
   ReactFlow,
   MiniMap,
@@ -110,8 +111,11 @@ function BuilderCanvas() {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResults, setSimulationResults] = useState<Record<string, any>>({});
   const [activeSimulationNode, setActiveSimulationNode] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"build" | "architect">("build");
 
   const handleSimulation = async () => {
+    setViewMode("architect"); // Switch to architect mode for simulation
+    setIsArchitectSidebarOpen(true);
     try {
       setIsSimulating(true);
       setSimulationResults({});
@@ -244,71 +248,97 @@ function BuilderCanvas() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden relative">
-      {/* Topbar */}
-      <header className="h-14 flex items-center justify-between px-4 border-b border-border shadow-sm bg-card/90 backdrop-blur-md shrink-0 z-50">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" className="w-8 h-8 rounded-full" asChild>
-            <Link href="/dashboard"><ArrowLeft className="w-4 h-4" /></Link>
+    <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden relative selection:bg-primary/30">
+      {/* Unified Command Center Header */}
+      <header className="h-16 flex items-center justify-between px-6 border-b border-white/[0.05] bg-card/40 backdrop-blur-2xl shrink-0 z-50">
+        <div className="flex items-center gap-6">
+          <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl hover:bg-white/5" asChild title="Back to Dashboard">
+            <Link href="/dashboard"><ArrowLeft className="w-5 h-5" /></Link>
           </Button>
-          <div className="h-4 w-px bg-border/50" />
+
           <div className="flex flex-col">
-            <h1 className="text-sm font-semibold truncate w-48">Untitled Workflow</h1>
-            <span className="text-[10px] text-muted-foreground">Draft • Last saved just now</span>
+            <h1 className="text-sm font-bold tracking-tight">Untitled Workflow</h1>
+            <div className="flex items-center gap-2 mt-0.5">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+              <span className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-widest">Autosaved</span>
+            </div>
+          </div>
+
+          <div className="w-px h-8 bg-white/10 mx-2" />
+
+          {/* Mode Toggle */}
+          <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 shadow-inner">
+            <Button 
+              size="sm" 
+              variant={viewMode === "build" ? "secondary" : "ghost"}
+              className={cn("h-8 px-4 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all", viewMode === "build" && "shadow-lg bg-white/10")}
+              onClick={() => setViewMode("build")}
+            >
+              Build
+            </Button>
+            <Button 
+              size="sm" 
+              variant={viewMode === "architect" ? "secondary" : "ghost"}
+              className={cn("h-8 px-4 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all", viewMode === "architect" && "shadow-lg bg-white/10")}
+              onClick={() => setViewMode("architect")}
+            >
+              Architect
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="hidden md:inline-flex bg-primary/5 text-primary border-primary/20">
-            Lvl 2 Builder
-          </Badge>
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex rounded-full" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
-             <Sparkles className={`w-4 h-4 mr-2 ${isAnalyzing ? "animate-spin" : ""}`} /> Architect AI
-          </Button>
+        {/* Central Prompt Area (Command Center Style) */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-white/5 border border-white/10 rounded-2xl w-[400px] lg:w-[500px] h-10 px-4 group focus-within:ring-2 focus-within:ring-primary/40 focus-within:bg-white/[0.08] transition-all shadow-2xl">
+          <Sparkles className="w-4 h-4 text-primary animate-pulse mr-3 group-focus-within:scale-110 transition-transform" />
+          <input 
+            type="text" 
+            placeholder="AI Architect Prompt..."
+            className="flex-1 bg-transparent border-none outline-none text-xs font-semibold placeholder:text-muted-foreground/40"
+            value={architectPrompt}
+            onChange={(e) => setArchitectPrompt(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleGenerateArchitecture()}
+          />
           <Button 
             variant="ghost" 
             size="sm" 
-            className={`hidden sm:inline-flex rounded-full ${isSimulating ? "text-primary animate-pulse" : ""}`}
+            className="h-7 px-3 text-[10px] font-bold uppercase tracking-tighter hover:bg-white/10"
+            disabled={isGenerating || !architectPrompt.trim()}
+            onClick={handleGenerateArchitecture}
+          >
+            {isGenerating ? "Working..." : "Design"}
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="sm" className="rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
+            <Sparkles className={`w-3.5 h-3.5 mr-2 ${isAnalyzing ? "animate-spin" : "text-primary"}`} /> AI Audit
+          </Button>
+          
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={cn("rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs", isSimulating && "text-primary")}
             onClick={handleSimulation}
             disabled={isSimulating}
           >
-             <Play className="w-4 h-4 mr-2" /> {isSimulating ? "Simulating..." : "Simulate Flow"}
+            <Play className={cn("w-3.5 h-3.5 mr-2", isSimulating && "animate-pulse")} /> Simulate
           </Button>
-          <Button onClick={() => setIsExecutionPanelOpen(true)} size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
-             <Repeat className="w-4 h-4 mr-2" /> Live Run
+
+          <div className="w-px h-8 bg-white/10 mx-1" />
+
+          <Button onClick={() => setIsExecutionPanelOpen(true)} size="sm" className="rounded-xl h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20 transition-all active:scale-95">
+            Launch Agent
           </Button>
         </div>
       </header>
 
-      {/* AI Architect Bar */}
-      <div className="h-14 bg-surface/50 border-b border-border/40 flex items-center px-6 gap-4 z-30 backdrop-blur-sm">
-        <Sparkles className="w-5 h-5 text-primary animate-pulse" />
-        <input 
-          type="text" 
-          placeholder="Describe your AI System (e.g. 'Build a research agent that uses Google Search and saves to Notion')"
-          className="flex-1 bg-transparent border-none outline-none text-sm font-medium placeholder:text-muted-foreground/60"
-          value={architectPrompt}
-          onChange={(e) => setArchitectPrompt(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleGenerateArchitecture()}
-        />
-        <Button 
-          variant="secondary" 
-          size="sm" 
-          className="rounded-xl h-9 px-4 font-medium" 
-          disabled={isGenerating || !architectPrompt.trim()}
-          onClick={handleGenerateArchitecture}
-        >
-          {isGenerating ? "Designing..." : "AI Design"}
-        </Button>
-      </div>
-
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Node Library Panel */}
-        {isSidebarOpen && (
-          <aside className="w-72 border-r border-border bg-card/50 backdrop-blur-xl flex flex-col shrink-0 overflow-y-auto hidden md:flex z-40 shadow-xl">
-            <div className="p-5 border-b border-border/50 bg-card/80 sticky top-0 z-10">
-              <h2 className="text-sm font-semibold text-foreground">Node Library</h2>
-              <p className="text-xs text-muted-foreground mt-1">Drag and drop to canvas</p>
+        {isSidebarOpen && viewMode === "build" && (
+          <aside className="w-72 border-r border-white/[0.05] bg-card/10 backdrop-blur-3xl flex flex-col shrink-0 overflow-y-auto hidden md:flex z-40 animate-in slide-in-from-left duration-500">
+            <div className="p-6 border-b border-white/[0.05]">
+              <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Node Library</h2>
+              <p className="text-[10px] text-muted-foreground/40 mt-1 uppercase tracking-tighter">Tools & Integrations</p>
             </div>
             
             <div className="flex-1 p-5 space-y-6">
@@ -386,9 +416,10 @@ function BuilderCanvas() {
         </main>
         
         {/* Right Properties Panel Placeholder */}
-        <div className="w-80 border-l border-border/40 bg-card/30 backdrop-blur-sm p-4 flex flex-col hidden lg:flex">
-          <h2 className="text-sm font-semibold mb-4 uppercase tracking-wider text-muted-foreground">Properties</h2>
-          {selectedNode ? (
+        {viewMode === "build" && (
+          <div className="w-80 border-l border-white/[0.05] bg-card/10 backdrop-blur-3xl p-6 flex flex-col hidden lg:flex animate-in slide-in-from-right duration-500">
+            <h2 className="text-[10px] font-bold mb-6 uppercase tracking-widest text-muted-foreground/60">Node Configuration</h2>
+            {selectedNode ? (
             <div className="space-y-4">
               <div className="mb-2 pb-2 border-b border-border/40">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">{selectedNode.type} Node</p>
@@ -460,11 +491,12 @@ function BuilderCanvas() {
             </div>
           )}
         </div>
+      )}
 
-        {/* AI Architect Analysis Sidebar */}
-        {isArchitectSidebarOpen && (
-          <aside className="w-80 border-l border-border/40 bg-card/50 backdrop-blur-xl p-5 flex flex-col z-40 shadow-2xl animate-in slide-in-from-right duration-300">
-            <div className="flex items-center justify-between mb-6">
+      {/* AI Architect Analysis Sidebar */}
+      {isArchitectSidebarOpen && (
+        <aside className="w-80 border-l border-border/40 bg-card/50 backdrop-blur-xl p-5 flex flex-col z-40 shadow-2xl animate-in slide-in-from-right duration-300">
+          <div className="flex items-center justify-between mb-6">
                <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
                   <Sparkles className="w-4 h-4" /> Architect Feedback
                </h2>
