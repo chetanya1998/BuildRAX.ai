@@ -27,15 +27,15 @@ import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { PublishModal } from "@/components/PublishModal";
 
-const initialNodes = [
-  { id: "1", position: { x: 250, y: 150 }, data: { label: "Input Node" }, type: "default" },
-  { id: "2", position: { x: 500, y: 150 }, data: { label: "LLM Node" }, type: "default" },
-  { id: "3", position: { x: 750, y: 150 }, data: { label: "Output Node" }, type: "default" },
+const initialNodes: any[] = [
+  { id: "1", position: { x: 250, y: 150 }, data: { label: "Input Node", value: "" }, type: "inputNode" },
+  { id: "2", position: { x: 500, y: 150 }, data: { label: "LLM Node" }, type: "llmNode" },
+  { id: "3", position: { x: 750, y: 150 }, data: { label: "Output Node" }, type: "outputNode" },
 ];
 
-const initialEdges = [
-  { id: "e1-2", source: "1", target: "2", animated: true },
-  { id: "e2-3", source: "2", target: "3", animated: true },
+const initialEdges: any[] = [
+  { id: "e1-2", source: "1", target: "2", animated: true, style: {} },
+  { id: "e2-3", source: "2", target: "3", animated: true, style: {} },
 ];
 
 import { useSearchParams } from "next/navigation";
@@ -107,6 +107,41 @@ function BuilderCanvas() {
   const [analysisResult, setAnalysisResult] = useState<any>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isArchitectSidebarOpen, setIsArchitectSidebarOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationResults, setSimulationResults] = useState<Record<string, any>>({});
+  const [activeSimulationNode, setActiveSimulationNode] = useState<string | null>(null);
+
+  const handleSimulation = async () => {
+    try {
+      setIsSimulating(true);
+      setSimulationResults({});
+      
+      // Basic topological sort/execution order
+      // For simulation, we'll just go through nodes that have all inputs ready
+      const executionOrder = nodes.map(n => n.id); // Simple for now
+      
+      for (const nodeId of executionOrder) {
+        setActiveSimulationNode(nodeId);
+        // Simulate "Processing" time
+        await new Promise(r => setTimeout(r, 800));
+        
+        const node = nodes.find(n => n.id === nodeId);
+        let mockOutput = "Simulated data...";
+        
+        if (node?.type === "inputNode") mockOutput = node.data?.value || "User Input";
+        if (node?.type === "llmNode") mockOutput = "AI generated response for this step.";
+        if (node?.type === "outputNode") mockOutput = "Final result verified.";
+
+        setSimulationResults(prev => ({ ...prev, [nodeId]: mockOutput }));
+      }
+      setActiveSimulationNode(null);
+      // Optional: Add a small delay then reset or show summary
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
 
   const handleGenerateArchitecture = async () => {
     if (!architectPrompt.trim()) return;
@@ -230,14 +265,17 @@ function BuilderCanvas() {
           <Button variant="ghost" size="sm" className="hidden sm:inline-flex rounded-full" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
              <Sparkles className={`w-4 h-4 mr-2 ${isAnalyzing ? "animate-spin" : ""}`} /> Architect AI
           </Button>
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex rounded-full">
-             <Save className="w-4 h-4 mr-2" /> Save
-          </Button>
-          <Button variant="outline" size="sm" className="rounded-full bg-background hidden sm:inline-flex" onClick={() => setIsPublishModalOpen(true)}>
-             <Share2 className="w-4 h-4 mr-2" /> Share
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className={`hidden sm:inline-flex rounded-full ${isSimulating ? "text-primary animate-pulse" : ""}`}
+            onClick={handleSimulation}
+            disabled={isSimulating}
+          >
+             <Play className="w-4 h-4 mr-2" /> {isSimulating ? "Simulating..." : "Simulate Flow"}
           </Button>
           <Button onClick={() => setIsExecutionPanelOpen(true)} size="sm" className="rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
-             <Play className="w-4 h-4 mr-2" /> Run Flow
+             <Repeat className="w-4 h-4 mr-2" /> Live Run
           </Button>
         </div>
       </header>
@@ -303,8 +341,22 @@ function BuilderCanvas() {
         <main className="flex-1 relative bg-dot-pattern bg-[length:24px_24px]">
           <div className="absolute inset-0 bg-background/90 z-0 drop-shadow-2xl" />
           <ReactFlow
-            nodes={nodes}
-            edges={edges}
+            nodes={nodes.map(n => ({
+              ...n,
+              selected: n.id === activeSimulationNode || n.selected,
+              data: {
+                ...n.data,
+                simulatedOutput: simulationResults[n.id],
+                isSimulating: n.id === activeSimulationNode
+              }
+            }))}
+            edges={edges.map(e => ({
+              ...e,
+              animated: isSimulating || e.animated,
+              style: (e.source === activeSimulationNode || simulationResults[e.source]) 
+                ? { stroke: "#7C3AED", strokeWidth: 3 } 
+                : e.style
+            }))}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

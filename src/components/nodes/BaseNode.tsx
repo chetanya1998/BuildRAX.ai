@@ -11,6 +11,8 @@ interface BaseNodeProps {
   children?: React.ReactNode;
   colorClass?: string;
   className?: string;
+  isSimulating?: boolean;
+  simulatedOutput?: any;
 }
 
 export function BaseNode({
@@ -22,6 +24,8 @@ export function BaseNode({
   children,
   colorClass = "bg-primary text-primary-foreground",
   className,
+  isSimulating,
+  simulatedOutput
 }: BaseNodeProps) {
   return (
     <div
@@ -40,7 +44,23 @@ export function BaseNode({
       </div>
 
       {/* Body */}
-      {children && <div className="p-4 text-sm text-foreground bg-card/50">{children}</div>}
+      <div className="p-4 space-y-4">
+        {children && <div className="text-sm text-foreground">{children}</div>}
+        
+        {/* Simulation Result */}
+        {(isSimulating || simulatedOutput) && (
+          <div className={cn(
+            "p-3 rounded-lg border text-[10px] font-mono transition-all duration-300",
+            isSimulating ? "bg-primary/10 border-primary animate-pulse shadow-sm" : "bg-surface/50 border-border/40 text-muted-foreground"
+          )}>
+            <div className="flex items-center justify-between mb-1 opacity-60">
+               <span className="uppercase tracking-tighter">Simulated Output</span>
+               {isSimulating && <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />}
+            </div>
+            <div className="line-clamp-3">{simulatedOutput || "Processing..."}</div>
+          </div>
+        )}
+      </div>
 
       {/* Handles */}
       {inputs.map((input, idx) => (

@@ -9,6 +9,8 @@ export const InputNode = ({ data, selected }: any) => (
     colorClass="bg-blue-500/10 text-blue-500 border-blue-500/20"
     selected={selected} 
     outputs={[{ id: "default" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs line-clamp-2 italic">
       {data.value || "Initial string or dataset to pass down"}
@@ -24,6 +26,8 @@ export const PromptNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "input" }]} 
     outputs={[{ id: "prompt" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs line-clamp-3">
       {data.template || "Define your text template, use {{input}}"}
@@ -39,6 +43,8 @@ export const LLMNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "prompt" }]} 
     outputs={[{ id: "default" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs flex flex-col gap-1">
       <span className="line-clamp-2"><b>System:</b> {data.systemPrompt || "None"}</span>
@@ -54,6 +60,8 @@ export const OutputNode = ({ data, selected }: any) => (
     colorClass="bg-green-500/10 text-green-500 border-green-500/20"
     selected={selected} 
     inputs={[{ id: "default" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs italic">
       {data.label || "Returns the final response sequence to the user"}
@@ -70,6 +78,8 @@ export const MemoryNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "query" }]} 
     outputs={[{ id: "context" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs line-clamp-2">
       {data.collection || "Queries pinecone for semantic chunks"}
@@ -85,6 +95,8 @@ export const ToolNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "args" }]} 
     outputs={[{ id: "result" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs font-mono">
       {data.functionName || "api_request()"}
@@ -100,6 +112,8 @@ export const ConditionNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "input" }]} 
     outputs={[{ id: "true", label: "True" }, { id: "false", label: "False" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs italic">
       {data.expression || "Routes execution based on a boolean check"}
@@ -115,6 +129,8 @@ export const CombineNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "a" }, { id: "b" }]} 
     outputs={[{ id: "merged" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs">
       {data.separator || "Merges multiple text streams together"}
@@ -130,6 +146,8 @@ export const LoopNode = ({ data, selected }: any) => (
     selected={selected} 
     inputs={[{ id: "array" }]} 
     outputs={[{ id: "item" }]}
+    isSimulating={data.isSimulating}
+    simulatedOutput={data.simulatedOutput}
   >
     <div className="text-muted-foreground text-xs">
       {data.maxIterations ? `Max loops: ${data.maxIterations}` : "Iterates over a list"}
