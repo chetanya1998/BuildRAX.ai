@@ -25,6 +25,10 @@ const tagsPool = ["Agent", "Bot", "Research", "Analysis", "Social", "Writing", "
 const iconsPool = ["Search", "BrainCircuit", "MessageSquareCode", "Mail", "Slack", "Twitter", "Database", "Globe", "Bot", "Zap", "Code"];
 
 const items = topics.map((t, i) => {
+  const complexity = (i % 3) + 3;
+  const nodeCount = (i % 5) + 4;
+  const nodeSequence = ["inputNode", "llmNode", "logicNode", "outputNode"].slice(0, nodeCount);
+  
   return `{
     id: "template_${i + 1}",
     title: "${t}",
@@ -33,6 +37,9 @@ const items = topics.map((t, i) => {
     useCases: ["Accelerate daily tasks", "Automate manual data entry", "Ensure consistent output quality"],
     expectedOutput: "A highly refined, properly formatted dataset or text output ready for production.",
     level: "${['Beginner', 'Intermediate', 'Advanced'][i % 3]}",
+    complexity: ${complexity},
+    nodeCount: ${nodeCount},
+    nodeSequence: ${JSON.stringify(nodeSequence)},
     time: "${(i % 5) + 2} mins",
     tags: ["${tagsPool[i % tagsPool.length]}", "${tagsPool[(i+1) % tagsPool.length]}"],
     iconName: "${iconsPool[i % iconsPool.length]}",
@@ -51,6 +58,9 @@ export interface DashboardTemplate {
   useCases?: string[];
   expectedOutput?: string;
   level: "Beginner" | "Intermediate" | "Advanced";
+  complexity: number;
+  nodeCount: number;
+  nodeSequence: string[];
   time: string;
   tags: string[];
   iconName: "Search" | "BrainCircuit" | "MessageSquareCode" | "Mail" | "Slack" | "Twitter" | "Database" | "Globe" | "Bot" | "Zap" | "Code";

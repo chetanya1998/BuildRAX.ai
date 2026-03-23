@@ -44,7 +44,7 @@ export const executeWorkflowBackground = inngest.createFunction(
       if (!node) continue;
 
       const result = await step.run(`execute-node-${nodeId}`, async () => {
-        const startTime = Date.now();
+        const startTime = new Date();
         let output: any = null;
         let error: string | undefined = undefined;
 
@@ -57,46 +57,20 @@ export const executeWorkflowBackground = inngest.createFunction(
           });
 
           // Evaluate based on node type
-          switch (node.type) {
-            case "inputNode":
-              output = node.data?.value || "";
-              break;
-              
-            case "promptNode":
-              let promptText = node.data?.template || "";
-              for (const [key, val] of Object.entries(inputs)) {
-                promptText = promptText.replace(`{{${key}}}`, String(val));
-              }
-              output = promptText;
-              break;
-              
-            case "llmNode":
-              const systemPrompt = node.data?.systemPrompt || "";
-              const userPrompt = inputs["prompt"] || inputs["default"] || "";
-              const { generateText } = await import("@/lib/litellm");
-              
-              output = await generateText(userPrompt, systemPrompt, {
-                model: node.data?.model,
-                temperature: node.data?.temperature
-              });
-              break;
-              
-            case "outputNode":
-              output = inputs["default"] || Object.values(inputs)[0] || "";
-              break;
-              
-            default:
-              output = `Unsupported node type: ${node.type}`;
-          }
+          const { evaluateNodeLogic } = await import("@/lib/node-evaluator");
+          output = await evaluateNodeLogic(node, inputs);
         } catch (err: any) {
           error = err.message;
           output = null;
         }
 
+        const endTime = new Date();
         return {
           nodeId,
           output,
-          executionTimeMs: Date.now() - startTime,
+          startedAt: startTime,
+          completedAt: endTime,
+          executionTimeMs: endTime.getTime() - startTime.getTime(),
           error
         };
       });
