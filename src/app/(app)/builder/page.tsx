@@ -407,8 +407,8 @@ function BuilderCanvas() {
         )}
 
         {/* Center Canvas */}
-        <main className="flex-1 relative bg-dot-pattern bg-[length:24px_24px]">
-          <div className="absolute inset-0 bg-background/90 z-0 drop-shadow-2xl" />
+        <main className="flex-1 relative overflow-hidden bg-[#0A0A0B]">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--color-primary)_0%,_transparent_70%)] opacity-[0.03] z-0" />
           <ReactFlow
             nodes={nodes.map(n => ({
               ...n,
@@ -437,7 +437,13 @@ function BuilderCanvas() {
             fitView
             className="z-10"
           >
-            <Background color="#ffffff" gap={24} size={1} variant={BackgroundVariant.Dots} className="opacity-[0.03]" />
+            <Background 
+              color="#7C3AED" 
+              gap={32} 
+              size={1.5} 
+              variant={BackgroundVariant.Cross} 
+              className="opacity-[0.06]" 
+            />
             <Controls 
               className="bg-[#161618] border border-white/10 fill-white/70 shadow-2xl rounded-xl overflow-hidden [&_button]:border-white/5 [&_button:hover]:bg-white/5" 
               showInteractive={false} 
