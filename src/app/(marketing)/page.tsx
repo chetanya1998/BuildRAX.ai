@@ -1,122 +1,297 @@
+"use client";
+
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, BrainCircuit, Play, Layers, ShieldCheck, Github } from "lucide-react";
+import {
+  ArrowRight,
+  BrainCircuit,
+  Play,
+  Github,
+  Sparkles,
+  MousePointerClick,
+  Cpu,
+  Rocket,
+} from "lucide-react";
+
+import { HeroGlow } from "@/components/landing/HeroGlow";
+import { CanvasPreview } from "@/components/landing/CanvasPreview";
+import { LogoStrip } from "@/components/landing/LogoStrip";
+import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
+import { Testimonials } from "@/components/landing/Testimonials";
+import { CTASection } from "@/components/landing/CTASection";
+
+/* ─── Animation Variants ─── */
+const fadeIn = {
+  hidden: { opacity: 0, y: 30 },
+  visible: (d: number) => ({
+    opacity: 1,
+    y: 0,
+    transition: { delay: d, duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] as const },
+  }),
+};
+
+/* ─── How-It-Works Steps ─── */
+const steps = [
+  {
+    icon: <MousePointerClick className="w-5 h-5" />,
+    title: "Pick a template",
+    desc: "Choose from 12+ pre-built AI agent templates or start from scratch.",
+  },
+  {
+    icon: <Cpu className="w-5 h-5" />,
+    title: "Wire the nodes",
+    desc: "Drag-and-drop LLMs, tools, memory, and logic blocks on the visual canvas.",
+  },
+  {
+    icon: <Rocket className="w-5 h-5" />,
+    title: "Run & inspect",
+    desc: "Execute your agent and watch data flow through every node in real time.",
+  },
+];
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Navigation */}
-      <header className="px-6 py-4 flex items-center justify-between border-b border-border/40 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex flex-row items-center gap-2">
-          <BrainCircuit className="w-6 h-6 text-primary" />
-          <span className="font-semibold text-xl tracking-tight">BuildRAX</span>
+    <div className="flex flex-col min-h-screen bg-background">
+      {/* ─── Navbar ─── */}
+      <header className="px-6 lg:px-10 py-4 flex items-center justify-between border-b border-white/[0.06] backdrop-blur-xl sticky top-0 z-50 bg-background/80">
+        <div className="flex items-center gap-2.5">
+          <BrainCircuit className="w-6 h-6 text-cyan-400" />
+          <span className="font-bold text-lg tracking-tight text-white">
+            BuildRAX
+          </span>
         </div>
-        <nav className="hidden md:flex gap-6 text-sm font-medium text-muted-foreground">
-          <Link href="#features" className="hover:text-foreground transition-colors">Features</Link>
-          <Link href="#templates" className="hover:text-foreground transition-colors">Templates</Link>
-          <Link href="#oss" className="hover:text-foreground transition-colors">Open Source</Link>
+
+        <nav className="hidden md:flex gap-8 text-[13.5px] font-medium text-gray-400">
+          <Link
+            href="#features"
+            className="nav-link hover:text-foreground transition-colors"
+          >
+            Features
+          </Link>
+          <Link
+            href="#how-it-works"
+            className="nav-link hover:text-foreground transition-colors"
+          >
+            How It Works
+          </Link>
+          <Link
+            href="#templates"
+            className="nav-link hover:text-foreground transition-colors"
+          >
+            Templates
+          </Link>
+          <a
+            href="https://github.com/chetanya1998/BuildRAX.ai"
+            target="_blank"
+            rel="noreferrer"
+            className="nav-link hover:text-foreground transition-colors flex items-center gap-1.5"
+          >
+            <Github className="w-3.5 h-3.5" /> GitHub
+          </a>
         </nav>
-        <div className="flex flex-row items-center gap-4">
-          <Button variant="ghost" asChild className="hidden sm:inline-flex">
-             <Link href="/login">Sign In</Link>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="hidden sm:inline-flex text-[13.5px] text-gray-400 hover:text-white"
+            asChild
+          >
+            <Link href="/login">Sign In</Link>
           </Button>
-          <Button asChild>
-            <Link href="/demo">Start Free Demo</Link>
+          <Button
+            size="sm"
+            className="rounded-full px-5 h-9 text-[13.5px] font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 hover:from-violet-400 hover:to-cyan-300 text-white shadow-md shadow-violet-500/25"
+            asChild
+          >
+            <Link href="/demo">
+              Start Free <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+            </Link>
           </Button>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative px-6 py-24 md:py-32 flex flex-col items-center text-center overflow-hidden">
-          {/* Subtle Background Elements */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-primary/10 rounded-full blur-[120px] -z-10" />
-          
-          <Badge variant="outline" className="mb-6 rounded-full px-4 py-1.5 border-primary/30 bg-primary/5 text-primary">
-            v1.0 is now open source
-          </Badge>
-          
-          <h1 className="text-5xl md:text-7xl font-semibold tracking-tight max-w-4xl mb-6">
-            Learn AI by <span className="text-gradient-primary">building it visually.</span>
-          </h1>
-          
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mb-10 leading-relaxed">
-            Create agents, workflows, and AI tools with drag-and-drop blocks. See prompts, memory, tools, and outputs step by step. No black boxes.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button size="lg" className="rounded-full px-8 h-12 text-base font-medium" asChild>
+        {/* ─── Hero ─── */}
+        <section className="relative px-6 pt-28 pb-8 md:pt-40 md:pb-12 flex flex-col items-center text-center">
+          <HeroGlow />
+
+          {/* Badge */}
+          <motion.div
+            custom={0}
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+          >
+            <Badge
+              variant="outline"
+              className="mb-8 rounded-full px-4 py-1.5 border-cyan-400/30 bg-cyan-400/10 text-cyan-300 text-xs font-semibold tracking-wide"
+            >
+              <Sparkles className="w-3 h-3 mr-1.5" /> Now open source — v1.0
+            </Badge>
+          </motion.div>
+
+          {/* Headline */}
+          <motion.h1
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-extrabold tracking-tight max-w-5xl mb-7 leading-[1.08] text-white"
+            custom={0.1}
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+          >
+            build AI agents,{" "}
+            <br className="hidden sm:block" />
+            <span className="text-gradient-hero">see every step.</span>
+          </motion.h1>
+
+          {/* Subtitle */}
+          <motion.p
+            className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed"
+            custom={0.2}
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+          >
+            Drag, drop, and wire AI agents visually.
+            Watch every prompt, tool call, and output flow in real time.
+          </motion.p>
+
+          {/* CTAs */}
+          <motion.div
+            className="flex flex-col sm:flex-row gap-4"
+            custom={0.35}
+            variants={fadeIn}
+            initial="hidden"
+            animate="visible"
+          >
+            <Button
+              size="lg"
+              className="rounded-full px-8 h-12 text-base font-semibold bg-gradient-to-r from-violet-500 to-cyan-400 hover:from-violet-400 hover:to-cyan-300 text-white shadow-lg shadow-violet-500/25"
+              asChild
+            >
               <Link href="/demo">
-                Start Free Demo <ArrowRight className="w-4 h-4 ml-2" />
+                Start Free Demo{" "}
+                <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="rounded-full px-8 h-12 text-base font-medium bg-background hover:bg-surface-secondary/50" asChild>
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full px-8 h-12 text-base font-medium bg-white/[0.03] border-white/[0.08] hover:bg-white/[0.06]"
+              asChild
+            >
               <Link href="/templates">
                 <Play className="w-4 h-4 mr-2" /> Explore Templates
               </Link>
             </Button>
+          </motion.div>
+        </section>
+
+        {/* ─── Canvas Preview ─── */}
+        <CanvasPreview />
+
+        {/* ─── Logo Strip ─── */}
+        <LogoStrip />
+
+        {/* ─── Feature Showcase (Bento Grid) ─── */}
+        <FeatureShowcase />
+
+        {/* ─── Divider ─── */}
+        <div className="feature-line w-full max-w-5xl mx-auto" />
+
+        {/* ─── How It Works ─── */}
+        <section id="how-it-works" className="relative px-6 py-32">
+          <div className="max-w-5xl mx-auto">
+            <motion.div
+              className="text-center mb-16"
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-100px" }}
+              transition={{ duration: 0.7 }}
+            >
+              <p className="text-[11px] font-medium tracking-[0.2em] uppercase text-cyan-400 mb-4">
+                Three simple steps
+              </p>
+              <h2 className="text-4xl md:text-5xl font-semibold tracking-tight">
+                From zero to running agent
+              </h2>
+            </motion.div>
+
+            <div className="grid md:grid-cols-3 gap-6">
+              {steps.map((s, i) => (
+                <motion.div
+                  key={s.title}
+                  className="bento-card p-7 text-center md:text-left"
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-60px" }}
+                  transition={{ delay: i * 0.15, duration: 0.6 }}
+                >
+                  {/* Step indicator */}
+                  <div className="flex items-center justify-center md:justify-start gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500/15 to-cyan-400/15 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                      {s.icon}
+                    </div>
+                    <span className="font-mono text-[11px] text-muted-foreground tracking-widest">
+                      STEP {i + 1}
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-semibold mb-2 tracking-tight">
+                    {s.title}
+                  </h3>
+                  <p className="text-muted-foreground text-[14px] leading-relaxed">
+                    {s.desc}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Value Prop Section */}
-        <section id="features" className="px-6 py-24 bg-card/30 border-t border-border/40">
-          <div className="max-w-6xl mx-auto">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-4xl font-semibold mb-4">You shouldn't need a PhD to use AI.</h2>
-              <p className="text-muted-foreground text-lg">BuildRAX reveals exactly what happens behind the scenes.</p>
-            </div>
-            
-            <div className="grid md:grid-cols-3 gap-8">
-              <div className="glass-panel p-8 rounded-2xl flex flex-col items-start text-left">
-                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                  <Layers className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-xl font-medium mb-3">Visual First</h3>
-                <p className="text-muted-foreground leading-relaxed">Connect inputs, tools, memory, and LLMs using our intuitive drag-and-drop canvas. It feels just like Figma for logic.</p>
-              </div>
-              <div className="glass-panel p-8 rounded-2xl flex flex-col items-start text-left">
-                <div className="w-12 h-12 rounded-full bg-secondary/10 flex items-center justify-center mb-6">
-                  <BrainCircuit className="w-6 h-6 text-secondary" />
-                </div>
-                <h3 className="text-xl font-medium mb-3">Learning by Building</h3>
-                <p className="text-muted-foreground leading-relaxed">Interactive missions guide you from absolute beginner to AI practitioner. Earn XP and badges as you experiment.</p>
-              </div>
-              <div className="glass-panel p-8 rounded-2xl flex flex-col items-start text-left">
-                <div className="w-12 h-12 rounded-full bg-chart-3/10 flex items-center justify-center mb-6">
-                  <ShieldCheck className="w-6 h-6 text-chart-3" />
-                </div>
-                <h3 className="text-xl font-medium mb-3">Total Transparency</h3>
-                <p className="text-muted-foreground leading-relaxed">Watch the data flow. Inspect the exact prompt sent to the model, the retrieved context, and the raw output.</p>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ─── Testimonials ─── */}
+        <Testimonials />
 
-        {/* OSS Banner */}
-        <section id="oss" className="px-6 py-24 flex items-center justify-center relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-primary opacity-5" />
-          <div className="max-w-4xl text-center relative z-10">
-            <h2 className="text-3xl font-semibold mb-6">Open Source and Free to Play</h2>
-            <p className="text-muted-foreground mb-8 text-lg">
-              We believe AI learning should be accessible to everyone. BuildRAX is fully open source. Self-host it, contribute templates, or build extensions.
-            </p>
-            <Button variant="outline" size="lg" className="rounded-full bg-background" asChild>
-              <a href="https://github.com/chetanya1998/BuildRAX.ai" target="_blank" rel="noreferrer">
-                <Github className="w-5 h-5 mr-2" /> View on GitHub
-              </a>
-            </Button>
-          </div>
-        </section>
+        {/* ─── CTA ─── */}
+        <CTASection />
       </main>
 
-      {/* Footer */}
-      <footer className="px-6 py-8 border-t border-border/40 text-center text-sm text-muted-foreground flex flex-col sm:flex-row justify-between items-center max-w-6xl mx-auto w-full">
-        <div className="flex items-center gap-2 mb-4 sm:mb-0">
-          <BrainCircuit className="w-5 h-5 text-muted-foreground" />
-          <span className="font-semibold">BuildRAX</span>
+      {/* ─── Footer ─── */}
+      <footer className="px-6 py-10 border-t border-white/[0.04]">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-2.5">
+            <BrainCircuit className="w-5 h-5 text-muted-foreground" />
+            <span className="font-semibold text-sm">BuildRAX</span>
+          </div>
+
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <Link
+              href="#features"
+              className="hover:text-foreground transition-colors"
+            >
+              Features
+            </Link>
+            <Link
+              href="/templates"
+              className="hover:text-foreground transition-colors"
+            >
+              Templates
+            </Link>
+            <a
+              href="https://github.com/chetanya1998/BuildRAX.ai"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            &copy; {new Date().getFullYear()} BuildRAX. All rights reserved.
+          </p>
         </div>
-        <p>&copy; {new Date().getFullYear()} BuildRAX. All rights reserved.</p>
       </footer>
     </div>
   );

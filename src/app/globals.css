@@ -108,3 +108,260 @@
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+
+/* ─── Landing Page – Linear / Cursor Aesthetic ─── */
+
+/* Hero gradient text – vivid bright sweep */
+.text-gradient-hero {
+  background: linear-gradient(
+    135deg,
+    #22d3ee 0%,
+    #818cf8 30%,
+    #a78bfa 55%,
+    #e879f9 80%,
+    #f472b6 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Aurora glow band ── */
+@keyframes auroraShift {
+  0% { transform: translateX(-30%) skewX(-10deg) scaleY(1); opacity: 0.6; }
+  25% { transform: translateX(-10%) skewX(-5deg) scaleY(1.1); opacity: 0.75; }
+  50% { transform: translateX(10%) skewX(5deg) scaleY(1); opacity: 0.65; }
+  75% { transform: translateX(-5%) skewX(-3deg) scaleY(1.15); opacity: 0.7; }
+  100% { transform: translateX(-30%) skewX(-10deg) scaleY(1); opacity: 0.6; }
+}
+.aurora-band {
+  position: absolute;
+  width: 140%;
+  height: 380px;
+  top: -80px;
+  left: -20%;
+  background: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.4),
+    rgba(129, 140, 248, 0.45),
+    rgba(168, 85, 247, 0.4),
+    rgba(232, 121, 249, 0.35),
+    rgba(34, 211, 238, 0.4)
+  );
+  filter: blur(80px);
+  border-radius: 50%;
+  animation: auroraShift 10s ease-in-out infinite;
+  pointer-events: none;
+}
+
+/* CSS dot-grid overlay – Cursor / Linear signature */
+.grid-bg {
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: radial-gradient(ellipse 70% 50% at 50% 40%, black 20%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 50% at 50% 40%, black 20%, transparent 100%);
+}
+
+/* Feature line / divider glow */
+.feature-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(168, 85, 247, 0.5) 30%, rgba(34, 211, 238, 0.5) 70%, transparent);
+}
+
+/* Number badge for features */
+.feature-number {
+  font-family: var(--font-geist-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  color: rgba(129, 140, 248, 0.7);
+  border: 1px solid rgba(129, 140, 248, 0.15);
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* ── Canvas preview ── */
+.canvas-preview-wrapper {
+  perspective: 1200px;
+}
+.canvas-preview-card {
+  transform: rotateX(4deg);
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.canvas-preview-card:hover {
+  transform: rotateX(0deg) scale(1.01);
+}
+
+/* Data-flow dot pulse */
+@keyframes flowDot {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* ── Marquee ── */
+@keyframes marqueeScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marqueeScroll 35s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Marquee edge masks */
+.marquee-mask {
+  mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    black 10%,
+    black 90%,
+    transparent 100%
+  );
+}
+
+/* ── Bento card ── */
+.bento-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: rgba(17, 18, 20, 0.5);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.4s, transform 0.4s, box-shadow 0.4s;
+}
+.bento-card:hover {
+  border-color: rgba(99, 102, 241, 0.2);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px -8px rgba(99, 102, 241, 0.12);
+}
+.bento-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.25),
+    rgba(139, 92, 246, 0.12),
+    transparent 50%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.bento-card:hover::after {
+  opacity: 1;
+}
+
+/* ── Subtle border glow for generic cards ── */
+.card-glow {
+  position: relative;
+  overflow: hidden;
+}
+.card-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(99, 102, 241, 0.3),
+    rgba(139, 92, 246, 0.15),
+    transparent 60%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Shimmer text ── */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.0) 0%,
+    rgba(255,255,255,0.12) 50%,
+    rgba(255,255,255,0.0) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 6s ease-in-out infinite;
+}
+
+/* ── CTA cosmic particles ── */
+@keyframes twinkle {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
+}
+.star-dot {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  animation: twinkle 4s ease-in-out infinite;
+}
+
+/* ── Logo strip ── */
+.logo-strip-item {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.25);
+  transition: color 0.3s;
+}
+.logo-strip-item:hover {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* ── Navbar link underline ── */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 0;
+  height: 1px;
+  background: rgba(129, 140, 248, 0.6);
+  transition: width 0.3s ease;
+}
+.nav-link:hover::after {
+  width: 100%;
+}
