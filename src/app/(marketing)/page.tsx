@@ -66,7 +66,16 @@ export default function LandingPage() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background relative z-0">
+      {/* ─── Global Background Mesh ─── */}
+      <div className="fixed inset-0 pointer-events-none z-[-1] overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-violet-600/[0.06] blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-cyan-600/[0.06] blur-[120px]" />
+        <div className="absolute top-[30%] left-[50%] -translate-x-1/2 w-[60%] h-[40%] rounded-full bg-fuchsia-600/[0.04] blur-[150px]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.15),rgba(255,255,255,0))] dark:bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.1),rgba(255,255,255,0))]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:24px_24px]" />
+      </div>
+
       {/* ─── Navbar ─── */}
       <header className="px-5 sm:px-6 lg:px-10 py-4 flex items-center justify-between border-b border-white/[0.06] backdrop-blur-xl sticky top-0 z-50 bg-background/80">
         {/* Brand */}
