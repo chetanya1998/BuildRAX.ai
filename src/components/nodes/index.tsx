@@ -132,6 +132,24 @@ export const LoopNode = ({ data, selected }: any) => (
   />
 );
 
+export const ImageGenNode = ({ data, selected }: any) => (
+  <BaseNode 
+    title="Image Generator" icon={<ImageIcon className="w-4 h-4" />} 
+    colorClass="bg-pink-500/10 text-pink-500 border-pink-500/20"
+    selected={selected} inputs={[{ id: "prompt" }]} outputs={[{ id: "image" }]}
+    isSimulating={data.isSimulating} simulatedOutput={data.simulatedOutput}
+  />
+);
+
+export const NewsNode = ({ data, selected }: any) => (
+  <BaseNode 
+    title="News Feed" icon={<Newspaper className="w-4 h-4" />} 
+    colorClass="bg-red-500/10 text-red-500 border-red-500/20"
+    selected={selected} inputs={[{ id: "topic" }]} outputs={[{ id: "articles" }]}
+    isSimulating={data.isSimulating} simulatedOutput={data.simulatedOutput}
+  />
+);
+
 export const CombineNode = ({ data, selected }: any) => (
   <BaseNode 
     title="Combine" icon={<PlusSquare className="w-4 h-4" />} 
@@ -156,5 +174,7 @@ export const nodeTypes = {
   conditionNode: ConditionNode,
   loopNode: LoopNode,
   combineNode: CombineNode,
+  imageGenNode: ImageGenNode,
+  newsNode: NewsNode,
   // Add more as needed
 };

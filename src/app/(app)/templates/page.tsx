@@ -114,7 +114,7 @@ export default function TemplatesPage() {
 
       {/* Next-Gen Detailed Overview Modal */}
       <Dialog open={!!selectedTemplate} onOpenChange={(open) => !open && setSelectedTemplate(null)}>
-        <DialogContent className="max-w-4xl bg-[#09090b] border border-white/10 rounded-[2.5rem] p-0 overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] flex flex-col md:flex-row h-full max-h-[85vh]">
+        <DialogContent className="max-w-4xl sm:max-w-4xl md:max-w-5xl bg-[#09090b] border border-white/10 rounded-[2.5rem] p-0 overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] flex flex-col md:flex-row h-full max-h-[85vh]">
           {selectedTemplate && (
             <>
               {/* Left Sidebar - Stats & Metadata */}

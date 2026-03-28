@@ -451,8 +451,8 @@ function BuilderCanvas() {
             <MiniMap 
               nodeColor="#2A2A2E" 
               maskColor="rgba(0, 0, 0, 0.7)"
-              className="bg-[#161618] border border-white/10 rounded-xl shadow-2xl scale-90 origin-bottom-right" 
-              style={{ height: 120 }}
+              className="!bg-[#161618] border border-white/10 shadow-2xl origin-bottom-right" 
+              style={{ height: 120, borderRadius: '0.75rem', overflow: 'hidden' }}
             />
             
             <Panel position="bottom-center" className="mb-4">
