@@ -20,7 +20,9 @@ import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "next-auth/react";
 import { Progress } from "@/components/ui/progress";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import { ProgressSummary } from "@/lib/gamification";
 
 const navItems = [
@@ -34,17 +36,12 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [progress, setProgress] = useState<ProgressSummary | null>(null);
   const { data: session } = useSession();
-
-  useEffect(() => {
-    if (session?.user) {
-      fetch("/api/user/progress")
-        .then((res) => res.json())
-        .then((data) => setProgress(data))
-        .catch((err) => console.error("Error fetching progress:", err));
-    }
-  }, [session]);
+  
+  const { data: progress } = useSWR<ProgressSummary>(
+    session?.user ? "/api/user/progress" : null,
+    fetcher
+  );
 
   const user = session?.user;
   const xp = progress?.xpInCurrentLevel || 0;

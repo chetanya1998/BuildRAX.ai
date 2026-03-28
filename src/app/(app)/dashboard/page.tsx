@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,30 +11,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, BrainCircuit, PlayCircle, Trophy, Activity, Archive, PauseCircle, BellRing, ArrowRight } from "lucide-react";
 
 export default function DashboardPage() {
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, error, isLoading } = useSWR("/api/dashboard/summary", fetcher);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const fetchDashboardData = async () => {
-    try {
-      setLoading(true);
-      const res = await fetch("/api/dashboard/summary");
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch (err) {
-      console.error("Error fetching dashboard data:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading || !data) {
     return <DashboardSkeleton />;
+  }
+
+  if (error) {
+    console.error("Error fetching dashboard data:", error);
   }
 
   const { user, recentWorkflows } = data || {};
