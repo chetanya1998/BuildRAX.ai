@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
       authorId: (session.user as any).id,
     });
 
+    const isFirstTemplate = (await Template.countDocuments({ authorId: (session.user as any).id })) === 1;
+
     try {
+      // Standard publish XP
       await inngest.send({
         name: "user.reward_xp",
         data: {
@@ -45,6 +48,17 @@ export async function POST(req: NextRequest) {
           type: "PUBLISH_TEMPLATE",
         },
       });
+
+      // Extra reward if it's the first time
+      if (isFirstTemplate) {
+        await inngest.send({
+          name: "user.reward_xp",
+          data: {
+            userId: (session.user as any).id,
+            type: "FIRST_PUBLISH_REWARD",
+          },
+        });
+      }
     } catch (inngestError) {
       console.error("Failed to send reward event for template:", inngestError);
     }

@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -8,8 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, BrainCircuit, Box, FileText, Blocks, LayoutPanelTop, Play, MessageSquareCode, Mail, Slack, Twitter, Database, Globe, Bot, Zap, Code, Loader2, ArrowRight, Clock, CheckCircle2, Check, Star, User, Cpu, Workflow } from "lucide-react";
+import { Search, BrainCircuit, Box, FileText, Blocks, LayoutPanelTop, Play, MessageSquareCode, Mail, Slack, Twitter, Database, Globe, Bot, Zap, Code, Loader2, ArrowRight, Clock, CheckCircle2, Check, Star, User, Cpu, Workflow, Sparkles } from "lucide-react";
 import { AGENT_TEMPLATES } from "@/lib/data/templates";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 
@@ -33,8 +32,49 @@ export default function TemplatesPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
   const [activeTab, setActiveTab] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [communityTemplates, setCommunityTemplates] = useState<any[]>([]);
+  const [isLoadingCommunity, setIsLoadingCommunity] = useState(false);
 
-  const filteredTemplates = AGENT_TEMPLATES.filter((tmpl) => {
+  useEffect(() => {
+    async function fetchCommunityTemplates() {
+      try {
+        setIsLoadingCommunity(true);
+        const res = await fetch("/api/templates");
+        if (res.ok) {
+          const data = await res.json();
+          setCommunityTemplates(data);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoadingCommunity(false);
+      }
+    }
+    fetchCommunityTemplates();
+  }, []);
+
+  const allTemplates = [
+    ...AGENT_TEMPLATES,
+    ...communityTemplates.map(t => ({
+      id: t._id,
+      title: t.name,
+      description: t.description || "Community contributed template",
+      iconName: "Bot", // Default
+      level: "Community",
+      complexity: 3,
+      nodeCount: t.nodes?.length || 0,
+      time: "2 min",
+      tags: [t.category || "Community"],
+      nodeSequence: ["inputNode", "llmNode", "outputNode"],
+      detailedOverview: t.description || "A custom community template.",
+      useCases: ["Automation", "Custom Logic"],
+      expectedOutput: "Custom results",
+      averageRating: t.averageRating || 0,
+      isCommunity: true
+    }))
+  ];
+
+  const filteredTemplates = allTemplates.filter((tmpl) => {
     const matchesSearch = tmpl.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           tmpl.description.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -45,6 +85,23 @@ export default function TemplatesPage() {
 
     return matchesSearch && matchesTab;
   });
+
+  const handleRate = async (id: string, score: number) => {
+    try {
+      const res = await fetch(`/api/templates/${id}/rate`, {
+        method: "POST",
+        body: JSON.stringify({ score }),
+      });
+      if (res.ok) {
+        toast.success("Thank you for rating!", {
+          icon: <Star className="w-4 h-4 fill-primary text-primary" />,
+        });
+        // Update local state if needed
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleClone = async (id: string) => {
     try {
@@ -104,9 +161,17 @@ export default function TemplatesPage() {
                   <div className="w-12 h-12 rounded-2xl bg-background/60 shadow-inner border border-white/5 flex items-center justify-center">
                     {iconMap[tmpl.iconName] || <Box className="w-5 h-5 text-muted-foreground" />}
                   </div>
-                  <Badge variant="outline" className="bg-background/50 backdrop-blur-sm border-white/10 text-[10px] uppercase font-bold tracking-wider">
-                    {tmpl.level}
-                  </Badge>
+                  <div className="flex flex-col items-end gap-2">
+                    <Badge variant="outline" className="bg-background/50 backdrop-blur-sm border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                      {tmpl.level}
+                    </Badge>
+                    {tmpl.averageRating > 0 && (
+                      <div className="flex items-center gap-1 text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded-md border border-yellow-500/20">
+                        <Star className="w-3 h-3 fill-current" />
+                        <span className="text-[10px] font-bold">{tmpl.averageRating.toFixed(1)}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <CardTitle className="text-lg group-hover:text-primary transition-colors line-clamp-1">{tmpl.title}</CardTitle>
                 <CardDescription className="text-sm mt-2 line-clamp-2 leading-relaxed h-10">
@@ -176,11 +241,25 @@ export default function TemplatesPage() {
                 <div className="mt-auto space-y-4 relative z-10">
                   <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2 flex items-center gap-1.5">
-                      <Star className="w-3 h-3 fill-current" /> Pro Tip
+                      <Star className="w-3 h-3 fill-current" /> {selectedTemplate.isCommunity ? "Rate this Template" : "Pro Tip"}
                     </div>
-                    <p className="text-[11px] leading-relaxed text-muted-foreground font-medium">
-                      Combine this with the <strong>Logic Loop</strong> node for repetitive batch processing.
-                    </p>
+                    {selectedTemplate.isCommunity ? (
+                      <div className="flex items-center gap-2 mt-2">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <button
+                            key={star}
+                            onClick={() => handleRate(selectedTemplate.id, star)}
+                            className="hover:scale-125 transition-transform text-muted-foreground hover:text-yellow-500"
+                          >
+                            <Star className={`w-4 h-4 ${star <= (selectedTemplate.averageRating || 0) ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] leading-relaxed text-muted-foreground font-medium">
+                        Combine this with the <strong>Logic Loop</strong> node for repetitive batch processing.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

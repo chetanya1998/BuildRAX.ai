@@ -35,6 +35,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { Toaster } from "sonner";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -47,6 +49,14 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NextTopLoader color="#22d3ee" showSpinner={false} height={3} shadow="0 0 10px #22d3ee,0 0 5px #22d3ee" />
+        <Toaster position="top-right" richColors toastOptions={{
+          style: {
+            background: 'rgba(9, 9, 11, 0.8)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            color: '#fff',
+          },
+        }} />
         <Providers>
           <TooltipProvider>
             {children}

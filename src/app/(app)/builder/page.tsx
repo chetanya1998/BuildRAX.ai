@@ -26,12 +26,13 @@ import {
   Globe, Search, Newspaper, BookOpen, Warehouse, Table, Mail, 
   Slack, Disc, Twitter, Clock, Zap, Code, ShieldCheck, 
   Image as ImageIcon, Mic, AudioLines, ShoppingCart, CreditCard,
-  Repeat, BrainCircuit, Layers
+  Repeat, BrainCircuit, Layers, History as HistoryIcon
 } from "lucide-react";
 import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { PublishModal } from "@/components/PublishModal";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
+import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
 import { FancyLoader } from "@/components/ui/FancyLoader";
 
 const initialNodes: any[] = [
@@ -152,6 +153,22 @@ function BuilderCanvas() {
   const [simulationResults, setSimulationResults] = useState<Record<string, any>>({});
   const [activeSimulationNode, setActiveSimulationNode] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"build" | "architect">("build");
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
+    setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
+    if (selectedNode?.id === nodeId) setSelectedNode(null);
+  }, [setNodes, setEdges, selectedNode]);
+
+  const handleEditNode = useCallback((nodeId: string) => {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (node) {
+      setSelectedNode(node);
+      // Ensure we are in build mode to see the properties panel
+      setViewMode("build");
+    }
+  }, [nodes]);
 
   const handleSimulation = async () => {
     setViewMode("architect"); // Switch to architect mode for simulation
@@ -226,12 +243,30 @@ function BuilderCanvas() {
     }
   };
 
+  const workflowId = searchParams?.get("id") || null;
+
   useEffect(() => {
-    if (templateId && templatesData[templateId]) {
-      setNodes(templatesData[templateId].nodes);
-      setEdges(templatesData[templateId].edges);
+    async function loadWorkflow() {
+      if (workflowId) {
+        try {
+          const res = await fetch(`/api/workflows/${workflowId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.nodes && data.edges) {
+              setNodes(data.nodes);
+              setEdges(data.edges);
+            }
+          }
+        } catch (err) {
+          console.error("Failed to load workflow:", err);
+        }
+      } else if (templateId && templatesData[templateId]) {
+        setNodes(templatesData[templateId].nodes);
+        setEdges(templatesData[templateId].edges);
+      }
     }
-  }, [templateId, setNodes, setEdges]);
+    loadWorkflow();
+  }, [templateId, workflowId, setNodes, setEdges]);
 
   const onConnect = useCallback(
     (params: any) => setEdges((eds) => addEdge(params, eds)),
@@ -285,6 +320,21 @@ function BuilderCanvas() {
       return node;
     }));
     setSelectedNode((prev: any) => prev?.id === nodeId ? { ...prev, data: { ...prev.data, ...newData } } : prev);
+  };
+
+  const handleLaunch = async () => {
+    if (workflowId) {
+      try {
+        await fetch(`/api/workflows/${workflowId}/versions/save`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nodes, edges, name: `Execution ${new Date().toLocaleTimeString()}` }),
+        });
+      } catch (err) {
+        console.error("Failed to save version:", err);
+      }
+    }
+    setIsExecutionPanelOpen(true);
   };
 
   return (
@@ -357,6 +407,15 @@ function BuilderCanvas() {
           <Button 
             variant="ghost" 
             size="sm" 
+            className={cn("rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs", isHistoryOpen ? "text-primary bg-primary/5" : "")}
+            onClick={() => setIsHistoryOpen(true)}
+          >
+            <HistoryIcon className="w-3.5 h-3.5 mr-2" /> History
+          </Button>
+
+          <Button 
+            variant="ghost" 
+            size="sm" 
             className={cn("rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs", isSimulating && "text-primary")}
             onClick={handleSimulation}
             disabled={isSimulating}
@@ -366,7 +425,7 @@ function BuilderCanvas() {
 
           <div className="w-px h-8 bg-white/10 mx-1" />
 
-          <Button onClick={() => setIsExecutionPanelOpen(true)} size="sm" className="rounded-xl h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20 transition-all active:scale-95">
+          <Button onClick={handleLaunch} size="sm" className="rounded-xl h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20 transition-all active:scale-95">
             Launch Agent
           </Button>
         </div>
@@ -417,7 +476,9 @@ function BuilderCanvas() {
               data: {
                 ...n.data,
                 simulatedOutput: simulationResults[n.id],
-                isSimulating: n.id === activeSimulationNode
+                isSimulating: n.id === activeSimulationNode,
+                onDelete: handleDeleteNode,
+                onEdit: handleEditNode
               }
             }))}
             edges={edges.map(e => ({
@@ -550,6 +611,22 @@ function BuilderCanvas() {
       </div>
 
       <ExecutionPanel open={isExecutionPanelOpen} onOpenChange={setIsExecutionPanelOpen} />
+      <PublishModal 
+        open={isPublishModalOpen} 
+        onOpenChange={setIsPublishModalOpen} 
+        nodes={nodes}
+        edges={edges}
+      />
+      <VersionHistoryPanel 
+        open={isHistoryOpen} 
+        onOpenChange={setIsHistoryOpen} 
+        workflowId={workflowId || undefined} 
+        onRestore={(v) => {
+          setNodes(v.nodes);
+          setEdges(v.edges);
+          setIsHistoryOpen(false);
+        }}
+      />
     </div>
   );
 }

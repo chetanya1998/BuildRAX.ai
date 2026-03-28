@@ -1,8 +1,17 @@
 import { Handle, Position } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import React from "react";
+import { Trash2, ExternalLink, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface BaseNodeProps {
+  id?: string;
   title: string;
   icon: React.ReactNode;
   selected?: boolean;
@@ -13,9 +22,12 @@ interface BaseNodeProps {
   className?: string;
   isSimulating?: boolean;
   simulatedOutput?: any;
+  onDelete?: (id: string) => void;
+  onEdit?: (id: string) => void;
 }
 
 export function BaseNode({
+  id,
   title,
   icon,
   selected = false,
@@ -25,7 +37,9 @@ export function BaseNode({
   colorClass = "bg-primary text-primary-foreground",
   className,
   isSimulating,
-  simulatedOutput
+  simulatedOutput,
+  onDelete,
+  onEdit
 }: BaseNodeProps) {
   return (
     <div
@@ -36,11 +50,27 @@ export function BaseNode({
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border/40 bg-background/50 rounded-t-xl">
+      <div className="flex items-center gap-3 p-3 border-b border-border/40 bg-background/50 rounded-t-xl group/header">
         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border border-border/40 shadow-sm", colorClass)}>
           {icon}
         </div>
         <div className="flex-1 font-semibold text-sm tracking-tight">{title}</div>
+        
+        <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="h-7 w-7 rounded-lg hover:bg-white/10 flex items-center justify-center border-none bg-transparent cursor-pointer">
+              <MoreVertical className="w-3.5 h-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-[#161618] border-white/10">
+              <DropdownMenuItem onClick={() => id && onEdit?.(id)} className="text-xs flex items-center gap-2 cursor-pointer">
+                <ExternalLink className="w-3.5 h-3.5" /> Configure Node
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => id && onDelete?.(id)} className="text-xs flex items-center gap-2 text-red-400 focus:text-red-400 cursor-pointer">
+                <Trash2 className="w-3.5 h-3.5" /> Delete Node
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Body */}
