@@ -31,6 +31,20 @@ export default function TemplatesPage() {
   const router = useRouter();
   const [cloningId, setCloningId] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredTemplates = AGENT_TEMPLATES.filter((tmpl) => {
+    const matchesSearch = tmpl.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          tmpl.description.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesTab = activeTab === "all" || tmpl.tags.some((t: string) => {
+      const tagLower = t.toLowerCase();
+      return tagLower === activeTab || tagLower + "s" === activeTab || tagLower === activeTab + "s";
+    });
+
+    return matchesSearch && matchesTab;
+  });
 
   const handleClone = async (id: string) => {
     try {
@@ -62,12 +76,17 @@ export default function TemplatesPage() {
           </div>
           <div className="flex w-full md:w-auto items-center relative max-w-sm">
             <Search className="w-4 h-4 absolute left-3 text-muted-foreground" />
-            <Input placeholder="Search templates..." className="pl-9 h-12 w-full md:w-64 bg-background/50 border-white/10 rounded-xl" />
+            <Input 
+              placeholder="Search templates..." 
+              className="pl-9 h-12 w-full md:w-64 bg-background/50 border-white/10 rounded-xl"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="bg-card/20 border border-border/40 mb-8 inline-flex flex-wrap h-auto p-1.5 rounded-2xl">
           <TabsTrigger value="all" className="rounded-xl px-4 py-2">All Templates</TabsTrigger>
           <TabsTrigger value="writing" className="rounded-xl px-4 py-2">Writing</TabsTrigger>
@@ -77,7 +96,7 @@ export default function TemplatesPage() {
         </TabsList>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {AGENT_TEMPLATES.map((tmpl) => (
+          {filteredTemplates.map((tmpl) => (
             <Card key={tmpl.id} onClick={() => setSelectedTemplate(tmpl)} className="bg-card/20 border-border/40 hover:border-primary/40 transition-all flex flex-col group cursor-pointer overflow-hidden relative rounded-2xl">
               <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
               <CardHeader className="pb-4 relative z-10">

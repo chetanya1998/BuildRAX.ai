@@ -30,8 +30,8 @@ export function BaseNode({
   return (
     <div
       className={cn(
-        "min-w-64 max-w-sm rounded-xl border border-border/40 bg-card/95 backdrop-blur-md shadow-xl transition-all duration-200",
-        selected ? "ring-2 ring-primary border-primary shadow-primary/20 scale-[1.02]" : "hover:border-primary/50",
+        "min-w-64 max-w-sm rounded-xl border border-white/[0.08] bg-[#161618] backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] transition-all duration-300",
+        selected ? "ring-2 ring-primary border-primary shadow-[0_0_30px_rgba(var(--primary),0.2)] scale-[1.02]" : "hover:border-white/20 hover:shadow-[0_10px_50px_rgba(0,0,0,0.9)] hover:-translate-y-0.5",
         className
       )}
     >
