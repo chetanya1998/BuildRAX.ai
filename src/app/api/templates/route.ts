@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { Template } from "@/lib/models/Template";
+import { inngest } from "@/inngest/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -35,6 +36,18 @@ export async function POST(req: NextRequest) {
       isPublic: body.isPublic !== undefined ? body.isPublic : false,
       authorId: (session.user as any).id,
     });
+
+    try {
+      await inngest.send({
+        name: "user.reward_xp",
+        data: {
+          userId: (session.user as any).id,
+          type: "PUBLISH_TEMPLATE",
+        },
+      });
+    } catch (inngestError) {
+      console.error("Failed to send reward event for template:", inngestError);
+    }
 
     return NextResponse.json(newTemplate, { status: 201 });
   } catch (error) {

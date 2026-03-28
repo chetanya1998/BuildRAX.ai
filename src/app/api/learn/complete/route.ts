@@ -3,8 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { LessonProgress } from "@/lib/models/LessonProgress";
-import { User } from "@/lib/models/User";
-import { calculateLevel, XP_REWARDS } from "@/lib/gamification";
+import { inngest } from "@/inngest/client";
 
 export async function POST(req: NextRequest) {
   try {
@@ -30,17 +29,16 @@ export async function POST(req: NextRequest) {
     if (!progress.completedModules.includes(moduleId)) {
       progress.completedModules.push(moduleId);
       
-      // Award XP for completing a lesson
-      const user = await User.findById(userId);
-      if (user) {
-        const oldLevel = user.level || calculateLevel(user.xp || 0);
-        user.xp = (user.xp || 0) + XP_REWARDS.COMPLETE_LESSON;
-        const newLevel = calculateLevel(user.xp);
-        
-        if (newLevel > oldLevel) {
-          user.level = newLevel;
-        }
-        await user.save();
+      try {
+        await inngest.send({
+          name: "user.reward_xp",
+          data: {
+            userId,
+            type: "COMPLETE_LESSON",
+          },
+        });
+      } catch (inngestError) {
+        console.error("Failed to send reward event for lesson complete:", inngestError);
       }
     }
 
@@ -50,7 +48,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
         success: true, 
         completedModules: progress.completedModules,
-        xpGained: XP_REWARDS.COMPLETE_LESSON 
     });
   } catch (error) {
     console.error("Error completing lesson:", error);

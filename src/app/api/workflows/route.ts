@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { Workflow } from "@/lib/models/Workflow";
+import { inngest } from "@/inngest/client";
 
 export async function GET(req: NextRequest) {
   try {
@@ -44,6 +45,18 @@ export async function POST(req: NextRequest) {
       creatorId: (session.user as any).id,
       isPublic: body.isPublic || false,
     });
+
+    try {
+      await inngest.send({
+        name: "user.reward_xp",
+        data: {
+          userId: (session.user as any).id,
+          type: "CREATE_WORKFLOW",
+        },
+      });
+    } catch (inngestError) {
+      console.error("Failed to send reward event:", inngestError);
+    }
 
     return NextResponse.json(newWorkflow, { status: 201 });
   } catch (error) {

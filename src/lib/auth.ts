@@ -4,6 +4,7 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
 import clientPromise from "./mongodb-client";
+import { inngest } from "@/inngest/client";
 
 import crypto from "crypto";
 
@@ -64,6 +65,11 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.xp = 0; // Initialize XP for new users
+        
+        inngest.send({
+          name: "user.login",
+          data: { userId: user.id },
+        }).catch(e => console.error("Failed to enqueue user.login event:", e));
       }
       return token;
     },
