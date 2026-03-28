@@ -86,6 +86,12 @@ A low-code canvas built on **React Flow** that turns AI logic into a graph.
 - **Drag-and-Drop**: 14+ specialized node types for input, processing, and integration.
 - **Interactive Edges**: Animated data flow shows the direction of state propagation.
 - **Mini-Map & Zoom**: Navigate complex multi-agent architectures with ease.
+- **UI/UX Enhancements**: High-contrast node blocks, functional gallery filtering, and smooth global page transitions powered by `framer-motion`.
+
+### 🤖 AI Architect
+- **Automated Workflow Generation**: The AI Architect generates multi-step workflows automatically based on your prompt, complete with optimal node setup and connections.
+- **Analysis Feedback Loops**: Real-time insights and complexity scoring for your workflow graph.
+- **Agent Versioning & Benchmarking**: Track the performance and history of your deployed AI agents.
 
 ### 🔍 Execution Trace Panel
 Every execution generates a detailed "black box" audit trail.
@@ -95,9 +101,14 @@ Every execution generates a detailed "black box" audit trail.
 
 ### 🎮 Gamification & Learning
 BuildRAX isn't just a tool; it's a game.
-- **XP System**: Earn 50-200 XP for building, executing, and publishing.
+- **XP System & Leveling**: Earn 50-200 XP for building, executing, and publishing flows to level up your profile. Special rewards available for first-time publishers!
 - **Badges**: Unlock *Prompt Tuner*, *Memory Weaver*, and *Agent Explorer* as you master concepts.
-- **Academy**: 5 progressive missions with increasing difficulty and rewards.
+- **Academy**: Interactive, gamified zig-zag pathway for user onboarding and progressive missions with increasing difficulty.
+
+### 🌍 Community & Templates
+- **Template Cloning Architecture**: Deep-clone entire workflow graphs (nodes and edges) instantly to your own workspace.
+- **Community Publishing**: Publish your agents, accrue ratings from the community, and share your creations.
+- **Rich Previews**: Data-rich template modals displaying complexity scores, node sequences, and comprehensive stats.
 
 ---
 
@@ -172,11 +183,20 @@ graph TB
     API --> MDB
 ```
 
-### The Topological Sort Engine
+### ⚙️ Asynchronous Execution Engine
+Powered by **Inngest**, our backend execution engine provides robust, event-driven background processing.
+- Handles complex, multi-step AI workflows asynchronously without timing out.
+- Reliable state tracking and execution loops for long-running AI and integration operations.
+
+### 🔄 The Topological Sort Engine
 Unlike linear scripts, BuildRAX treats flows as **Directed Acyclic Graphs (DAGs)**. When you click run:
 1. The engine builds a dependency map of all nodes.
 2. **Kahn's Algorithm** verifies there are no cycles and determines the execution order.
 3. Steps execute in sequence, passing state from parent outputs to child inputs.
+
+### ⚡ Performance & UX Optimizations
+- **Global Navigation Bar**: High-performance routing feedback seamlessly integrated with `nextjs-toploader`.
+- **Intelligent Loading states**: Custom AI-themed `FancyLoader` and intelligent skeleton layouts on dashboard and templates eliminate blank screens and greatly enhance perceived performance.
 
 ---
 
