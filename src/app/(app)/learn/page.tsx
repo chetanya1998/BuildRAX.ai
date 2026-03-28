@@ -142,10 +142,10 @@ export default function LearnPage() {
               const isLeftAlign = index % 2 === 0;
 
               return (
-                <div key={index} className="flex items-center w-full relative group">
+                <div key={index} className="relative w-full grid grid-cols-1 md:grid-cols-2 gap-0 group items-center py-4">
                   
                   {/* The Journey Node (Circle on Path) */}
-                  <div className={`absolute left-10 md:left-1/2 w-16 h-16 -ml-8 rounded-full border-4 flex items-center justify-center shadow-xl transition-all duration-500 z-20 shadow-[0_0_20px_-5px_rgba(0,0,0,0.8)]
+                  <div className={`absolute left-[4.5rem] md:left-1/2 w-16 h-16 -ml-8 md:-translate-x-1/2 flex items-center justify-center rounded-full border-4 shadow-xl transition-all duration-500 z-20 shadow-[0_0_20px_-5px_rgba(0,0,0,0.8)]
                     ${isCompleted ? 'bg-[#0f1014] border-green-500/50 hover:scale-110 hover:border-green-500' : 
                       isActive ? 'bg-black border-primary ring-4 ring-primary/20 scale-110 shadow-[0_0_30px_rgba(var(--primary),0.4)]' : 
                       'bg-[#121214] border-white/10 text-white/20'}`}>
@@ -162,58 +162,114 @@ export default function LearnPage() {
                     {isLocked && <Lock className="w-5 h-5 text-current" />}
                   </div>
 
-                  {/* Desktop Layout Wrapper: Alternating sides */}
-                  <div className={`hidden md:flex flex-1 ${isLeftAlign ? 'justify-end pr-24' : 'justify-start pl-24'}`}>
-                    {/* The Mission Content Card */}
-                    <div className={`w-[400px] p-6 rounded-3xl transition-all duration-300 relative overflow-hidden backdrop-blur-xl border
-                      ${isActive ? 'bg-[#18181A] border-primary/30 shadow-[0_20px_50px_-10px_rgba(var(--primary),0.2)] hover:-translate-y-2 hover:shadow-[0_25px_60px_-10px_rgba(var(--primary),0.3)]' : 
-                      isCompleted ? 'bg-[#121214]/80 border-white/5 hover:border-white/10 hover:-translate-y-1 opacity-80 hover:opacity-100' : 
-                      'bg-white/[0.01] border-white/[0.02] opacity-50'}`}>
-                       
-                       {isActive && (
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-                       )}
+                  {/* Left Column (Desktop) */}
+                  <div className={`hidden md:flex w-full justify-end pr-12 lg:pr-20`}>
+                    {isLeftAlign && (
+                      <div className={`w-full max-w-[420px] p-6 rounded-3xl transition-all duration-300 relative overflow-hidden backdrop-blur-2xl border
+                        ${isActive ? 'bg-[#18181A] border-primary/30 shadow-[0_20px_50px_-10px_rgba(var(--primary),0.2)] hover:-translate-y-2 hover:shadow-[0_25px_60px_-10px_rgba(var(--primary),0.3)]' : 
+                        isCompleted ? 'bg-[#121214]/90 border-white/5 hover:border-white/10 hover:-translate-y-1 opacity-90 hover:opacity-100' : 
+                        'bg-white/[0.02] border-white/[0.02] opacity-50'}`}>
+                         
+                         {isActive && (
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                         )}
 
-                       <div className="relative z-10 flex flex-col h-full gap-4">
-                          <div className="flex justify-between items-start">
-                             <h4 className={`text-xl font-bold tracking-tight ${isLocked ? "text-muted-foreground/50" : "text-white"}`}>
-                               {mission.title}
-                             </h4>
-                             {isActive && (
-                               <Badge className="bg-primary/20 text-primary border border-primary/30 uppercase tracking-widest text-[9px] font-black animate-pulse">Up Next</Badge>
-                             )}
-                          </div>
-                          
-                          <p className="text-[15px] font-medium text-muted-foreground leading-relaxed">
-                             {mission.description}
-                          </p>
+                         <div className="relative z-10 flex flex-col h-full gap-4">
+                            <div className="flex justify-between items-start">
+                               <h4 className={`text-xl font-bold tracking-tight ${isLocked ? "text-muted-foreground/50" : "text-white"}`}>
+                                 {mission.title}
+                               </h4>
+                               {isActive && (
+                                 <Badge className="bg-primary/20 text-primary border border-primary/30 uppercase tracking-widest text-[9px] font-black animate-pulse whitespace-nowrap">Up Next</Badge>
+                               )}
+                            </div>
+                            
+                            <p className="text-[15px] font-medium text-muted-foreground leading-relaxed">
+                               {mission.description}
+                            </p>
 
-                          <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between">
-                             <div className="flex items-center gap-3">
-                                <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-none px-2 py-1 text-xs font-bold rounded-lg shadow-inner">
-                                  <Star className="w-3.5 h-3.5 mr-1.5 fill-amber-500" /> {mission.xp} XP
-                                </Badge>
-                                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest bg-black/30 px-2 py-1.5 rounded-lg border border-white/5 shadow-inner">
-                                   {mission.time}
-                                </span>
-                             </div>
-
-                             {isActive ? (
-                               <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5">
-                                 Start
-                               </Button>
-                             ) : isCompleted ? (
-                               <Button variant="ghost" className="rounded-xl text-xs font-bold hover:bg-white/5 h-9">
-                                 Review
-                               </Button>
-                             ) : (
-                               <div className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3 py-1 flex items-center gap-1.5">
-                                 <Lock className="w-3 h-3" /> Locked
+                            <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between">
+                               <div className="flex items-center gap-3">
+                                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-none px-2 py-1 text-xs font-bold rounded-lg shadow-inner">
+                                    <Star className="w-3.5 h-3.5 mr-1.5 fill-amber-500" /> {mission.xp} XP
+                                  </Badge>
+                                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest bg-black/30 px-2 py-1.5 rounded-lg border border-white/5 shadow-inner">
+                                     {mission.time}
+                                  </span>
                                </div>
-                             )}
-                          </div>
-                       </div>
-                    </div>
+
+                               {isActive ? (
+                                 <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5">
+                                   Start
+                                 </Button>
+                               ) : isCompleted ? (
+                                 <Button variant="ghost" className="rounded-xl text-xs font-bold hover:bg-white/5 h-9">
+                                   Review
+                                 </Button>
+                               ) : (
+                                 <div className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3 py-1 flex items-center gap-1.5">
+                                   <Lock className="w-3 h-3" /> Locked
+                                 </div>
+                               )}
+                            </div>
+                         </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column (Desktop) */}
+                  <div className={`hidden md:flex w-full justify-start pl-12 lg:pl-20`}>
+                    {!isLeftAlign && (
+                      <div className={`w-full max-w-[420px] p-6 rounded-3xl transition-all duration-300 relative overflow-hidden backdrop-blur-2xl border
+                        ${isActive ? 'bg-[#18181A] border-primary/30 shadow-[0_20px_50px_-10px_rgba(var(--primary),0.2)] hover:-translate-y-2 hover:shadow-[0_25px_60px_-10px_rgba(var(--primary),0.3)]' : 
+                        isCompleted ? 'bg-[#121214]/90 border-white/5 hover:border-white/10 hover:-translate-y-1 opacity-90 hover:opacity-100' : 
+                        'bg-white/[0.02] border-white/[0.02] opacity-50'}`}>
+                         
+                         {isActive && (
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/20 rounded-full blur-[40px] -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                         )}
+
+                         <div className="relative z-10 flex flex-col h-full gap-4">
+                            <div className="flex justify-between items-start">
+                               <h4 className={`text-xl font-bold tracking-tight ${isLocked ? "text-muted-foreground/50" : "text-white"}`}>
+                                 {mission.title}
+                               </h4>
+                               {isActive && (
+                                 <Badge className="bg-primary/20 text-primary border border-primary/30 uppercase tracking-widest text-[9px] font-black animate-pulse whitespace-nowrap">Up Next</Badge>
+                               )}
+                            </div>
+                            
+                            <p className="text-[15px] font-medium text-muted-foreground leading-relaxed">
+                               {mission.description}
+                            </p>
+
+                            <div className="pt-4 mt-auto border-t border-white/5 flex items-center justify-between">
+                               <div className="flex items-center gap-3">
+                                  <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 border-none px-2 py-1 text-xs font-bold rounded-lg shadow-inner">
+                                    <Star className="w-3.5 h-3.5 mr-1.5 fill-amber-500" /> {mission.xp} XP
+                                  </Badge>
+                                  <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest bg-black/30 px-2 py-1.5 rounded-lg border border-white/5 shadow-inner">
+                                     {mission.time}
+                                  </span>
+                               </div>
+
+                               {isActive ? (
+                                 <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5">
+                                   Start
+                                 </Button>
+                               ) : isCompleted ? (
+                                 <Button variant="ghost" className="rounded-xl text-xs font-bold hover:bg-white/5 h-9">
+                                   Review
+                                 </Button>
+                               ) : (
+                                 <div className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3 py-1 flex items-center gap-1.5">
+                                   <Lock className="w-3 h-3" /> Locked
+                                 </div>
+                               )}
+                            </div>
+                         </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Mobile Layout Wrapper: Always on right */}
