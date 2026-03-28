@@ -152,12 +152,12 @@ export default function LearnPage() {
                     
                     {isCompleted && <CheckCircle2 className="w-7 h-7 text-green-500/80 drop-shadow-lg" />}
                     {isActive && (
-                      <div className="relative group flex items-center justify-center cursor-pointer">
+                      <Link href="/learn/1" className="relative group flex items-center justify-center cursor-pointer">
                         <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping" />
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center z-10">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center z-10 hover:scale-110 transition-transform">
                            <Play className="w-4 h-4 text-white ml-0.5 fill-current" />
                         </div>
-                      </div>
+                      </Link>
                     )}
                     {isLocked && <Lock className="w-5 h-5 text-current" />}
                   </div>
@@ -199,8 +199,8 @@ export default function LearnPage() {
                                </div>
 
                                {isActive ? (
-                                 <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5">
-                                   Start
+                                 <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5" asChild>
+                                   <Link href="/learn/1">Start</Link>
                                  </Button>
                                ) : isCompleted ? (
                                  <Button variant="ghost" className="rounded-xl text-xs font-bold hover:bg-white/5 h-9">
@@ -254,8 +254,8 @@ export default function LearnPage() {
                                </div>
 
                                {isActive ? (
-                                 <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5">
-                                   Start
+                                 <Button className="rounded-xl font-black bg-primary/90 hover:bg-primary shadow-lg hover:shadow-primary/30 active:scale-95 transition-all text-xs h-9 px-5" asChild>
+                                   <Link href="/learn/1">Start</Link>
                                  </Button>
                                ) : isCompleted ? (
                                  <Button variant="ghost" className="rounded-xl text-xs font-bold hover:bg-white/5 h-9">
@@ -286,8 +286,8 @@ export default function LearnPage() {
                       <p className="text-sm font-medium text-muted-foreground">{mission.description}</p>
                       
                       {isActive && (
-                        <Button className="w-full mt-4 rounded-xl font-bold bg-primary tracking-wide">
-                          Play Mission
+                        <Button className="w-full mt-4 rounded-xl font-bold bg-primary tracking-wide" asChild>
+                          <Link href="/learn/1">Play Mission</Link>
                         </Button>
                       )}
                     </div>
