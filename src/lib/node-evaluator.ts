@@ -49,7 +49,7 @@ export async function evaluateNodeLogic(node: Node, inputs: any): Promise<any> {
           n: 1,
           size: "1024x1024",
         });
-        return response.data[0]?.url || "[Image Generation Failed]";
+        return response?.data?.[0]?.url || "[Image Generation Failed]";
       } catch (err: any) {
         throw new Error(`Image Gen failed: ${err.message}`);
       }
