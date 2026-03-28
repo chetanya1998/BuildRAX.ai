@@ -7,7 +7,7 @@ export interface DashboardTemplate {
   detailedOverview?: string;
   useCases?: string[];
   expectedOutput?: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
+  level: "Beginner" | "Intermediate" | "Advanced" | "Community";
   complexity: number;
   nodeCount: number;
   nodeSequence: string[];
@@ -16,6 +16,8 @@ export interface DashboardTemplate {
   iconName: "Search" | "BrainCircuit" | "MessageSquareCode" | "Mail" | "Slack" | "Twitter" | "Database" | "Globe" | "Bot" | "Zap" | "Code";
   nodes: Node[];
   edges: Edge[];
+  averageRating?: number;
+  isCommunity?: boolean;
 }
 
 export const AGENT_TEMPLATES: DashboardTemplate[] = [
