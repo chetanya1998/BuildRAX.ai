@@ -21,6 +21,8 @@ import { HeroGlow } from "@/components/landing/HeroGlow";
 import { CanvasPreview } from "@/components/landing/CanvasPreview";
 import { LogoStrip } from "@/components/landing/LogoStrip";
 import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
+import { GamificationSection } from "@/components/landing/GamificationSection";
+import { NewFeaturesSection } from "@/components/landing/NewFeaturesSection";
 import { Testimonials } from "@/components/landing/Testimonials";
 import { CTASection } from "@/components/landing/CTASection";
 
@@ -260,6 +262,12 @@ export default function LandingPage() {
 
         {/* ─── Feature Showcase (Bento Grid) ─── */}
         <FeatureShowcase />
+
+        {/* ─── New Features ─── */}
+        <NewFeaturesSection />
+
+        {/* ─── Gamification ─── */}
+        <GamificationSection />
 
         {/* ─── Divider ─── */}
         <div className="feature-line w-full max-w-5xl mx-auto" />
