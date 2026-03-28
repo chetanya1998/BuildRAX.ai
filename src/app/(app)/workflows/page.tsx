@@ -104,14 +104,14 @@ function WorkflowsSkeleton() {
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
       <div className="flex justify-between items-center">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-64" />
+          <Skeleton className="h-8 w-48 bg-primary/10" />
+          <Skeleton className="h-4 w-64 bg-muted/50" />
         </div>
-        <Skeleton className="h-10 w-32 rounded-xl" />
+        <Skeleton className="h-10 w-32 rounded-xl bg-primary/20" />
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Skeleton key={i} className="h:[200px] w-full rounded-2xl" />
+          <Skeleton key={i} className="h-[200px] w-full rounded-2xl bg-card/40 border border-border/40 shimmer" />
         ))}
       </div>
     </div>

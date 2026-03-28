@@ -32,6 +32,7 @@ import Link from "next/link";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { PublishModal } from "@/components/PublishModal";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
+import { FancyLoader } from "@/components/ui/FancyLoader";
 
 const initialNodes: any[] = [
   { id: "1", position: { x: 250, y: 150 }, data: { label: "Input Node", value: "" }, type: "inputNode" },
@@ -485,9 +486,8 @@ function BuilderCanvas() {
             </div>
 
             {isAnalyzing ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-                 <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                 <p className="text-sm text-muted-foreground">Architect AI is reviewing your system design...</p>
+              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-background/50 rounded-2xl relative overflow-hidden">
+                 <FancyLoader text="Analyzing Architecture..." />
               </div>
             ) : analysisResult ? (
               <div className="flex-1 space-y-8 overflow-y-auto pr-2 scrollbar-thin">
@@ -556,7 +556,7 @@ function BuilderCanvas() {
 
 export default function BuilderPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground">Loading builder...</div>}>
+    <Suspense fallback={<div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground"><FancyLoader text="Initializing Workspace..." /></div>}>
       <BuilderCanvas />
     </Suspense>
   );

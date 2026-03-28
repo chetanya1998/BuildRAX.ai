@@ -194,21 +194,21 @@ export default function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <Skeleton className="h-[300px] w-full rounded-3xl" />
+      <Skeleton className="h-[300px] w-full rounded-[2rem] bg-card/40 border border-border/40 shimmer" />
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="col-span-2 space-y-6">
-          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-8 w-48 bg-primary/10" />
           <div className="grid sm:grid-cols-3 gap-5">
-            <Skeleton className="h-[120px] rounded-2xl" />
-            <Skeleton className="h-[120px] rounded-2xl" />
-            <Skeleton className="h-[120px] rounded-2xl" />
+            <Skeleton className="h-[120px] rounded-2xl bg-card/30 border border-border/40 shimmer" />
+            <Skeleton className="h-[120px] rounded-2xl bg-card/30 border border-border/40 shimmer" />
+            <Skeleton className="h-[120px] rounded-2xl bg-card/30 border border-border/40 shimmer" />
           </div>
         </div>
         <div className="space-y-6">
-          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-8 w-48 bg-secondary/10" />
           <div className="space-y-4">
-            <Skeleton className="h-[180px] rounded-2xl" />
-            <Skeleton className="h-[160px] rounded-2xl" />
+            <Skeleton className="h-[180px] rounded-2xl bg-card/20 border border-border/40 shimmer" />
+            <Skeleton className="h-[160px] rounded-2xl bg-card/20 border border-border/40 shimmer" />
           </div>
         </div>
       </div>
