@@ -51,8 +51,8 @@ export async function POST(
       workflowId: newWorkflow._id,
     }, { status: 201 });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Template Cloning Error:", error);
-    return NextResponse.json({ error: "Failed to clone template" }, { status: 500 });
+    return NextResponse.json({ error: error.message || "Failed to clone template" }, { status: 500 });
   }
 }

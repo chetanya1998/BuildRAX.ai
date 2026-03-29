@@ -115,10 +115,15 @@ export default function TemplatesPage() {
         const data = await res.json();
         router.push(`/builder?id=${data.workflowId}`);
       } else {
-        console.error("Failed to clone");
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Failed to clone:", errorData);
+        toast.error(`Clone failed: ${errorData.error || "Server error"}`, {
+          icon: <Workflow className="w-4 h-4" />
+        });
       }
     } catch (err) {
       console.error(err);
+      toast.error("Network error. Please try again.");
     } finally {
       setCloningId(null);
     }

@@ -19,7 +19,7 @@ import {
 
 import { HeroGlow } from "@/components/landing/HeroGlow";
 import { CanvasPreview } from "@/components/landing/CanvasPreview";
-import { LogoStrip } from "@/components/landing/LogoStrip";
+import { IntegrationsShowcase } from "@/components/landing/IntegrationsShowcase";
 import { FeatureShowcase } from "@/components/landing/FeatureShowcase";
 import { GamificationSection } from "@/components/landing/GamificationSection";
 import { NewFeaturesSection } from "@/components/landing/NewFeaturesSection";
@@ -266,8 +266,8 @@ export default function LandingPage() {
         {/* ─── Canvas Preview ─── */}
         <CanvasPreview />
 
-        {/* ─── Logo Strip ─── */}
-        <LogoStrip />
+        {/* ─── Integrations Showcase (Ecosystem) ─── */}
+        <IntegrationsShowcase />
 
         {/* ─── Feature Showcase (Bento Grid) ─── */}
         <FeatureShowcase />
