@@ -2,11 +2,15 @@ import { NextAuthOptions } from "next-auth";
 import GithubProvider from "next-auth/providers/github";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { MongoDBAdapter } from "@next-auth/mongodb-adapter";
+import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import clientPromise from "./mongodb-client";
 import { inngest } from "@/inngest/client";
 
 import crypto from "crypto";
+
+if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+  console.error("CRITICAL: NEXTAUTH_SECRET is not set in production. Session security will fail.");
+}
 
 const providers: any[] = [
   CredentialsProvider({
@@ -16,8 +20,6 @@ const providers: any[] = [
       deviceId: { label: "Device ID", type: "text" },
     },
     async authorize(credentials) {
-      // Return a valid guest user object with a valid ObjectId
-      // If we have a deviceId, we hash it into a deterministic 24-character hex string
       let hexId = "";
       if (credentials?.deviceId) {
         const hash = crypto.createHash('md5').update(credentials.deviceId).digest('hex');
@@ -55,11 +57,13 @@ if (process.env.GOOGLE_ID && process.env.GOOGLE_SECRET) {
 }
 
 export const authOptions: NextAuthOptions = {
+  // Use @auth/mongodb-adapter which is more robust for Mongo v6+
   adapter: MongoDBAdapter(clientPromise),
   providers,
   session: {
     strategy: "jwt",
   },
+  secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async jwt({ token, user, account }) {
       if (user) {
@@ -69,7 +73,12 @@ export const authOptions: NextAuthOptions = {
         inngest.send({
           name: "user.login",
           data: { userId: user.id },
-        }).catch(e => console.error("Failed to enqueue user.login event:", e));
+        }).catch(e => {
+          // Failure to send Inngest event shouldn't crash the session JWT
+          if (process.env.NODE_ENV === "development") {
+            console.error("Failed to enqueue user.login event:", e.message);
+          }
+        });
       }
       return token;
     },
@@ -83,7 +92,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/login",
-    error: "/login", // Error code passed in query string as ?error=
+    error: "/login",
   },
   debug: process.env.NODE_ENV === "development",
 };
