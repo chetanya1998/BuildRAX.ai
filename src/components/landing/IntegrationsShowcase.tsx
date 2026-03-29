@@ -2,30 +2,21 @@
 
 import { motion } from "framer-motion";
 import { 
-  BrainCircuit, 
-  Sparkles, 
-  Search, 
-  MessageSquare, 
-  Hash, 
-  Users, 
-  Github, 
-  Database, 
-  FileText,
   Zap,
   Globe,
   Cpu
 } from "lucide-react";
 
 const integrations = [
-  { icon: <BrainCircuit className="w-5 h-5 text-cyan-400" />, name: "OpenAI", color: "from-cyan-500/10 to-cyan-500/20" },
-  { icon: <Sparkles className="w-5 h-5 text-violet-400" />, name: "Anthropic", color: "from-violet-500/10 to-violet-500/20" },
-  { icon: <Search className="w-5 h-5 text-blue-400" />, name: "Google Gemini", color: "from-blue-500/10 to-blue-500/20" },
-  { icon: <MessageSquare className="w-5 h-5 text-emerald-400" />, name: "Slack", color: "from-emerald-500/10 to-emerald-500/20" },
-  { icon: <Hash className="w-5 h-5 text-indigo-400" />, name: "Discord", color: "from-indigo-500/10 to-indigo-500/20" },
-  { icon: <Users className="w-5 h-5 text-orange-400" />, name: "HubSpot", color: "from-orange-500/10 to-orange-500/20" },
-  { icon: <Github className="w-5 h-5 text-white" />, name: "GitHub", color: "from-white/5 to-white/10" },
-  { icon: <Database className="w-5 h-5 text-fuchsia-400" />, name: "Salesforce", color: "from-fuchsia-500/10 to-fuchsia-500/20" },
-  { icon: <FileText className="w-5 h-5 text-amber-400" />, name: "Notion", color: "from-amber-500/10 to-amber-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/openai.svg", name: "OpenAI", color: "from-cyan-500/10 to-cyan-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/anthropic.svg", name: "Anthropic", color: "from-violet-500/10 to-violet-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/google.svg", name: "Google Gemini", color: "from-blue-500/10 to-blue-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/slack.svg", name: "Slack", color: "from-emerald-500/10 to-emerald-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/discord.svg", name: "Discord", color: "from-indigo-500/10 to-indigo-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/hubspot.svg", name: "HubSpot", color: "from-orange-500/10 to-orange-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/github.svg", name: "GitHub", color: "from-white/5 to-white/10" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/salesforce.svg", name: "Salesforce", color: "from-fuchsia-500/10 to-fuchsia-500/20" },
+  { logo: "https://cdn.jsdelivr.net/npm/simple-icons@v11/icons/notion.svg", name: "Notion", color: "from-amber-500/10 to-amber-500/20" },
 ];
 
 export function IntegrationsShowcase() {
@@ -73,7 +64,11 @@ export function IntegrationsShowcase() {
                 group-hover:border-cyan-500/30 group-hover:shadow-cyan-500/10 
                 transition-all duration-300 transform group-hover:-translate-y-1
               `}>
-                {item.icon}
+                <img 
+                  src={item.logo} 
+                  alt={item.name} 
+                  className="w-7 h-7 filter brightness-0 invert opacity-80 group-hover:opacity-100 transition-opacity" 
+                />
               </div>
               <span className="text-[12px] font-medium text-gray-400 group-hover:text-white transition-colors duration-300">
                 {item.name}
