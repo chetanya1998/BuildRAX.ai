@@ -340,36 +340,36 @@ function BuilderCanvas() {
   return (
     <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden relative selection:bg-primary/30">
       {/* Unified Command Center Header */}
-      <header className="h-16 flex items-center justify-between px-6 border-b border-white/[0.05] bg-card/40 backdrop-blur-2xl shrink-0 z-50">
-        <div className="flex items-center gap-6">
+      <header className="h-16 flex items-center justify-between px-6 border-b border-white/[0.05] bg-card/40 backdrop-blur-3xl shrink-0 z-50">
+        {/* Left Section: Meta & Mode Toggle */}
+        <div className="flex items-center gap-4 w-[320px]">
           <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl hover:bg-white/5" asChild title="Back to Dashboard">
             <Link href="/dashboard"><ArrowLeft className="w-5 h-5" /></Link>
           </Button>
 
-          <div className="flex flex-col">
-            <h1 className="text-sm font-bold tracking-tight">Untitled Workflow</h1>
+          <div className="flex flex-col min-w-0 pr-4">
+            <h1 className="text-sm font-bold tracking-tight truncate">Untitled Workflow</h1>
             <div className="flex items-center gap-2 mt-0.5">
               <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
               <span className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-widest">Autosaved</span>
             </div>
           </div>
 
-          <div className="w-px h-8 bg-white/10 mx-2" />
-
-          {/* Mode Toggle */}
-          <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 shadow-inner">
+          <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/[0.08] shadow-inner ml-auto">
             <Button 
               size="sm" 
-              variant={viewMode === "build" ? "secondary" : "ghost"}
-              className={cn("h-8 px-4 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all", viewMode === "build" && "shadow-lg bg-white/10")}
+              variant="ghost"
+              className={cn("h-7 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all", 
+                viewMode === "build" ? "bg-white/10 text-white shadow-lg shadow-white/5" : "text-muted-foreground hover:text-white")}
               onClick={() => setViewMode("build")}
             >
               Build
             </Button>
             <Button 
               size="sm" 
-              variant={viewMode === "architect" ? "secondary" : "ghost"}
-              className={cn("h-8 px-4 text-[11px] font-bold uppercase tracking-wider rounded-lg transition-all", viewMode === "architect" && "shadow-lg bg-white/10")}
+              variant="ghost"
+              className={cn("h-7 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all", 
+                viewMode === "architect" ? "bg-white/10 text-white shadow-lg shadow-white/5" : "text-muted-foreground hover:text-white")}
               onClick={() => setViewMode("architect")}
             >
               Architect
@@ -377,37 +377,48 @@ function BuilderCanvas() {
           </div>
         </div>
 
-        {/* Central Prompt Area (Command Center Style) */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-white/5 border border-white/10 rounded-2xl w-[400px] lg:w-[500px] h-10 px-4 group focus-within:ring-2 focus-within:ring-primary/40 focus-within:bg-white/[0.08] transition-all shadow-2xl">
-          <Sparkles className="w-4 h-4 text-primary animate-pulse mr-3 group-focus-within:scale-110 transition-transform" />
-          <input 
-            type="text" 
-            placeholder="AI Architect Prompt..."
-            className="flex-1 bg-transparent border-none outline-none text-xs font-semibold placeholder:text-muted-foreground/40"
-            value={architectPrompt}
-            onChange={(e) => setArchitectPrompt(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleGenerateArchitecture()}
-          />
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-7 px-3 text-[10px] font-bold uppercase tracking-tighter hover:bg-white/10"
-            disabled={isGenerating || !architectPrompt.trim()}
-            onClick={handleGenerateArchitecture}
-          >
-            {isGenerating ? "Working..." : "Design"}
-          </Button>
+        {/* Center Section: Neural Command Center */}
+        <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
+          <div className="relative group">
+            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-indigo-500/50 rounded-2xl blur opacity-0 group-focus-within:opacity-40 transition duration-500" />
+            <div className="relative flex items-center bg-[#0D0D0E] border border-white/[0.08] rounded-2xl w-[400px] xl:w-[500px] h-10 px-4 group-focus-within:border-primary/50 transition-all shadow-2xl">
+              <Sparkles className="w-4 h-4 text-primary animate-pulse mr-3 group-focus-within:scale-110 transition-transform" />
+              <input 
+                type="text" 
+                placeholder="Architect Prompt... (⌘ K)"
+                className="flex-1 bg-transparent border-none outline-none text-xs font-semibold placeholder:text-muted-foreground/40 text-white"
+                value={architectPrompt}
+                onChange={(e) => setArchitectPrompt(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleGenerateArchitecture()}
+              />
+              <div className="flex items-center gap-1 ml-2">
+                <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+                  <span className="text-xs">↵</span>
+                </kbd>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 px-3 text-[10px] font-black uppercase tracking-tighter hover:bg-white/10 text-primary"
+                  disabled={isGenerating || !architectPrompt.trim()}
+                  onClick={handleGenerateArchitecture}
+                >
+                  {isGenerating ? "Working..." : "Design"}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
+        {/* Right Section: Actions */}
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
+          <Button variant="ghost" size="sm" className="rounded-xl h-9 hover:bg-white/5 px-3 font-bold text-xs" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
             <Sparkles className={`w-3.5 h-3.5 mr-2 ${isAnalyzing ? "animate-spin" : "text-primary"}`} /> AI Audit
           </Button>
           
           <Button 
             variant="ghost" 
             size="sm" 
-            className={cn("rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs", isHistoryOpen ? "text-primary bg-primary/5" : "")}
+            className={cn("rounded-xl h-9 hover:bg-white/5 px-3 font-bold text-xs", isHistoryOpen ? "text-primary bg-primary/5" : "")}
             onClick={() => setIsHistoryOpen(true)}
           >
             <HistoryIcon className="w-3.5 h-3.5 mr-2" /> History
@@ -416,7 +427,7 @@ function BuilderCanvas() {
           <Button 
             variant="ghost" 
             size="sm" 
-            className={cn("rounded-xl h-9 hover:bg-white/5 px-4 font-bold text-xs", isSimulating && "text-primary")}
+            className={cn("rounded-xl h-9 hover:bg-white/5 px-3 font-bold text-xs", isSimulating && "text-primary")}
             onClick={handleSimulation}
             disabled={isSimulating}
           >
@@ -425,8 +436,9 @@ function BuilderCanvas() {
 
           <div className="w-px h-8 bg-white/10 mx-1" />
 
-          <Button onClick={handleLaunch} size="sm" className="rounded-xl h-10 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs shadow-lg shadow-primary/20 transition-all active:scale-95">
+          <Button onClick={handleLaunch} size="sm" className="rounded-xl h-10 bg-primary hover:primary/90 text-primary-foreground font-black text-xs shadow-lg shadow-primary/20 transition-all active:scale-95 group">
             Launch Agent
+            <ChevronRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
           </Button>
         </div>
       </header>
@@ -434,28 +446,33 @@ function BuilderCanvas() {
       <div className="flex flex-1 overflow-hidden relative">
         {/* Left Node Library Panel */}
         {isSidebarOpen && viewMode === "build" && (
-          <aside className="w-72 border-r border-white/[0.05] bg-card/10 backdrop-blur-3xl flex flex-col shrink-0 overflow-y-auto hidden md:flex z-40 animate-in slide-in-from-left duration-500">
-            <div className="p-6 border-b border-white/[0.05]">
-              <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest">Node Library</h2>
-              <p className="text-[10px] text-muted-foreground/40 mt-1 uppercase tracking-tighter">Tools & Integrations</p>
+          <aside className="w-72 border-r border-white-0.05 bg-gradient-to-b from-[#0D0D0E] to-[#0A0A0B] backdrop-blur-3xl flex flex-col shrink-0 overflow-y-auto hidden md:flex z-40 animate-in slide-in-from-left duration-500">
+            <div className="p-6 border-b border-white/[0.05] bg-white/[0.01]">
+              <h2 className="text-xs font-black text-muted-foreground/60 uppercase tracking-[0.2em]">Node Library</h2>
+              <p className="text-[10px] text-muted-foreground/40 mt-1 uppercase tracking-widest font-bold">Tools & Integrations</p>
             </div>
             
-            <div className="flex-1 p-5 space-y-8 overflow-y-auto scrollbar-thin">
+            <div className="flex-1 p-5 space-y-8 overflow-y-auto custom-scrollbar">
               {Array.from(new Set(NODE_LIBRARY.map(n => n.category))).map(category => (
-                <div key={category} className="space-y-3">
-                  <h3 className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest mb-3 px-1">{category}</h3>
-                  <div className="grid gap-2">
+                <div key={category} className="space-y-4">
+                  <h3 className="text-[10px] font-black text-primary/50 uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-2">
+                    <div className="w-1 h-1 rounded-full bg-primary/40" />
+                    {category}
+                  </h3>
+                  <div className="grid gap-2.5">
                     {NODE_LIBRARY.filter(n => n.category === category).map((node) => (
                       <div 
                         key={node.label}
-                        className="flex items-center gap-3 p-2.5 rounded-xl border border-white/[0.03] bg-white/[0.02] hover:bg-white/[0.05] cursor-grab hover:border-primary/30 transition-all hover:shadow-[0_0_20px_rgba(124,58,237,0.05)] group"
+                        className="flex items-center gap-3 p-3 rounded-2xl border border-white/[0.03] bg-white/[0.02] hover:bg-white/[0.06] cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.4),0_0_20px_rgba(124,58,237,0.1)] group active:scale-[0.98]"
                         draggable
                         onDragStart={(e) => onDragStart(e, node.type)}
                       >
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${node.color} group-hover:scale-110 transition-transform`}>{node.icon}</div>
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${node.color} group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner`}>
+                          {node.icon}
+                        </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold truncate">{node.label}</p>
-                          <p className="text-[9px] text-muted-foreground/40 leading-tight mt-0.5 truncate">{node.description}</p>
+                          <p className="text-[11px] font-bold text-white/90 group-hover:text-white transition-colors truncate">{node.label}</p>
+                          <p className="text-[9px] text-muted-foreground/40 font-medium leading-tight mt-0.5 group-hover:text-muted-foreground/60 transition-colors truncate">{node.description}</p>
                         </div>
                       </div>
                     ))}
@@ -507,20 +524,23 @@ function BuilderCanvas() {
               className="opacity-[0.06]" 
             />
             <Controls 
-              className="bg-[#161618] border border-white/10 fill-white/70 shadow-2xl rounded-xl overflow-hidden [&_button]:border-white/5 [&_button:hover]:bg-white/5" 
+              className="bg-[#161618]/80 backdrop-blur-xl border border-white/[0.08] shadow-[0_10px_40px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden [&_button]:border-white/[0.05] [&_button:hover]:bg-white/5 transition-all" 
               showInteractive={false} 
             />
             <MiniMap 
               nodeColor="#2A2A2E" 
               maskColor="rgba(0, 0, 0, 0.7)"
-              className="!bg-[#161618] border border-white/10 shadow-2xl origin-bottom-right" 
-              style={{ height: 120, borderRadius: '0.75rem', overflow: 'hidden' }}
+              className="!bg-[#161618]/90 backdrop-blur-3xl border border-white/[0.08] shadow-2xl origin-bottom-right" 
+              style={{ height: 120, borderRadius: '1rem', overflow: 'hidden' }}
             />
             
-            <Panel position="bottom-center" className="mb-4">
-              <div className="glass-panel px-4 py-2 rounded-full text-xs text-muted-foreground flex items-center gap-2 shadow-xl">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                Ready to execute
+            <Panel position="bottom-center" className="mb-6">
+              <div className="bg-[#161618]/80 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/[0.08] text-[11px] font-bold text-muted-foreground flex items-center gap-3 shadow-[0_10px_50px_rgba(0,0,0,0.6)] animate-in fade-in slide-in-from-bottom-2 duration-500">
+                <div className="relative">
+                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse" />
+                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500/40 animate-ping" />
+                </div>
+                <span className="uppercase tracking-[0.1em]">System Status: Ready to execute</span>
               </div>
             </Panel>
           </ReactFlow>

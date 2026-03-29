@@ -59,35 +59,41 @@ export function ExecutionPanel({ open, onOpenChange }: { open: boolean, onOpenCh
         </SheetHeader>
 
         <Tabs defaultValue="flow" className="flex-1 flex flex-col">
-          <div className="px-6 border-b border-border/40">
-            <TabsList className="bg-transparent h-12 w-full justify-start gap-6 rounded-none p-0">
-              <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-wide text-muted-foreground data-[state=active]:text-foreground h-full">Flow Steps</TabsTrigger>
-              <TabsTrigger value="prompt" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-wide text-muted-foreground data-[state=active]:text-foreground h-full">Prompt</TabsTrigger>
-              <TabsTrigger value="optimizer" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-wide text-muted-foreground data-[state=active]:text-foreground h-full flex items-center gap-2 italic">
+          <div className="px-6 border-b border-white/[0.05] bg-white/[0.02]">
+            <TabsList className="bg-transparent h-14 w-full justify-start gap-8 rounded-none p-0">
+              <TabsTrigger value="flow" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-[0.1em] text-[11px] font-black uppercase text-muted-foreground data-[state=active]:text-white h-full transition-all relative">
+                Flow Steps
+                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-0 data-[state=active]:scale-x-100 transition-transform origin-left" />
+              </TabsTrigger>
+              <TabsTrigger value="prompt" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-[0.1em] text-[11px] font-black uppercase text-muted-foreground data-[state=active]:text-white h-full transition-all">
+                Prompt
+              </TabsTrigger>
+              <TabsTrigger value="optimizer" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-[0.1em] text-[11px] font-black uppercase text-muted-foreground data-[state=active]:text-white h-full transition-all flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 text-primary animate-pulse" /> Token Optimizer
               </TabsTrigger>
-              <TabsTrigger value="context" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-wide text-muted-foreground data-[state=active]:text-foreground h-full">Context</TabsTrigger>
-              <TabsTrigger value="output" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-wide text-muted-foreground data-[state=active]:text-foreground h-full">Output</TabsTrigger>
+              <TabsTrigger value="output" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-0 tracking-[0.1em] text-[11px] font-black uppercase text-muted-foreground data-[state=active]:text-white h-full transition-all">
+                Output
+              </TabsTrigger>
             </TabsList>
           </div>
 
-          <ScrollArea className="flex-1 p-6">
+          <ScrollArea className="flex-1 p-8">
             <TabsContent value="flow" className="m-0 space-y-6">
-              <div className="relative pl-6 border-l-2 border-border/40 space-y-8 ml-3">
+              <div className="relative pl-8 border-l border-white/[0.08] space-y-10 ml-4 py-2">
                 
                 {/* Step 1 */}
                 <div className="relative">
-                  <div className="absolute -left-[35px] top-1 w-6 h-6 rounded-full bg-background border-2 border-border/40 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  <div className="absolute -left-[41px] top-1.5 w-5 h-5 rounded-full bg-[#0A0A0B] border border-white/[0.1] flex items-center justify-center shadow-[0_0_15px_rgba(59,130,246,0.3)]">
+                    <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.8)]" />
                   </div>
-                  <div className="glass-panel p-4 rounded-xl border border-border/40">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 font-medium">
-                        <MessageSquareCode className="w-4 h-4 text-blue-400" /> Input Captured
+                  <div className="bg-[#121214] border border-white/[0.05] p-5 rounded-2xl shadow-2xl hover:border-white/10 transition-colors group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5 font-bold text-sm text-white/90">
+                        <MessageSquareCode className="w-4 h-4 text-blue-400 group-hover:scale-110 transition-transform" /> Input Captured
                       </div>
-                      <span className="text-xs text-muted-foreground">0ms</span>
+                      <Badge variant="ghost" className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest bg-white/[0.03]">0ms</Badge>
                     </div>
-                    <div className="bg-background/50 rounded-lg p-3 text-sm font-mono text-muted-foreground">
+                    <div className="bg-black/40 border border-white/[0.03] rounded-xl p-4 text-xs font-mono text-muted-foreground leading-relaxed">
                       "Help me plan a 3-day itinerary for Kyoto."
                     </div>
                   </div>
@@ -95,18 +101,18 @@ export function ExecutionPanel({ open, onOpenChange }: { open: boolean, onOpenCh
 
                 {/* Step 2 */}
                 <div className="relative">
-                  <div className="absolute -left-[35px] top-1 w-6 h-6 rounded-full bg-background border-2 border-border/40 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  <div className="absolute -left-[41px] top-1.5 w-5 h-5 rounded-full bg-[#0A0A0B] border border-white/[0.1] flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.3)]">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.8)]" />
                   </div>
-                  <div className="glass-panel p-4 rounded-xl border border-border/40">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 font-medium">
-                        <Database className="w-4 h-4 text-indigo-400" /> Memory Retrieval
+                  <div className="bg-[#121214] border border-white/[0.05] p-5 rounded-2xl shadow-2xl hover:border-white/10 transition-colors group">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2.5 font-bold text-sm text-white/90">
+                        <Database className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" /> Memory Retrieval
                       </div>
-                      <span className="text-xs text-muted-foreground">+120ms</span>
+                      <Badge variant="ghost" className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-widest bg-white/[0.03]">+120ms</Badge>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">Found user preferences:</p>
-                    <div className="bg-background/50 rounded-lg p-3 text-sm font-mono text-muted-foreground">
+                    <p className="text-[10px] uppercase font-black tracking-widest text-muted-foreground/40 mb-3 px-1">Retrieved Context</p>
+                    <div className="bg-black/40 border border-white/[0.03] rounded-xl p-4 text-xs font-mono text-muted-foreground leading-relaxed">
                       {"{"}
                         "likes": ["nature", "temples"],
                         "budget": "medium"
@@ -117,19 +123,20 @@ export function ExecutionPanel({ open, onOpenChange }: { open: boolean, onOpenCh
 
                 {/* Step 3 */}
                 <div className="relative">
-                  <div className="absolute -left-[35px] top-1 w-6 h-6 rounded-full bg-background border-2 border-border/40 flex items-center justify-center">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  <div className="absolute -left-[41px] top-1.5 w-5 h-5 rounded-full bg-[#0A0A0B] border border-white/[0.1] flex items-center justify-center shadow-[0_0_20px_rgba(124,58,237,0.4)]">
+                    <div className="w-2 h-2 rounded-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.8)] animate-pulse" />
                   </div>
-                  <div className="glass-panel p-4 rounded-xl border border-primary/40 bg-primary/5">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2 font-medium">
-                        <BrainCircuit className="w-4 h-4 text-primary" /> Model Call (Claude 3.5)
+                  <div className="bg-[#18181B] border border-primary/20 p-5 rounded-2xl shadow-[0_10px_40px_rgba(var(--primary),0.15)] group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                    <div className="flex items-center justify-between mb-4 relative z-10">
+                      <div className="flex items-center gap-2.5 font-bold text-sm text-white">
+                        <BrainCircuit className="w-4 h-4 text-primary group-hover:scale-110 transition-transform" /> Model Call (Claude 3.5)
                       </div>
-                      <span className="text-xs text-muted-foreground">+950ms</span>
+                      <Badge variant="default" className="text-[10px] font-black bg-primary/10 text-primary border-primary/20 uppercase tracking-widest">+950ms</Badge>
                     </div>
-                    <div className="flex gap-2">
-                        <Badge variant="outline" className="text-[10px] bg-background">temperature: 0.7</Badge>
-                        <Badge variant="outline" className="text-[10px] bg-background">max_tokens: 2000</Badge>
+                    <div className="flex gap-2 relative z-10">
+                        <Badge variant="outline" className="text-[10px] font-bold bg-black/40 border-white/5 px-2.5 py-1">temperature: 0.7</Badge>
+                        <Badge variant="outline" className="text-[10px] font-bold bg-black/40 border-white/5 px-2.5 py-1">max_tokens: 2000</Badge>
                     </div>
                   </div>
                 </div>
