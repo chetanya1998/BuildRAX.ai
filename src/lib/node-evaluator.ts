@@ -30,7 +30,9 @@ export async function evaluateNodeLogic(node: Node, inputs: any): Promise<any> {
       
       return await generateText(userPrompt, systemPrompt, {
         model: node.data?.model,
-        temperature: node.data?.temperature
+        temperature: node.data?.temperature,
+        apiKey: node.data?.apiKey,
+        max_tokens: node.data?.max_tokens ? parseInt(node.data.max_tokens) : undefined
       });
     }
 
@@ -38,11 +40,12 @@ export async function evaluateNodeLogic(node: Node, inputs: any): Promise<any> {
       const prompt = inputs["prompt"] || getFirstInput() || node.data?.prompt;
       if (!prompt) throw new Error("No prompt provided for image generation");
 
-      if (!process.env.OPENAI_API_KEY) {
-        return `[MOCK IMAGE GENERATED for "${prompt}"] - Add OPENAI_API_KEY to see real image generation.`;
+      const apiKey = node.data?.apiKey || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        return `[MOCK IMAGE GENERATED for "${prompt}"] - Add API Key to see real image generation.`;
       }
       try {
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const openai = new OpenAI({ apiKey });
         const response = await openai.images.generate({
           model: "dall-e-3",
           prompt: prompt,

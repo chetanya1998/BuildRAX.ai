@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { Template } from "@/lib/models/Template";
 import { inngest } from "@/inngest/client";
+import { scrubSensitiveNodeData } from "@/lib/security";
 
 export async function GET(req: NextRequest) {
   try {
@@ -28,10 +29,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     await dbConnect();
 
+    // Sanitize any API Keys or Secrets before entering Public Domain
+    const safeNodes = scrubSensitiveNodeData(body.nodes || []);
+
     const newTemplate = await Template.create({
       name: body.name || "Untitled Template",
       category: body.category || "Uncategorized",
-      nodes: body.nodes || [],
+      nodes: safeNodes,
       edges: body.edges || [],
       isPublic: body.isPublic !== undefined ? body.isPublic : false,
       authorId: (session.user as any).id,

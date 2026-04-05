@@ -151,6 +151,30 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
               </div>
               <Slider max={2} step={0.1} value={[data?.temperature || 0.7]} onValueChange={(vals) => handleChange("temperature", (vals as number[])[0])} />
             </div>
+
+            <div className="pt-4 border-t border-white/5 space-y-4">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold text-emerald-400">Advanced Settings</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Custom API Key</Label>
+                <Input 
+                  type="password"
+                  className="text-xs bg-background/50 border-white/10" 
+                  value={data?.apiKey || ""} 
+                  onChange={(e) => handleChange("apiKey", e.target.value)} 
+                  placeholder="Leave blank for system default" 
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Max Tokens</Label>
+                <Input 
+                  type="number"
+                  className="text-xs bg-background/50 border-white/10" 
+                  value={data?.max_tokens || ""} 
+                  onChange={(e) => handleChange("max_tokens", e.target.value)} 
+                  placeholder="Optional limit (e.g. 1024)" 
+                />
+              </div>
+            </div>
           </div>
         );
       case "imageGenNode":
@@ -170,6 +194,20 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
                   <SelectItem value="1024x1024">1024x1024</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="pt-4 border-t border-white/5 space-y-4">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold text-emerald-400">Advanced Settings</Label>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Custom API Key</Label>
+                <Input 
+                  type="password"
+                  className="text-xs bg-background/50 border-white/10" 
+                  value={data?.apiKey || ""} 
+                  onChange={(e) => handleChange("apiKey", e.target.value)} 
+                  placeholder="Leave blank for system default" 
+                />
+              </div>
             </div>
           </div>
         );

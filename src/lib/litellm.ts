@@ -4,9 +4,9 @@ import OpenAI from 'openai';
 // By default, if LITELLM_BASE_URL is provided, we route through that proxy.
 // Otherwise, we fallback to direct OpenAI.
 
-const getClient = () => {
+const getClient = (customApiKey?: string) => {
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY || process.env.LITELLM_API_KEY || "dummy",
+    apiKey: customApiKey || process.env.OPENAI_API_KEY || process.env.LITELLM_API_KEY || "dummy",
     baseURL: process.env.LITELLM_BASE_URL || "https://api.openai.com/v1",
   });
 };
@@ -16,10 +16,11 @@ export interface AIOptions {
   temperature?: number;
   max_tokens?: number;
   response_format?: { type: "text" | "json_object" };
+  apiKey?: string;
 }
 
 export const generateText = async (prompt: string, systemPrompt?: string, options: AIOptions = {}) => {
-  const client = getClient();
+  const client = getClient(options.apiKey);
   
   const messages: any[] = [];
   if (systemPrompt) {
