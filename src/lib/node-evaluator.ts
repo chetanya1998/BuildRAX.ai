@@ -247,6 +247,18 @@ export async function evaluateNodeLogic(node: Node, inputs: any): Promise<any> {
     case "outputNode":
       return getFirstInput();
 
+    case "integrationNode": {
+      const appId = node.data?.appId;
+      const actionId = node.data?.actionId;
+      
+      if (!appId || !actionId) {
+        throw new Error("Integration node is missing appId or actionId configuration.");
+      }
+      
+      const payloadString = JSON.stringify(inputs);
+      return `[MOCK Make.com Integration Executed] App: ${appId} | Action: ${actionId} | Payload Length: ${payloadString.length}`;
+    }
+
     default:
       console.warn(`No implementation for node type: ${node.type}`);
       return getFirstInput() || null;

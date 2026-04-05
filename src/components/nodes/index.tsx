@@ -1,5 +1,6 @@
 import React from "react";
 import { BaseNode } from "./BaseNode";
+import { IntegrationNode } from "./IntegrationNode";
 import { 
   Type, MessageSquareCode, Bot, TerminalSquare, Database, Cog, 
   PlusSquare, Repeat, CheckCircle2, Globe, Search, Newspaper,
@@ -208,5 +209,6 @@ export const nodeTypes = {
   combineNode: CombineNode,
   imageGenNode: ImageGenNode,
   newsNode: NewsNode,
+  integrationNode: IntegrationNode,
   // Add more as needed
 };

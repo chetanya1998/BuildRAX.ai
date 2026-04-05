@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Settings } from "lucide-react";
+import { INTEGRATION_REGISTRY } from "@/lib/integrations";
 
 interface NodePropertiesPanelProps {
   selectedNode: any;
@@ -56,6 +57,71 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
             </div>
           </div>
         );
+        
+      case "integrationNode": {
+        const app = data?.appId ? INTEGRATION_REGISTRY[data.appId] : null;
+        if (!app) return <div className="text-sm text-red-400">Invalid App ID</div>;
+
+        const selectedAction = app.actions.find(a => a.id === data?.actionId);
+
+        return (
+          <div className="space-y-6">
+            <div className="space-y-1.5">
+              <Label className="text-[11px] uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <app.icon className="w-3 h-3" style={{ color: app.color }}/> 
+                {app.name} Action
+              </Label>
+              <Select value={data?.actionId || ""} onValueChange={(val) => handleChange("actionId", val)}>
+                <SelectTrigger className="text-xs bg-background/50 border-white/10">
+                  <SelectValue placeholder="Select an action" />
+                </SelectTrigger>
+                <SelectContent>
+                  {app.actions.map(action => (
+                    <SelectItem key={action.id} value={action.id}>{action.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedAction && <p className="text-[10px] text-muted-foreground/60">{selectedAction.description}</p>}
+            </div>
+
+            {selectedAction && (
+              <div className="space-y-4 pt-4 border-t border-white/[0.05]">
+                {selectedAction.inputs.map(input => (
+                   <div key={input.name} className="space-y-1.5">
+                     <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                       {input.label} {input.required && <span className="text-red-400">*</span>}
+                     </Label>
+                     {input.type === "textarea" || input.type === "json" ? (
+                       <Textarea 
+                         className="text-xs min-h-[80px] bg-background/50 border-white/10 font-mono" 
+                         value={data?.[input.name] || ""} 
+                         onChange={(e) => handleChange(input.name, e.target.value)} 
+                         placeholder={input.placeholder || `Enter ${input.label}...`}
+                       />
+                     ) : input.type === "password" ? (
+                       <Input 
+                         type="password" 
+                         className="text-xs bg-background/50 border-white/10" 
+                         value={data?.[input.name] || ""} 
+                         onChange={(e) => handleChange(input.name, e.target.value)} 
+                       />
+                     ) : (
+                       <Input 
+                         type="text" 
+                         className="text-xs bg-background/50 border-white/10" 
+                         value={data?.[input.name] || ""} 
+                         onChange={(e) => handleChange(input.name, e.target.value)} 
+                         placeholder={input.placeholder || `Enter ${input.label}...`}
+                       />
+                     )}
+                     {input.description && <p className="text-[9px] text-muted-foreground/50">{input.description}</p>}
+                   </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      }
 
       // --- AI Models ---
       case "llmNode":

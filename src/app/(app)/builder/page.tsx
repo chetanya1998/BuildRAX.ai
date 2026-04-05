@@ -85,6 +85,7 @@ const templatesData: Record<string, { nodes: any[], edges: any[] }> = {
 
 import { nodeTypes } from "@/components/nodes";
 import { PlusSquare } from "lucide-react";
+import { INTEGRATION_REGISTRY, IntegrationApp } from "@/lib/integrations";
 
 const NODE_LIBRARY = [
   // --- AI & LLM Models ---
@@ -107,11 +108,10 @@ const NODE_LIBRARY = [
   { type: "notionNode", label: "Notion", description: "Create pages/rows", icon: <Layers className="w-4 h-4" />, color: "text-slate-500 bg-slate-500/10", category: "Data" },
   { type: "airtableNode", label: "Airtable", description: "Low-code database", icon: <Table className="w-4 h-4" />, color: "text-blue-500 bg-blue-500/10", category: "Data" },
 
-  // --- Social & Communication ---
+  // --- Communication ---
   { type: "emailNode", label: "Send Email", description: "SMTP / SendGrid", icon: <Mail className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Communication" },
-  { type: "slackNode", label: "Slack Notify", description: "Post to channel", icon: <Slack className="w-4 h-4" />, color: "text-purple-400 bg-purple-500/10", category: "Communication" },
-  { type: "discordNode", label: "Discord Hook", description: "Webhook posting", icon: <Disc className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10", category: "Communication" },
   { type: "twitterNode", label: "Twitter Post", description: "Automated tweet", icon: <Twitter className="w-4 h-4" />, color: "text-sky-400 bg-sky-500/10", category: "Communication" },
+
 
   // --- Logic & Process ---
   { type: "inputNode", label: "Input", description: "Receive initial data", icon: <Type className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Logic" },
@@ -297,11 +297,20 @@ function BuilderCanvas() {
         y: event.clientY,
       });
 
+      let nodeType = type;
+      let appId = undefined;
+
+      if (type.startsWith("integrationNode:")) {
+        const parts = type.split(":");
+        nodeType = parts[0];
+        appId = parts[1];
+      }
+
       const newNode = {
         id: `node_${Date.now()}`,
-        type,
+        type: nodeType,
         position,
-        data: { label: `${type} node` },
+        data: { label: `${nodeType} node`, appId, actionId: null },
       };
 
       setNodes((nds) => nds.concat(newNode));
@@ -479,6 +488,42 @@ function BuilderCanvas() {
                   </div>
                 </div>
               ))}
+              
+              <Separator className="bg-white/[0.05]" />
+              
+              <div className="pt-2 pb-4">
+                <h2 className="text-xs font-black text-muted-foreground/60 uppercase tracking-[0.2em] px-2 mb-4">App Directory</h2>
+                
+                {Array.from(new Set(Object.values(INTEGRATION_REGISTRY).map(a => a.category))).map(category => (
+                  <div key={`app-cat-${category}`} className="space-y-4 mt-6 first:mt-0">
+                    <h3 className="text-[10px] font-black text-indigo-400/50 uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-indigo-400/40" />
+                      {category}
+                    </h3>
+                    <div className="grid gap-2.5">
+                      {Object.values(INTEGRATION_REGISTRY).filter(a => a.category === category).map((app) => {
+                        const Icon = app.icon;
+                        return (
+                          <div 
+                            key={app.id}
+                            className="flex items-center gap-3 p-3 rounded-2xl border border-white/[0.03] bg-white/[0.02] hover:bg-white/[0.06] cursor-grab active:cursor-grabbing hover:border-indigo-500/40 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.4),0_0_20px_rgba(99,102,241,0.15)] group active:scale-[0.98]"
+                            draggable
+                            onDragStart={(e) => onDragStart(e, `integrationNode:${app.id}`)}
+                          >
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner bg-black/40 border border-white/5" style={{ color: app.color }}>
+                              <Icon className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] font-bold text-white/90 group-hover:text-white transition-colors truncate">{app.name}</p>
+                              <p className="text-[9px] text-muted-foreground/40 font-medium leading-tight mt-0.5 group-hover:text-muted-foreground/60 transition-colors truncate">{app.actions.length} action(s)</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </aside>
         )}

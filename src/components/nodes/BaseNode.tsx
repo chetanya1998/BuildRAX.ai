@@ -24,6 +24,7 @@ interface BaseNodeProps {
   simulatedOutput?: any;
   onDelete?: (id: string) => void;
   onEdit?: (id: string) => void;
+  customHeaderStyle?: React.CSSProperties;
 }
 
 export function BaseNode({
@@ -39,7 +40,8 @@ export function BaseNode({
   isSimulating,
   simulatedOutput,
   onDelete,
-  onEdit
+  onEdit,
+  customHeaderStyle
 }: BaseNodeProps) {
   return (
     <div
@@ -50,7 +52,7 @@ export function BaseNode({
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border/40 bg-background/50 rounded-t-xl group/header">
+      <div className="flex items-center gap-3 p-3 border-b border-border/40 bg-background/50 rounded-t-xl group/header" style={customHeaderStyle}>
         <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border border-border/40 shadow-sm", colorClass)}>
           {icon}
         </div>
