@@ -16,9 +16,14 @@ interface NodePropertiesPanelProps {
 export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodePropertiesPanelProps) {
   if (!selectedNode) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground text-sm p-4 text-center border-2 border-dashed border-border/40 rounded-xl">
-        <Settings className="w-8 h-8 mb-2 opacity-50" />
-        <p>Select a node to edit its properties</p>
+      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/12 bg-white/[0.03] px-6 text-center">
+        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+          <Settings className="h-6 w-6 opacity-70" />
+        </div>
+        <p className="text-sm font-medium text-white">Select a node to inspect</p>
+        <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
+          Pick any node on the canvas to configure labels, model choices, retries, prompts, or runtime options.
+        </p>
       </div>
     );
   }
@@ -34,17 +39,17 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
     return (
       <div className="space-y-4">
         <div className="space-y-1">
-          <h3 className="text-sm font-semibold">{String(data?.label || type)}</h3>
-          <p className="text-xs text-muted-foreground">
+          <h3 className="text-sm font-semibold text-white">{String(data?.label || type)}</h3>
+          <p className="text-xs leading-relaxed text-muted-foreground">
             This is a legacy or unsupported node type. Raw data is still editable.
           </p>
         </div>
         <div className="space-y-1.5">
-          <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+          <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
             Raw Data
           </Label>
           <Textarea
-            className="text-xs min-h-[220px] bg-background/50 border-white/10 font-mono"
+            className="min-h-[220px] rounded-3xl border-white/10 bg-black/20 font-mono text-xs"
             value={JSON.stringify(data || {}, null, 2)}
             onChange={(e) => {
               try {
@@ -61,9 +66,10 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
 
   return (
     <div className="space-y-5">
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold">{definition.title}</h3>
-        <p className="text-xs text-muted-foreground">{definition.description}</p>
+      <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Selected node</p>
+        <h3 className="mt-2 text-base font-semibold text-white">{definition.title}</h3>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{definition.description}</p>
       </div>
 
       {definition.fields.map((field) => {
@@ -72,12 +78,12 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
 
         return (
           <div key={field.name} className="space-y-1.5">
-            <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">
+            <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
               {field.label}
             </Label>
             {field.type === "textarea" || field.type === "json" ? (
               <Textarea
-                className="text-xs min-h-[100px] bg-background/50 border-white/10 font-mono"
+                className="min-h-[110px] rounded-3xl border-white/10 bg-black/20 font-mono text-xs"
                 value={String(currentValue)}
                 onChange={(e) => handleChange(field.name, e.target.value)}
                 placeholder={field.placeholder}
@@ -87,7 +93,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
                 value={String(currentValue || "")}
                 onValueChange={(nextValue) => handleChange(field.name, nextValue)}
               >
-                <SelectTrigger className="text-xs bg-background/50 border-white/10">
+                <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20 text-xs">
                   <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
                 </SelectTrigger>
                 <SelectContent>
@@ -99,7 +105,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
                 </SelectContent>
               </Select>
             ) : field.type === "boolean" ? (
-              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-background/40 p-3">
+              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-3">
                 <span className="text-xs text-muted-foreground">
                   {currentValue ? "Enabled" : "Disabled"}
                 </span>
@@ -127,7 +133,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
               ) : (
                 <Input
                   type="number"
-                  className="text-xs bg-background/50 border-white/10"
+                  className="h-11 rounded-2xl border-white/10 bg-black/20 text-xs"
                   value={Number(currentValue || 0)}
                   onChange={(e) => handleChange(field.name, Number(e.target.value))}
                   placeholder={field.placeholder}
@@ -136,20 +142,20 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
             ) : (
               <Input
                 type={field.type === "password" ? "password" : "text"}
-                className="text-xs bg-background/50 border-white/10"
+                className="h-11 rounded-2xl border-white/10 bg-black/20 text-xs"
                 value={String(currentValue)}
                 onChange={(e) => handleChange(field.name, e.target.value)}
                 placeholder={field.placeholder}
               />
             )}
             {field.description ? (
-              <p className="text-[10px] text-muted-foreground/70">{field.description}</p>
+              <p className="text-[10px] leading-relaxed text-muted-foreground/70">{field.description}</p>
             ) : null}
           </div>
         );
       })}
 
-      <div className="rounded-xl border border-white/10 bg-background/30 p-3 text-[11px] text-muted-foreground">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[11px] text-muted-foreground">
         Supports:
         {" "}
         {[

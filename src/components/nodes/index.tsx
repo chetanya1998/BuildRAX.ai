@@ -94,19 +94,19 @@ function DynamicNode({ id, data, selected, type }: NodeProps) {
       onEdit={nodeData.onEdit}
     >
       <div className="space-y-2">
-        <p className="text-[10px] text-muted-foreground/80 line-clamp-2">
+        <p className="line-clamp-2 text-[10px] leading-relaxed text-muted-foreground/80">
           {definition.description}
         </p>
         {preview.length > 0 ? (
           <div className="space-y-1">
             {preview.map((value, index) => (
-              <div key={`${type}-${index}`} className="text-[10px] text-muted-foreground line-clamp-2 font-mono">
+              <div key={`${type}-${index}`} className="line-clamp-2 rounded-xl border border-white/8 bg-white/[0.03] px-2.5 py-2 text-[10px] font-mono text-muted-foreground">
                 {value}
               </div>
             ))}
           </div>
         ) : (
-          <div className="text-[10px] text-muted-foreground/60">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground/60">
             {definition.pack.toUpperCase()} / {definition.category}
           </div>
         )}

@@ -169,9 +169,10 @@ export default function TemplatesPage() {
   };
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <div className="glass-panel p-6 md:p-9 rounded-3xl border border-border/40 relative overflow-hidden bg-card/40">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-[110px] -translate-y-1/2 translate-x-1/3" />
+    <div className="mx-auto max-w-7xl space-y-8 p-4 pb-10 md:p-8">
+      <div className="builder-surface relative overflow-hidden rounded-[32px] p-6 md:p-9">
+        <div className="absolute inset-y-0 right-0 w-[38%] bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.24),transparent_52%)]" />
+        <div className="absolute left-10 top-10 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl" />
         <div className="relative z-10 space-y-5">
           <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
             <Sparkles className="w-3.5 h-3.5 mr-1.5" />
@@ -187,7 +188,7 @@ export default function TemplatesPage() {
                 HR, Marketing, Sales, and Support. Every blueprint instantiates into a real editable workflow.
               </p>
             </div>
-            <Button className="rounded-xl h-11 px-6" onClick={() => router.push("/builder")}>
+            <Button className="h-11 rounded-2xl bg-sky-500 px-6 text-slate-950 hover:bg-sky-400" onClick={() => router.push("/builder")}>
               <BrainCircuit className="w-4 h-4 mr-2" />
               Open AI Architect
             </Button>
@@ -199,7 +200,7 @@ export default function TemplatesPage() {
         <div className="relative flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <Input
-            className="pl-9 h-11 bg-background/40 border-white/10 rounded-xl"
+            className="h-11 rounded-2xl border-white/10 bg-black/20 pl-9"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by blueprint name, use case, sector, or tags..."
@@ -207,7 +208,7 @@ export default function TemplatesPage() {
         </div>
         <div className="w-full md:w-72">
           <Select value={sector} onValueChange={(value) => setSector(value || "all")}>
-            <SelectTrigger className="h-11 rounded-xl bg-background/40 border-white/10">
+            <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
               <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
               <SelectValue placeholder="Filter by sector" />
             </SelectTrigger>
@@ -223,7 +224,7 @@ export default function TemplatesPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "enterprise" | "community")}>
-        <TabsList className="bg-card/20 border border-border/40 inline-flex h-auto p-1.5 rounded-2xl">
+        <TabsList className="inline-flex h-auto rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
           <TabsTrigger value="enterprise" className="rounded-xl px-4 py-2">
             Enterprise Catalog
           </TabsTrigger>
@@ -257,14 +258,14 @@ export default function TemplatesPage() {
                 {(catalogData?.blueprints || []).map((blueprint) => (
                   <Card
                     key={blueprint.slug}
-                    className="bg-card/20 border-border/40 hover:border-primary/30 transition-all rounded-2xl overflow-hidden"
+                    className="builder-surface overflow-hidden rounded-[28px] border-white/10 transition-all hover:-translate-y-0.5 hover:border-sky-400/20"
                   >
                     <CardHeader className="space-y-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                          <Building2 className="w-6 h-6 text-primary" />
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-400/20 bg-sky-500/10">
+                          <Building2 className="w-6 h-6 text-sky-200" />
                         </div>
-                        <Badge variant="outline" className="border-white/10">
+                        <Badge variant="outline" className="border-sky-400/20 bg-sky-500/10 text-sky-100">
                           {blueprint.sector}
                         </Badge>
                       </div>
@@ -288,9 +289,9 @@ export default function TemplatesPage() {
                         ))}
                       </div>
                     </CardContent>
-                    <CardFooter className="flex gap-2 border-t border-white/5 bg-black/10">
+                    <CardFooter className="flex gap-2 border-t border-white/8 bg-black/10">
                       <Button
-                        className="flex-1 rounded-xl"
+                        className="flex-1 rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400"
                         onClick={() => handleInstantiateBlueprint(blueprint.slug)}
                         disabled={instantiatingSlug === blueprint.slug}
                       >
@@ -301,7 +302,7 @@ export default function TemplatesPage() {
                         )}
                         Use Blueprint
                       </Button>
-                      <Button variant="outline" className="rounded-xl" onClick={() => setSelectedBlueprint(blueprint)}>
+                      <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => setSelectedBlueprint(blueprint)}>
                         View
                       </Button>
                     </CardFooter>
@@ -331,11 +332,11 @@ export default function TemplatesPage() {
               {filteredCommunity.map((template) => (
                 <Card
                   key={template._id}
-                  className="bg-card/20 border-border/40 hover:border-primary/30 transition-all rounded-2xl overflow-hidden"
+                  className="builder-surface overflow-hidden rounded-[28px] border-white/10 transition-all hover:-translate-y-0.5 hover:border-sky-400/20"
                 >
                   <CardHeader className="space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-secondary/20 border border-white/10 flex items-center justify-center">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
                         <Layers className="w-5 h-5 text-secondary-foreground" />
                       </div>
                       <Badge variant="outline" className="border-white/10">
@@ -355,9 +356,9 @@ export default function TemplatesPage() {
                       Rating: {(template.averageRating || 0).toFixed(1)}
                     </p>
                   </CardContent>
-                  <CardFooter className="flex gap-2 border-t border-white/5 bg-black/10">
+                  <CardFooter className="flex gap-2 border-t border-white/8 bg-black/10">
                     <Button
-                      className="flex-1 rounded-xl"
+                      className="flex-1 rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400"
                       onClick={() => handleCloneCommunityTemplate(template._id)}
                       disabled={cloningTemplateId === template._id}
                     >
@@ -368,7 +369,7 @@ export default function TemplatesPage() {
                       )}
                       Clone
                     </Button>
-                    <Button variant="outline" className="rounded-xl" onClick={() => setSelectedCommunity(template)}>
+                    <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => setSelectedCommunity(template)}>
                       View
                     </Button>
                   </CardFooter>
@@ -380,29 +381,31 @@ export default function TemplatesPage() {
       </Tabs>
 
       <Dialog open={!!selectedBlueprint} onOpenChange={(open) => !open && setSelectedBlueprint(null)}>
-        <DialogContent className="max-w-3xl bg-[#09090b] border border-white/10 rounded-3xl p-0 overflow-hidden">
+        <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden rounded-[32px] border border-white/10 bg-[#07090f] p-0">
           {selectedBlueprint ? (
-            <div className="grid md:grid-cols-[320px_1fr]">
-              <div className="p-7 border-r border-white/5 bg-black/40 space-y-6">
+            <div className="grid max-h-[88vh] md:grid-cols-[360px_minmax(0,1fr)]">
+              <div className="builder-surface flex flex-col justify-between border-r border-white/8 p-7">
                 <div className="space-y-2">
-                  <Badge variant="outline" className="border-primary/30 text-primary">
+                  <Badge variant="outline" className="border-sky-400/20 bg-sky-500/10 text-sky-100">
                     {selectedBlueprint.sector}
                   </Badge>
                   <h3 className="text-2xl font-bold leading-tight">{selectedBlueprint.name}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     {selectedBlueprint.description}
                   </p>
                 </div>
-                <div className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">Use Case</p>
-                  <p className="font-semibold">{selectedBlueprint.useCase}</p>
-                </div>
-                <div className="space-y-2 text-sm">
-                  <p className="text-muted-foreground">Estimated Credits</p>
-                  <p className="font-semibold">{selectedBlueprint.estimatedCreditCost}</p>
+                <div className="mt-6 grid gap-4 text-sm">
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Use Case</p>
+                    <p className="mt-2 font-semibold text-white">{selectedBlueprint.useCase}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Estimated Credits</p>
+                    <p className="mt-2 font-semibold text-white">{selectedBlueprint.estimatedCreditCost}</p>
+                  </div>
                 </div>
                 <Button
-                  className="w-full rounded-xl"
+                  className="mt-6 w-full rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400"
                   onClick={() => handleInstantiateBlueprint(selectedBlueprint.slug)}
                   disabled={instantiatingSlug === selectedBlueprint.slug}
                 >
@@ -415,7 +418,7 @@ export default function TemplatesPage() {
                 </Button>
               </div>
 
-              <div className="p-7 space-y-6">
+              <div className="overflow-y-auto p-7 space-y-6">
                 <DialogHeader className="space-y-2">
                   <DialogTitle>Production Blueprint Details</DialogTitle>
                   <DialogDescription>
@@ -427,7 +430,7 @@ export default function TemplatesPage() {
                   <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Required Connectors</h4>
                   <div className="flex flex-wrap gap-2">
                     {selectedBlueprint.requiredConnectors.map((connector) => (
-                      <span key={connector} className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                      <span key={connector} className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-100">
                         {connector}
                       </span>
                     ))}
@@ -438,7 +441,7 @@ export default function TemplatesPage() {
                   <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Analysis Rubric</h4>
                   <div className="space-y-2">
                     {selectedBlueprint.analysisRubric.map((item, index) => (
-                      <div key={`analysis-${index}`} className="text-sm text-muted-foreground bg-card/40 border border-white/10 rounded-xl px-3 py-2">
+                      <div key={`analysis-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-muted-foreground">
                         {item}
                       </div>
                     ))}
@@ -449,7 +452,7 @@ export default function TemplatesPage() {
                   <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Benchmark Rubric</h4>
                   <div className="space-y-2">
                     {selectedBlueprint.benchmarkRubric.map((item, index) => (
-                      <div key={`benchmark-${index}`} className="text-sm text-muted-foreground bg-card/40 border border-white/10 rounded-xl px-3 py-2">
+                      <div key={`benchmark-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-muted-foreground">
                         {item}
                       </div>
                     ))}
@@ -462,7 +465,7 @@ export default function TemplatesPage() {
       </Dialog>
 
       <Dialog open={!!selectedCommunity} onOpenChange={(open) => !open && setSelectedCommunity(null)}>
-        <DialogContent className="max-w-xl bg-[#09090b] border border-white/10 rounded-2xl">
+        <DialogContent className="max-w-xl rounded-[28px] border border-white/10 bg-[#07090f]">
           {selectedCommunity ? (
             <>
               <DialogHeader>

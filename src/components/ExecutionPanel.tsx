@@ -66,18 +66,18 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-xl md:max-w-2xl border-l border-border/40 bg-background/95 backdrop-blur-xl p-0 flex flex-col">
-        <SheetHeader className="p-6 border-b border-border/40 bg-card/50">
-          <div className="flex items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-                <BrainCircuit className="w-5 h-5 text-green-500" />
+      <SheetContent side="right" className="flex w-full flex-col border-l border-white/10 bg-[#05070d]/96 p-0 backdrop-blur-2xl sm:max-w-xl md:max-w-2xl">
+        <SheetHeader className="border-b border-white/8 bg-[linear-gradient(180deg,rgba(8,12,20,0.96)_0%,rgba(7,10,16,0.9)_100%)] px-6 py-6">
+          <div className="flex items-start justify-between gap-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-emerald-400/20 bg-emerald-500/10">
+                <BrainCircuit className="h-5 w-5 text-emerald-300" />
               </div>
               <div>
-                <SheetTitle className="text-xl">
+                <SheetTitle className="text-xl text-white">
                   {isBenchmark ? "Benchmark Results" : "Runtime Trace"}
                 </SheetTitle>
-                <SheetDescription>
+                <SheetDescription className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">
                   {runData?.mode === "simulation"
                     ? "Inspect the sandboxed simulation output."
                     : runData?.mode === "execution"
@@ -86,25 +86,25 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                 </SheetDescription>
               </div>
             </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mr-8">
+            <div className="mr-8 hidden items-center gap-4 text-sm text-muted-foreground lg:flex">
               <div className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4" /> {summary.latencyMs || 0}ms
+                <Clock className="h-4 w-4" /> {summary.latencyMs || 0}ms
               </div>
               <div className="flex items-center gap-1.5">
-                <Zap className="w-4 h-4" /> {summary.tokenUsage || 0} tokens
+                <Zap className="h-4 w-4" /> {summary.tokenUsage || 0} tokens
               </div>
             </div>
           </div>
         </SheetHeader>
 
         <Tabs defaultValue="summary" className="flex-1 flex flex-col">
-          <div className="px-6 border-b border-white/[0.05] bg-white/[0.02]">
-            <TabsList className="bg-transparent h-14 w-full justify-start gap-8 rounded-none p-0">
-              <TabsTrigger value="summary" className="rounded-none px-0 h-full">Summary</TabsTrigger>
-              <TabsTrigger value="flow" className="rounded-none px-0 h-full">Node Trace</TabsTrigger>
-              <TabsTrigger value="analysis" className="rounded-none px-0 h-full">Analysis</TabsTrigger>
+          <div className="border-b border-white/8 px-6 py-4">
+            <TabsList className={`grid h-auto rounded-2xl border border-white/10 bg-white/[0.03] p-1 ${isBenchmark ? "grid-cols-4" : "grid-cols-3"}`}>
+              <TabsTrigger value="summary" className="rounded-xl py-2 text-xs">Summary</TabsTrigger>
+              <TabsTrigger value="flow" className="rounded-xl py-2 text-xs">Node Trace</TabsTrigger>
+              <TabsTrigger value="analysis" className="rounded-xl py-2 text-xs">Analysis</TabsTrigger>
               {isBenchmark ? (
-                <TabsTrigger value="benchmark" className="rounded-none px-0 h-full">
+                <TabsTrigger value="benchmark" className="rounded-xl py-2 text-xs">
                   Benchmark
                 </TabsTrigger>
               ) : null}
@@ -113,14 +113,18 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
 
           <ScrollArea className="flex-1 p-6">
             <TabsContent value="summary" className="m-0 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-white/10 bg-card/30 p-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Status</p>
-                  <p className="text-lg font-bold">{summary.status || "idle"}</p>
+                  <p className="text-lg font-bold text-white">{summary.status || "idle"}</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-card/30 p-4">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Cost</p>
-                  <p className="text-lg font-bold">${summary.cost || 0}</p>
+                  <p className="text-lg font-bold text-white">${summary.cost || 0}</p>
+                </div>
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Latency</p>
+                  <p className="text-lg font-bold text-white">{summary.latencyMs || 0}ms</p>
                 </div>
               </div>
 
@@ -130,7 +134,7 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                     <ShieldAlert className="w-4 h-4 text-yellow-500" /> Warnings
                   </h4>
                   {summary.warnings.map((warning: string, index: number) => (
-                    <div key={`warning-${index}`} className="rounded-xl border border-yellow-500/20 bg-yellow-500/5 p-3 text-sm">
+                    <div key={`warning-${index}`} className="rounded-2xl border border-yellow-500/20 bg-yellow-500/8 p-4 text-sm leading-relaxed text-yellow-50/90">
                       {warning}
                     </div>
                   ))}
@@ -140,15 +144,15 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
 
             <TabsContent value="flow" className="m-0 space-y-4">
               {nodeResults.length === 0 ? (
-                <div className="rounded-2xl border border-white/10 bg-card/20 p-6 text-sm text-muted-foreground">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-muted-foreground">
                   No node-level trace available yet.
                 </div>
               ) : (
                 nodeResults.map((result: NodeExecutionResult) => (
-                  <div key={result.nodeId} className="rounded-2xl border border-white/10 bg-card/20 p-4 space-y-3">
+                  <div key={result.nodeId} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold">{result.nodeType}</p>
+                        <p className="text-sm font-semibold text-white">{result.nodeType}</p>
                         <p className="text-[11px] text-muted-foreground">{result.nodeId}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -158,7 +162,7 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                         <Badge variant="outline">{result.metrics?.latencyMs || 0}ms</Badge>
                       </div>
                     </div>
-                    <pre className="rounded-xl bg-black/30 p-3 text-[11px] text-muted-foreground overflow-x-auto whitespace-pre-wrap">
+                    <pre className="overflow-x-auto whitespace-pre-wrap rounded-2xl border border-white/8 bg-black/30 p-3 text-[11px] text-muted-foreground">
                       {renderValue(result.outputs)}
                     </pre>
                     {result.error ? (
@@ -171,13 +175,13 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
 
             <TabsContent value="analysis" className="m-0 space-y-5">
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-2xl border border-white/10 bg-card/20 p-4">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Score</p>
-                  <p className="text-xl font-black">{analysis.score || 0}/100</p>
+                  <p className="text-xl font-black text-white">{analysis.score || 0}/100</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-card/20 p-4">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Feedback</p>
-                  <p className="text-sm">{analysis.feedback || "No analysis available."}</p>
+                  <p className="text-sm leading-relaxed text-white/90">{analysis.feedback || "No analysis available."}</p>
                 </div>
               </div>
 
@@ -187,7 +191,7 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                     Flaws
                   </h4>
                   {analysis.flaws.map((flaw: string, index: number) => (
-                    <div key={`flaw-${index}`} className="rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm">
+                    <div key={`flaw-${index}`} className="rounded-2xl border border-red-500/20 bg-red-500/8 p-3 text-sm leading-relaxed">
                       {flaw}
                     </div>
                   ))}
@@ -200,7 +204,7 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                     <Sparkles className="w-4 h-4 text-primary" /> Suggested Scenarios
                   </h4>
                   {analysis.suggestedScenarios.map((scenario: string, index: number) => (
-                    <div key={`scenario-${index}`} className="rounded-xl border border-primary/20 bg-primary/5 p-3 text-sm">
+                    <div key={`scenario-${index}`} className="rounded-2xl border border-sky-400/20 bg-sky-500/8 p-3 text-sm leading-relaxed">
                       {scenario}
                     </div>
                   ))}
@@ -211,10 +215,10 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
             {isBenchmark ? (
               <TabsContent value="benchmark" className="m-0 space-y-4">
                 {scores.map((score: BenchmarkScore) => (
-                  <div key={score.variantId} className="rounded-2xl border border-white/10 bg-card/20 p-4 space-y-3">
+                  <div key={score.variantId} className="rounded-3xl border border-white/10 bg-white/[0.03] p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-sm font-semibold">{score.variantId}</p>
+                        <p className="text-sm font-semibold text-white">{score.variantId}</p>
                         <p className="text-[11px] text-muted-foreground">{score.model || "model"}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -229,10 +233,10 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="rounded-xl bg-black/20 p-3">Latency: {score.latencyMs}ms</div>
-                      <div className="rounded-xl bg-black/20 p-3">Assertion Pass: {Math.round(score.assertionPassRate * 100)}%</div>
-                      <div className="rounded-xl bg-black/20 p-3">Tokens: {score.tokenUsage}</div>
-                      <div className="rounded-xl bg-black/20 p-3">Cost: ${score.cost}</div>
+                      <div className="rounded-2xl border border-white/8 bg-black/20 p-3">Latency: {score.latencyMs}ms</div>
+                      <div className="rounded-2xl border border-white/8 bg-black/20 p-3">Assertion Pass: {Math.round(score.assertionPassRate * 100)}%</div>
+                      <div className="rounded-2xl border border-white/8 bg-black/20 p-3">Tokens: {score.tokenUsage}</div>
+                      <div className="rounded-2xl border border-white/8 bg-black/20 p-3">Cost: ${score.cost}</div>
                     </div>
                   </div>
                 ))}

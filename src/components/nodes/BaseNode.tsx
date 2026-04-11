@@ -2,7 +2,6 @@ import { Handle, Position } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import React from "react";
 import { Trash2, ExternalLink, MoreVertical } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +20,7 @@ interface BaseNodeProps {
   colorClass?: string;
   className?: string;
   isSimulating?: boolean;
-  simulatedOutput?: any;
+  simulatedOutput?: unknown;
   onDelete?: (id: string) => void;
   onEdit?: (id: string) => void;
   customHeaderStyle?: React.CSSProperties;
@@ -43,27 +42,38 @@ export function BaseNode({
   onEdit,
   customHeaderStyle
 }: BaseNodeProps) {
+  const hasSimulatedOutput =
+    simulatedOutput !== undefined && simulatedOutput !== null && simulatedOutput !== "";
+
   return (
     <div
       className={cn(
-        "min-w-64 max-w-sm rounded-xl border border-white/[0.08] bg-[#161618] backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] transition-all duration-300",
-        selected ? "ring-2 ring-primary border-primary shadow-[0_0_30px_rgba(var(--primary),0.2)] scale-[1.02]" : "hover:border-white/20 hover:shadow-[0_10px_50px_rgba(0,0,0,0.9)] hover:-translate-y-0.5",
+        "min-w-[278px] max-w-sm overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96)_0%,rgba(9,12,19,0.92)_100%)] shadow-[0_22px_60px_rgba(0,0,0,0.36)] backdrop-blur-2xl transition-all duration-300",
+        selected
+          ? "border-sky-400/30 shadow-[0_0_0_1px_rgba(56,189,248,0.18),0_26px_70px_rgba(2,132,199,0.2)] -translate-y-0.5"
+          : "hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_26px_70px_rgba(0,0,0,0.42)]",
         className
       )}
     >
-      {/* Header */}
-      <div className="flex items-center gap-3 p-3 border-b border-border/40 bg-background/50 rounded-t-xl group/header" style={customHeaderStyle}>
-        <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center border border-border/40 shadow-sm", colorClass)}>
+      <div className="h-[3px] w-full bg-gradient-to-r from-sky-400/80 via-cyan-300/55 to-transparent" />
+
+      <div className="group/header flex items-center gap-3 border-b border-white/[0.06] bg-black/15 px-3.5 py-3" style={customHeaderStyle}>
+        <div className={cn("flex h-9 w-9 items-center justify-center rounded-2xl border shadow-sm", colorClass)}>
           {icon}
         </div>
-        <div className="flex-1 font-semibold text-sm tracking-tight">{title}</div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold tracking-tight text-white">{title}</div>
+          <div className="mt-0.5 text-[10px] uppercase tracking-[0.2em] text-muted-foreground">
+            {inputs.length} in / {outputs.length} out
+          </div>
+        </div>
         
         <div className="flex items-center gap-1 opacity-0 group-hover/header:opacity-100 transition-opacity">
           <DropdownMenu>
-            <DropdownMenuTrigger className="h-7 w-7 rounded-lg hover:bg-white/10 flex items-center justify-center border-none bg-transparent cursor-pointer">
+            <DropdownMenuTrigger className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-xl border-none bg-transparent hover:bg-white/10">
               <MoreVertical className="w-3.5 h-3.5" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-[#161618] border-white/10">
+            <DropdownMenuContent align="end" className="border-white/10 bg-[#161618]">
               <DropdownMenuItem onClick={() => id && onEdit?.(id)} className="text-xs flex items-center gap-2 cursor-pointer">
                 <ExternalLink className="w-3.5 h-3.5" /> Configure Node
               </DropdownMenuItem>
@@ -75,21 +85,27 @@ export function BaseNode({
         </div>
       </div>
 
-      {/* Body */}
-      <div className="p-4 space-y-4">
+      <div className="space-y-4 p-4">
         {children && <div className="text-sm text-foreground">{children}</div>}
         
-        {/* Simulation Result */}
-        {(isSimulating || simulatedOutput) && (
+        {(isSimulating || hasSimulatedOutput) && (
           <div className={cn(
-            "p-3 rounded-lg border text-[10px] font-mono transition-all duration-300",
-            isSimulating ? "bg-primary/10 border-primary animate-pulse shadow-sm" : "bg-surface/50 border-border/40 text-muted-foreground"
+            "rounded-2xl border p-3 text-[10px] font-mono transition-all duration-300",
+            isSimulating
+              ? "animate-pulse border-sky-400/30 bg-sky-500/10 shadow-sm"
+              : "border-white/10 bg-black/20 text-muted-foreground"
           )}>
-            <div className="flex items-center justify-between mb-1 opacity-60">
-               <span className="uppercase tracking-tighter">Simulated Output</span>
-               {isSimulating && <div className="w-1.5 h-1.5 rounded-full bg-primary animate-ping" />}
+            <div className="mb-1 flex items-center justify-between opacity-60">
+               <span className="uppercase tracking-[0.2em]">Simulated Output</span>
+               {isSimulating && <div className="h-1.5 w-1.5 animate-ping rounded-full bg-sky-300" />}
             </div>
-            <div className="line-clamp-3">{simulatedOutput || "Processing..."}</div>
+            <div className="line-clamp-3">
+              {typeof simulatedOutput === "string"
+                ? simulatedOutput
+                : hasSimulatedOutput
+                  ? JSON.stringify(simulatedOutput)
+                  : "Processing..."}
+            </div>
           </div>
         )}
       </div>
@@ -101,7 +117,7 @@ export function BaseNode({
           type="target"
           position={Position.Left}
           id={input.id}
-          className="w-3 h-3 bg-card border-2 border-primary"
+          className="h-3 w-3 border-2 border-sky-300 bg-slate-950"
           style={{ top: `${(idx + 1) * (100 / (inputs.length + 1))}%` }}
         />
       ))}
@@ -111,7 +127,7 @@ export function BaseNode({
           type="source"
           position={Position.Right}
           id={output.id}
-          className="w-3 h-3 bg-card border-2 border-primary"
+          className="h-3 w-3 border-2 border-sky-300 bg-slate-950"
           style={{ top: `${(idx + 1) * (100 / (outputs.length + 1))}%` }}
         />
       ))}

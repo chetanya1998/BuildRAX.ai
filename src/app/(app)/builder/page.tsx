@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { signIn, useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
@@ -22,18 +22,26 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft,
   BrainCircuit,
+  CreditCard,
   GitBranch,
+  GraduationCap,
+  LayoutDashboard,
+  Layers,
+  Library,
   Loader2,
   Play,
   Rocket,
+  Search,
   Save,
   ShieldCheck,
   Sparkles,
+  SlidersHorizontal,
   Trash2,
   Wand2,
   Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,8 +55,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { FancyLoader } from "@/components/ui/FancyLoader";
@@ -56,6 +64,7 @@ import { getDefaultNodeData, NODE_DEFINITIONS, NODE_PACK_ORDER } from "@/lib/gra
 import { DEFAULT_VIEWPORT } from "@/lib/graph/persistence";
 import { CreditBalance, NodeExecutionResult, ScenarioDefinition, WorkflowGraph } from "@/lib/graph/types";
 import { nodeTypes } from "@/components/nodes";
+import { cn } from "@/lib/utils";
 
 const LOCAL_DRAFT_KEY = "buildrax:builder-draft:v2";
 const PENDING_ACTION_KEY = "buildrax:pending-builder-action";
@@ -141,6 +150,24 @@ const blankEdges: FlowEdge[] = [
   { id: "service-output", source: "service", target: "output", animated: true },
 ];
 
+const workspaceNavItems = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/workflows", label: "Workflows", icon: Layers },
+  { href: "/builder", label: "AI Architect", icon: BrainCircuit },
+  { href: "/templates", label: "Templates", icon: Library },
+  { href: "/billing", label: "Billing", icon: CreditCard },
+  { href: "/learn", label: "Learn", icon: GraduationCap },
+] as const;
+
+const packAccentClasses: Record<string, string> = {
+  ai: "bg-sky-500/14 text-sky-300 border-sky-400/20",
+  backend: "bg-violet-500/14 text-violet-300 border-violet-400/20",
+  data: "bg-emerald-500/14 text-emerald-300 border-emerald-400/20",
+  reliability: "bg-amber-500/14 text-amber-200 border-amber-400/20",
+  security: "bg-rose-500/14 text-rose-200 border-rose-400/20",
+  observability: "bg-cyan-500/14 text-cyan-200 border-cyan-400/20",
+};
+
 const defaultScenario: ScenarioDefinition = {
   name: "Baseline",
   trafficProfile: "steady",
@@ -181,6 +208,13 @@ function makeGraph(args: {
   };
 }
 
+function formatModeLabel(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 function BuilderCanvas() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
@@ -208,13 +242,16 @@ function BuilderCanvas() {
   const [blueprints, setBlueprints] = useState<BlueprintRecord[]>([]);
   const [blueprintQuery, setBlueprintQuery] = useState("");
   const [selectedSector, setSelectedSector] = useState("all");
+  const [nodeQuery, setNodeQuery] = useState("");
   const [libraryTab, setLibraryTab] = useState("nodes");
+  const [inspectorTab, setInspectorTab] = useState("workflow");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [scenario, setScenario] = useState(defaultScenario);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [benchmarkModels, setBenchmarkModels] = useState("gpt-4o,gpt-4.1-mini,claude-3-5-sonnet");
   const reactFlowInstanceRef = useRef<FlowViewportController | null>(null);
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const deferredNodeQuery = useDeferredValue(nodeQuery);
 
   const packedNodes = useMemo(
     () =>
@@ -224,6 +261,26 @@ function BuilderCanvas() {
       })),
     []
   );
+
+  const filteredNodeGroups = useMemo(() => {
+    const query = deferredNodeQuery.trim().toLowerCase();
+
+    return packedNodes
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((definition) => {
+          if (!query) return true;
+
+          return (
+            definition.title.toLowerCase().includes(query) ||
+            definition.description.toLowerCase().includes(query) ||
+            definition.category.toLowerCase().includes(query) ||
+            definition.pack.toLowerCase().includes(query)
+          );
+        }),
+      }))
+      .filter((group) => group.items.length > 0);
+  }, [deferredNodeQuery, packedNodes]);
 
   const sectors = useMemo(
     () => ["all", ...Array.from(new Set(blueprints.map((blueprint) => blueprint.sector)))],
@@ -262,6 +319,15 @@ function BuilderCanvas() {
       }),
     [workflowName, workflowDescription, nodes, edges]
   );
+
+  useEffect(() => {
+    if (selectedNode) {
+      setInspectorTab("node");
+      return;
+    }
+
+    setInspectorTab((current) => (current === "node" ? "workflow" : current));
+  }, [selectedNode]);
 
   const saveLocalDraft = useCallback(
     (nextWorkflowId = workflowId) => {
@@ -921,6 +987,10 @@ function BuilderCanvas() {
     event.dataTransfer.effectAllowed = "move";
   }, []);
 
+  const selectedNodeLabel = selectedNode
+    ? String(selectedNode.data?.label || selectedNode.type || "Selected node")
+    : null;
+
   if (!isHydrated) {
     return (
       <div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground">
@@ -930,372 +1000,558 @@ function BuilderCanvas() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden">
-      <header className="h-16 border-b border-white/[0.05] bg-card/40 backdrop-blur-3xl px-5 flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-4 min-w-0">
-          <Button variant="ghost" size="icon" className="rounded-xl" asChild>
-            <Link href="/dashboard">
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-          </Button>
-          <div className="min-w-0">
-            <Input
-              value={workflowName}
-              onChange={(event) => setWorkflowName(event.target.value)}
-              className="h-9 bg-transparent border-none px-0 text-base font-bold focus-visible:ring-0"
-            />
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
-              {autosaveStatus}
-            </p>
+    <div className="flex h-screen overflow-hidden builder-shell text-foreground">
+      <aside className="builder-surface-muted flex w-[84px] shrink-0 flex-col items-center justify-between border-r border-white/5 px-3 py-4">
+        <div className="space-y-5">
+          <Link href="/dashboard" className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-200 builder-accent-ring">
+            <BrainCircuit className="h-5 w-5" />
+          </Link>
+
+          <div className="space-y-2">
+            {workspaceNavItems.map((item) => {
+              const isActive = item.href === "/builder";
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={item.label}
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-2xl border transition-all duration-200",
+                    isActive
+                      ? "border-sky-400/30 bg-sky-500/14 text-sky-100 shadow-[0_12px_32px_rgba(14,165,233,0.18)]"
+                      : "border-transparent bg-white/[0.03] text-muted-foreground hover:border-white/10 hover:bg-white/[0.06] hover:text-foreground"
+                  )}
+                >
+                  <item.icon className="h-4 w-4" />
+                </Link>
+              );
+            })}
           </div>
-          {sourceBlueprintSlug ? (
-            <Badge variant="outline" className="hidden xl:inline-flex border-primary/20 text-primary">
-              Blueprint: {sourceBlueprintSlug}
-            </Badge>
-          ) : null}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          {session?.user ? (
-            <Badge variant="outline" className="border-white/10 bg-white/5 hidden lg:inline-flex">
-              {creditBalance?.availableCredits ?? "--"} credits
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-white/10 bg-white/5 hidden lg:inline-flex">
-              Local draft mode
-            </Badge>
-          )}
-
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={handleAnalyze} disabled={isAnalyzing}>
-            {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
-            Analyze
-          </Button>
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
-            {isBenchmarking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <GitBranch className="w-4 h-4 mr-2" />}
-            Benchmark
-          </Button>
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => handleSimulation()} disabled={isSimulating}>
-            {isSimulating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
-            Simulate
-          </Button>
-          <Button variant="ghost" size="sm" className="rounded-xl" onClick={handleSave} disabled={isSaving}>
-            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save
-          </Button>
-          <Button size="sm" className="rounded-xl" onClick={() => handleExecution()} disabled={isExecuting}>
-            {isExecuting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
-            Execute
-          </Button>
-          {workflowId ? (
-            <Button variant="ghost" size="icon" className="rounded-xl text-red-400 hover:text-red-300" onClick={handleDeleteWorkflow}>
-              <Trash2 className="w-4 h-4" />
-            </Button>
-          ) : null}
+        <div className="space-y-3 text-center">
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-2 py-2 text-[10px] text-muted-foreground">
+            {session?.user ? `${creditBalance?.availableCredits ?? "--"} credits` : "local"}
+          </div>
+          <Link href="/profile" className="flex justify-center">
+            <Avatar className="h-11 w-11 border border-white/10 shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
+              <AvatarImage src={session?.user?.image || ""} />
+              <AvatarFallback className="bg-sky-500/10 text-sky-100">
+                {session?.user?.name?.charAt(0)?.toUpperCase() || "GU"}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         </div>
-      </header>
+      </aside>
 
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-80 border-r border-white/[0.05] bg-card/20 backdrop-blur-3xl flex flex-col shrink-0">
-          <Tabs value={libraryTab} onValueChange={setLibraryTab} className="flex-1 flex flex-col">
-            <div className="p-4 border-b border-white/[0.05]">
-              <TabsList className="grid grid-cols-3 w-full bg-black/20">
-                <TabsTrigger value="nodes">Nodes</TabsTrigger>
-                <TabsTrigger value="blueprints">Blueprints</TabsTrigger>
-                <TabsTrigger value="prompt">Prompt</TabsTrigger>
-              </TabsList>
+      <aside className="builder-surface-muted flex w-[340px] shrink-0 flex-col border-r border-white/5">
+        <div className="border-b border-white/5 px-5 py-5">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">Build Space</p>
+              <h2 className="mt-1 text-lg font-semibold">Library</h2>
             </div>
+            <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-muted-foreground">
+              {nodes.length} nodes
+            </div>
+          </div>
 
-            <TabsContent value="nodes" className="flex-1 m-0 overflow-y-auto p-4 space-y-6">
-              {packedNodes.map((group) => (
-                <div key={group.pack} className="space-y-3">
-                  <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">
-                    {group.pack}
-                  </h3>
-                  <div className="grid gap-2">
-                    {group.items.map((definition) => (
-                      <div
-                        key={definition.type}
-                        draggable
-                        onDragStart={(event) => onDragStart(event, definition.type)}
-                        className="rounded-2xl border border-white/5 bg-white/[0.03] p-3 cursor-grab active:cursor-grabbing hover:border-primary/30 transition-all"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold">{definition.title}</p>
-                            <p className="text-[11px] text-muted-foreground mt-1">
-                              {definition.description}
-                            </p>
-                          </div>
-                          <Badge variant="outline" className="border-white/10 text-[10px] uppercase">
-                            {definition.category}
-                          </Badge>
+          <Tabs value={libraryTab} onValueChange={setLibraryTab}>
+            <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl border border-white/10 bg-black/20 p-1">
+              <TabsTrigger value="nodes" className="rounded-xl py-2 text-xs">Nodes</TabsTrigger>
+              <TabsTrigger value="blueprints" className="rounded-xl py-2 text-xs">Blueprints</TabsTrigger>
+              <TabsTrigger value="prompt" className="rounded-xl py-2 text-xs">Prompt</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="space-y-5 px-5 py-5">
+            {libraryTab === "nodes" ? (
+              <>
+                <div className="builder-surface rounded-3xl p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-sky-100">
+                    <Search className="h-4 w-4 text-sky-300" />
+                    Find production nodes
+                  </div>
+                  <Input
+                    value={nodeQuery}
+                    onChange={(event) => setNodeQuery(event.target.value)}
+                    placeholder="Search AI, backend, data, reliability..."
+                    className="h-11 rounded-2xl border-white/10 bg-black/20"
+                  />
+                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+                    Drag a node into the canvas or select a blueprint to start from a complete architecture.
+                  </p>
+                </div>
+
+                <div className="space-y-4">
+                  {filteredNodeGroups.map((group) => (
+                    <section key={group.pack} className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={cn("h-2.5 w-2.5 rounded-full border", packAccentClasses[group.pack])} />
+                          <h3 className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
+                            {formatModeLabel(group.pack)}
+                          </h3>
                         </div>
+                        <span className="text-[11px] text-muted-foreground">{group.items.length}</span>
                       </div>
-                    ))}
+                      <div className="space-y-2">
+                        {group.items.map((definition) => (
+                          <button
+                            key={definition.type}
+                            type="button"
+                            draggable
+                            onDragStart={(event) => onDragStart(event, definition.type)}
+                            className="builder-surface group w-full rounded-2xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400/20"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={cn("mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-xs font-semibold", packAccentClasses[group.pack])}>
+                                {definition.category.slice(0, 2).toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-3">
+                                  <p className="truncate text-sm font-semibold">{definition.title}</p>
+                                  <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px]">
+                                    {definition.category}
+                                  </Badge>
+                                </div>
+                                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                                  {definition.description}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </>
+            ) : null}
+
+            {libraryTab === "blueprints" ? (
+              <>
+                <div className="builder-surface rounded-3xl p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-sky-100">
+                    <Sparkles className="h-4 w-4 text-sky-300" />
+                    Browse blueprint starters
+                  </div>
+                  <div className="space-y-3">
+                    <Input
+                      value={blueprintQuery}
+                      onChange={(event) => setBlueprintQuery(event.target.value)}
+                      placeholder="Search enterprise blueprints..."
+                      className="h-11 rounded-2xl border-white/10 bg-black/20"
+                    />
+                    <Select value={selectedSector} onValueChange={(value) => setSelectedSector(value || "all")}>
+                      <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                        <SelectValue placeholder="Filter by sector" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {sectors.map((sector) => (
+                          <SelectItem key={sector} value={sector}>
+                            {sector === "all" ? "All sectors" : sector}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-              ))}
-            </TabsContent>
 
-            <TabsContent value="blueprints" className="flex-1 m-0 overflow-y-auto p-4 space-y-4">
-              <div className="space-y-3">
-                <Input
-                  value={blueprintQuery}
-                  onChange={(event) => setBlueprintQuery(event.target.value)}
-                  placeholder="Search enterprise blueprints..."
-                  className="bg-black/20 border-white/10"
-                />
-                <Select value={selectedSector} onValueChange={(value) => setSelectedSector(value || "all")}>
-                  <SelectTrigger className="bg-black/20 border-white/10">
-                    <SelectValue placeholder="Filter by sector" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sectors.map((sector) => (
-                      <SelectItem key={sector} value={sector}>
-                        {sector}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-3">
-                {filteredBlueprints.map((blueprint) => (
-                  <button
-                    key={blueprint.slug}
-                    type="button"
-                    className="w-full rounded-2xl border border-white/5 bg-white/[0.03] p-4 text-left hover:border-primary/30 transition-all"
-                    onClick={() => handleBlueprintApply(blueprint)}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold">{blueprint.name}</p>
-                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
-                          {blueprint.description}
-                        </p>
+                <div className="space-y-3">
+                  {filteredBlueprints.map((blueprint) => (
+                    <button
+                      key={blueprint.slug}
+                      type="button"
+                      className="builder-surface group w-full rounded-3xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400/20"
+                      onClick={() => handleBlueprintApply(blueprint)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold leading-snug">{blueprint.name}</p>
+                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                            {blueprint.description}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className="border-sky-400/20 bg-sky-500/10 text-sky-200">
+                          {blueprint.sector}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className="border-primary/20 text-primary">
-                        {blueprint.sector}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 mt-3 flex-wrap">
-                      {(blueprint.tags || []).slice(0, 4).map((tag: string) => (
-                        <span key={tag} className="text-[10px] text-muted-foreground bg-black/20 px-2 py-1 rounded-full">
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="prompt" className="flex-1 m-0 overflow-y-auto p-4 space-y-4">
-              <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4 space-y-3">
-                <div className="flex items-center gap-2 text-primary text-sm font-semibold">
-                  <Wand2 className="w-4 h-4" /> Prompt-to-System
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {(blueprint.tags || []).slice(0, 4).map((tag) => (
+                          <span key={tag} className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[10px] text-muted-foreground">
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
                 </div>
-                <p className="text-[12px] text-muted-foreground">
-                  Describe the backend system or AI automation you want. The compiler will return an editable production graph.
+              </>
+            ) : null}
+
+            {libraryTab === "prompt" ? (
+              <div className="builder-surface rounded-[28px] p-5">
+                <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-100">
+                  <Wand2 className="h-4 w-4 text-sky-300" />
+                  Prompt-to-System Compiler
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Describe the product, backend topology, AI layers, and constraints. We will compile it into a real editable graph with assumptions and warnings.
                 </p>
                 <Textarea
                   value={promptInput}
                   onChange={(event) => setPromptInput(event.target.value)}
-                  placeholder="Build a fintech fraud review system with API gateway, rate limits, case service, queue, MongoDB, LLM review, trace, and fallback handling."
-                  className="min-h-[220px] bg-black/20 border-white/10"
+                  placeholder="Design a fintech fraud review platform with API gateway, authentication, case orchestration service, queue, MongoDB, risk classifier, LLM reviewer, assertions, logs, and fallback handling."
+                  className="mt-4 min-h-[260px] rounded-3xl border-white/10 bg-black/20"
                 />
-                <Button className="w-full rounded-xl" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
-                  {isCompilingPrompt ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <BrainCircuit className="w-4 h-4 mr-2" />
-                  )}
-                  Compile Prompt
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-muted-foreground">
+                  <span>Consumes 1 credit and opens directly in the visual builder.</span>
+                  <Button className="rounded-2xl px-5" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
+                    {isCompilingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
+                    Compile
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </ScrollArea>
+      </aside>
+
+      <section className="flex min-w-0 flex-1 flex-col">
+        <header className="builder-surface-muted border-b border-white/5 px-6 py-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl border border-white/10 bg-white/[0.03]" asChild>
+                  <Link href="/templates">
+                    <ArrowLeft className="h-4 w-4" />
+                  </Link>
                 </Button>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </aside>
-
-        <main className="flex-1 relative overflow-hidden">
-          <ReactFlow
-            nodes={nodes.map((node) => ({
-              ...node,
-              data: {
-                ...node.data,
-                onDelete: handleDeleteNode,
-                onEdit: handleEditNode,
-                simulatedOutput: simulationOutputs[node.id],
-                isSimulating: isSimulating || isExecuting,
-              },
-            }))}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onInit={(instance) => {
-              reactFlowInstanceRef.current = instance;
-            }}
-            onDrop={onDrop}
-            onDragOver={(event) => {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "move";
-            }}
-            onSelectionChange={(selection) => setSelectedNode(selection.nodes[0] || null)}
-            fitView
-            className="bg-[#0A0A0B]"
-          >
-            <Background variant={BackgroundVariant.Cross} gap={32} size={1.5} color="#7C3AED" className="opacity-[0.05]" />
-            <Controls className="bg-[#161618]/80 border border-white/[0.08] rounded-2xl overflow-hidden" showInteractive={false} />
-            <MiniMap nodeColor="#2A2A2E" maskColor="rgba(0,0,0,0.7)" className="!bg-[#161618]/90 border border-white/[0.08]" />
-            <Panel position="bottom-center" className="mb-4">
-              <div className="rounded-full border border-white/10 bg-[#161618]/80 px-4 py-2 text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-3">
-                <Workflow className="w-4 h-4 text-primary" />
-                Design / Analysis / Simulation / Live Execution
-              </div>
-            </Panel>
-          </ReactFlow>
-        </main>
-
-        <aside className="w-96 border-l border-white/[0.05] bg-card/20 backdrop-blur-3xl p-5 overflow-y-auto shrink-0 space-y-6">
-          <div className="space-y-2">
-            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground">
-              Description
-            </Label>
-            <Textarea
-              value={workflowDescription}
-              onChange={(event) => setWorkflowDescription(event.target.value)}
-              placeholder="What system are you designing and what should it optimize for?"
-              className="min-h-[100px] bg-black/20 border-white/10"
-            />
-          </div>
-
-          <Separator className="bg-white/5" />
-
-          <div className="space-y-4">
-            <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">
-              Scenario Configuration
-            </h3>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Traffic</Label>
-                <Select
-                  value={scenario.trafficProfile}
-                  onValueChange={(value) =>
-                    setScenario((current) => ({
-                      ...current,
-                      trafficProfile: value as ScenarioDefinition["trafficProfile"],
-                    }))
-                  }
-                >
-                  <SelectTrigger className="bg-black/20 border-white/10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="single">Single</SelectItem>
-                    <SelectItem value="steady">Steady</SelectItem>
-                    <SelectItem value="burst">Burst</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="min-w-0">
+                  <Input
+                    value={workflowName}
+                    onChange={(event) => setWorkflowName(event.target.value)}
+                    className="h-10 border-none bg-transparent px-0 text-2xl font-semibold tracking-tight text-white focus-visible:ring-0"
+                  />
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="uppercase tracking-[0.24em]">{autosaveStatus}</span>
+                    <span className="hidden h-1 w-1 rounded-full bg-muted-foreground/60 sm:inline-block" />
+                    <span>{nodes.length} nodes</span>
+                    <span className="hidden h-1 w-1 rounded-full bg-muted-foreground/60 sm:inline-block" />
+                    <span>{edges.length} edges</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Dependency Mode</Label>
-                <Select
-                  value={scenario.dependencyMode}
-                  onValueChange={(value) =>
-                    setScenario((current) => ({
-                      ...current,
-                      dependencyMode: value as ScenarioDefinition["dependencyMode"],
-                    }))
-                  }
-                >
-                  <SelectTrigger className="bg-black/20 border-white/10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="stub">Stub</SelectItem>
-                    <SelectItem value="safe_test">Safe Test</SelectItem>
-                    <SelectItem value="live">Live</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Failure Mode</Label>
-                <Select
-                  value={scenario.failureMode}
-                  onValueChange={(value) =>
-                    setScenario((current) => ({
-                      ...current,
-                      failureMode: value as ScenarioDefinition["failureMode"],
-                    }))
-                  }
-                >
-                  <SelectTrigger className="bg-black/20 border-white/10">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="latency_spike">Latency Spike</SelectItem>
-                    <SelectItem value="partial_outage">Partial Outage</SelectItem>
-                    <SelectItem value="dependency_timeout">Dependency Timeout</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Queue Depth</Label>
-                <Input
-                  type="number"
-                  value={scenario.queueDepth}
-                  onChange={(event) =>
-                    setScenario((current) => ({ ...current, queueDepth: Number(event.target.value) || 0 }))
-                  }
-                  className="bg-black/20 border-white/10"
-                />
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {sourceBlueprintSlug ? (
+                  <Badge className="rounded-full border border-sky-400/20 bg-sky-500/10 px-3 py-1 text-sky-100">
+                    Blueprint: {sourceBlueprintSlug}
+                  </Badge>
+                ) : null}
+                <Badge variant="outline" className="rounded-full border-white/10 bg-white/[0.03] px-3 py-1 text-muted-foreground">
+                  {session?.user ? `${creditBalance?.availableCredits ?? "--"} credits available` : "Anonymous local draft"}
+                </Badge>
+                <Badge variant="outline" className="rounded-full border-white/10 bg-white/[0.03] px-3 py-1 text-muted-foreground">
+                  {formatModeLabel(scenario.trafficProfile)} traffic
+                </Badge>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Timeout (ms)</Label>
-                <Input
-                  type="number"
-                  value={scenario.timeoutMs}
-                  onChange={(event) =>
-                    setScenario((current) => ({ ...current, timeoutMs: Number(event.target.value) || 0 }))
-                  }
-                  className="bg-black/20 border-white/10"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Benchmark Models</Label>
-                <Input
-                  value={benchmarkModels}
-                  onChange={(event) => setBenchmarkModels(event.target.value)}
-                  className="bg-black/20 border-white/10"
-                  placeholder="gpt-4o,gpt-4.1-mini,claude-3-5-sonnet"
-                />
-              </div>
+            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={handleAnalyze} disabled={isAnalyzing}>
+                {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Analyze
+              </Button>
+              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
+                {isBenchmarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GitBranch className="mr-2 h-4 w-4" />}
+                Benchmark
+              </Button>
+              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => handleSimulation()} disabled={isSimulating}>
+                {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+                Simulate
+              </Button>
+              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                Save
+              </Button>
+              <Button className="rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400" onClick={() => handleExecution()} disabled={isExecuting}>
+                {isExecuting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+                Execute
+              </Button>
+              {workflowId ? (
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl text-red-300 hover:bg-red-500/10 hover:text-red-200" onClick={handleDeleteWorkflow}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           </div>
+        </header>
 
-          <Separator className="bg-white/5" />
+        <div className="flex min-h-0 flex-1">
+          <main className="builder-grid-overlay relative min-w-0 flex-1 overflow-hidden">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-sky-500/10 to-transparent" />
+            <div className="pointer-events-none absolute left-10 top-12 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute bottom-10 right-16 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
 
-          <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
+            <ReactFlow
+              nodes={nodes.map((node) => ({
+                ...node,
+                data: {
+                  ...node.data,
+                  onDelete: handleDeleteNode,
+                  onEdit: handleEditNode,
+                  simulatedOutput: simulationOutputs[node.id],
+                  isSimulating: isSimulating || isExecuting,
+                },
+              }))}
+              edges={edges}
+              nodeTypes={nodeTypes}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onInit={(instance) => {
+                reactFlowInstanceRef.current = instance;
+              }}
+              onDrop={onDrop}
+              onDragOver={(event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }}
+              onSelectionChange={(selection) => {
+                const nextNode = selection.nodes[0] || null;
+                setSelectedNode(nextNode);
+                if (nextNode) {
+                  setInspectorTab("node");
+                }
+              }}
+              fitView
+              className="bg-transparent"
+            >
+              <Background variant={BackgroundVariant.Cross} gap={36} size={1.2} color="#94a3b8" className="opacity-[0.06]" />
+              <Controls className="overflow-hidden rounded-2xl border border-white/10 bg-[#09101c]/90 shadow-[0_24px_50px_rgba(0,0,0,0.32)]" showInteractive={false} />
+              <MiniMap nodeColor="#12304d" maskColor="rgba(3,7,18,0.82)" className="!bottom-5 !right-5 !bg-[#09101c]/92 rounded-2xl border border-white/10 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" />
+              <Panel position="top-left" className="mt-5 ml-5">
+                <div className="builder-surface rounded-3xl px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">Workspace</p>
+                  <p className="mt-1 text-sm font-medium text-white">Design production systems visually</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Drag nodes, compile from prompt, or load a blueprint and simulate the full flow.
+                  </p>
+                </div>
+              </Panel>
+              <Panel position="bottom-center" className="mb-5">
+                <div className="builder-surface rounded-full px-5 py-3 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
+                  <div className="flex items-center gap-3">
+                    <Workflow className="h-4 w-4 text-sky-300" />
+                    Design / Analysis / Simulation / Live Execution
+                  </div>
+                </div>
+              </Panel>
+            </ReactFlow>
+          </main>
 
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-primary text-sm font-semibold">
-              <ShieldCheck className="w-4 h-4" /> Save and Access Model
+          <aside className="builder-surface-muted flex w-[360px] shrink-0 flex-col border-l border-white/5">
+            <div className="border-b border-white/5 px-5 py-5">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">Inspector</p>
+              <h2 className="mt-1 text-lg font-semibold">{selectedNodeLabel || "Workflow controls"}</h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                {selectedNodeLabel
+                  ? "Adjust node settings, runtime behavior, and output shaping."
+                  : "Tune metadata, scenario settings, and workspace access from one place."}
+              </p>
             </div>
-            <p className="text-[12px] text-muted-foreground">
-              Anonymous users get local autosave. GitHub or Google sign-in unlocks cloud save, prompt compile, simulation, execution, benchmarks, credits, and billing.
-            </p>
-          </div>
-        </aside>
-      </div>
+
+            <Tabs value={inspectorTab} onValueChange={setInspectorTab} className="flex min-h-0 flex-1 flex-col">
+              <div className="px-5 pt-4">
+                <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl border border-white/10 bg-black/20 p-1">
+                  <TabsTrigger value="workflow" className="rounded-xl py-2 text-xs">Workflow</TabsTrigger>
+                  <TabsTrigger value="scenario" className="rounded-xl py-2 text-xs">Scenario</TabsTrigger>
+                  <TabsTrigger value="node" className="rounded-xl py-2 text-xs">Node</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <ScrollArea className="flex-1 px-5 pb-5">
+                <TabsContent value="workflow" className="m-0 space-y-5 pt-5">
+                  <div className="builder-surface rounded-3xl p-4">
+                    <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">System description</Label>
+                    <Textarea
+                      value={workflowDescription}
+                      onChange={(event) => setWorkflowDescription(event.target.value)}
+                      placeholder="Describe what this system is responsible for, its users, and the production goal."
+                      className="mt-3 min-h-[140px] rounded-3xl border-white/10 bg-black/20"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="builder-surface rounded-3xl p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Blueprint</p>
+                      <p className="mt-2 text-sm font-medium text-white">{sourceBlueprintSlug || "Custom workflow"}</p>
+                    </div>
+                    <div className="builder-surface rounded-3xl p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Autosave</p>
+                      <p className="mt-2 text-sm font-medium text-white">{autosaveStatus}</p>
+                    </div>
+                  </div>
+
+                  <div className="builder-surface rounded-3xl p-4">
+                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-sky-100">
+                      <SlidersHorizontal className="h-4 w-4 text-sky-300" />
+                      Workspace summary
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                        <p className="text-muted-foreground">Nodes</p>
+                        <p className="mt-1 text-lg font-semibold text-white">{nodes.length}</p>
+                      </div>
+                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
+                        <p className="text-muted-foreground">Edges</p>
+                        <p className="mt-1 text-lg font-semibold text-white">{edges.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="scenario" className="m-0 space-y-5 pt-5">
+                  <div className="builder-surface rounded-3xl p-4">
+                    <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-100">
+                      <Workflow className="h-4 w-4 text-sky-300" />
+                      Runtime scenario
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Traffic</Label>
+                        <Select
+                          value={scenario.trafficProfile}
+                          onValueChange={(value) =>
+                            setScenario((current) => ({
+                              ...current,
+                              trafficProfile: value as ScenarioDefinition["trafficProfile"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="single">Single</SelectItem>
+                            <SelectItem value="steady">Steady</SelectItem>
+                            <SelectItem value="burst">Burst</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Dependency mode</Label>
+                        <Select
+                          value={scenario.dependencyMode}
+                          onValueChange={(value) =>
+                            setScenario((current) => ({
+                              ...current,
+                              dependencyMode: value as ScenarioDefinition["dependencyMode"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="stub">Stub</SelectItem>
+                            <SelectItem value="safe_test">Safe Test</SelectItem>
+                            <SelectItem value="live">Live</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Failure mode</Label>
+                        <Select
+                          value={scenario.failureMode}
+                          onValueChange={(value) =>
+                            setScenario((current) => ({
+                              ...current,
+                              failureMode: value as ScenarioDefinition["failureMode"],
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="latency_spike">Latency Spike</SelectItem>
+                            <SelectItem value="partial_outage">Partial Outage</SelectItem>
+                            <SelectItem value="dependency_timeout">Dependency Timeout</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Queue depth</Label>
+                        <Input
+                          type="number"
+                          value={scenario.queueDepth}
+                          onChange={(event) =>
+                            setScenario((current) => ({ ...current, queueDepth: Number(event.target.value) || 0 }))
+                          }
+                          className="h-11 rounded-2xl border-white/10 bg-black/20"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Timeout (ms)</Label>
+                        <Input
+                          type="number"
+                          value={scenario.timeoutMs}
+                          onChange={(event) =>
+                            setScenario((current) => ({ ...current, timeoutMs: Number(event.target.value) || 0 }))
+                          }
+                          className="h-11 rounded-2xl border-white/10 bg-black/20"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Benchmark models</Label>
+                        <Input
+                          value={benchmarkModels}
+                          onChange={(event) => setBenchmarkModels(event.target.value)}
+                          className="h-11 rounded-2xl border-white/10 bg-black/20"
+                          placeholder="gpt-4o,gpt-4.1-mini,claude-3-5-sonnet"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="node" className="m-0 pt-5">
+                  <div className="builder-surface rounded-3xl p-4">
+                    <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
+                  </div>
+                </TabsContent>
+              </ScrollArea>
+            </Tabs>
+
+            {!session?.user ? (
+              <div className="border-t border-white/5 px-5 py-5">
+                <div className="rounded-3xl border border-sky-400/20 bg-sky-500/8 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-sky-100">
+                    <ShieldCheck className="h-4 w-4 text-sky-300" />
+                    Unlock cloud runs and billing
+                  </div>
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    Anonymous mode keeps local autosave active. GitHub or Google sign-in unlocks cloud save, prompt compile persistence, simulations, benchmarks, and credits.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </aside>
+        </div>
+      </section>
 
       <ExecutionPanel open={isRunPanelOpen} onOpenChange={setIsRunPanelOpen} runData={runData} />
 
