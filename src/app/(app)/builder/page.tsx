@@ -13,7 +13,6 @@ import {
   Edge,
   MiniMap,
   Node,
-  Panel,
   ReactFlow,
   useEdgesState,
   useNodesState,
@@ -37,8 +36,6 @@ import {
   Sparkles,
   SlidersHorizontal,
   Trash2,
-  Wand2,
-  Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -249,6 +246,8 @@ function BuilderCanvas() {
   const [scenario, setScenario] = useState(defaultScenario);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [benchmarkModels, setBenchmarkModels] = useState("gpt-4o,gpt-4.1-mini,claude-3-5-sonnet");
+  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const reactFlowInstanceRef = useRef<FlowViewportController | null>(null);
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const deferredNodeQuery = useDeferredValue(nodeQuery);
@@ -1001,127 +1000,104 @@ function BuilderCanvas() {
 
   return (
     <div className="flex h-screen overflow-hidden builder-shell text-foreground">
-      <aside className="builder-surface-muted flex w-[84px] shrink-0 flex-col items-center justify-between border-r border-white/5 px-3 py-4">
-        <div className="space-y-5">
-          <Link href="/dashboard" className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-500/15 text-sky-200 builder-accent-ring">
-            <BrainCircuit className="h-5 w-5" />
+      {/* ── Slim icon nav ── */}
+      <aside className="builder-surface-muted flex w-[56px] shrink-0 flex-col items-center justify-between border-r border-white/5 py-3">
+        <div className="space-y-4 flex flex-col items-center">
+          <Link href="/dashboard" title="Dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 text-sky-200 builder-accent-ring">
+            <BrainCircuit className="h-4 w-4" />
           </Link>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5 flex flex-col items-center">
             {workspaceNavItems.map((item) => {
               const isActive = item.href === "/builder";
-
               return (
                 <Link
                   key={item.href}
                   href={item.href}
                   title={item.label}
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-2xl border transition-all duration-200",
+                    "flex h-8 w-8 items-center justify-center rounded-xl border transition-all duration-200",
                     isActive
-                      ? "border-sky-400/30 bg-sky-500/14 text-sky-100 shadow-[0_12px_32px_rgba(14,165,233,0.18)]"
+                      ? "border-sky-400/30 bg-sky-500/14 text-sky-100"
                       : "border-transparent bg-white/[0.03] text-muted-foreground hover:border-white/10 hover:bg-white/[0.06] hover:text-foreground"
                   )}
                 >
-                  <item.icon className="h-4 w-4" />
+                  <item.icon className="h-3.5 w-3.5" />
                 </Link>
               );
             })}
           </div>
         </div>
 
-        <div className="space-y-3 text-center">
-          <div className="rounded-2xl border border-white/8 bg-white/[0.03] px-2 py-2 text-[10px] text-muted-foreground">
-            {session?.user ? `${creditBalance?.availableCredits ?? "--"} credits` : "local"}
+        <div className="flex flex-col items-center gap-2 pb-1">
+          <div className="text-[9px] text-muted-foreground text-center leading-tight">
+            {session?.user ? `${creditBalance?.availableCredits ?? "--"}` : "local"}
           </div>
-          <Link href="/profile" className="flex justify-center">
-            <Avatar className="h-11 w-11 border border-white/10 shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
+          <Link href="/profile">
+            <Avatar className="h-8 w-8 border border-white/10">
               <AvatarImage src={session?.user?.image || ""} />
-              <AvatarFallback className="bg-sky-500/10 text-sky-100">
-                {session?.user?.name?.charAt(0)?.toUpperCase() || "GU"}
+              <AvatarFallback className="bg-sky-500/10 text-sky-100 text-[10px]">
+                {session?.user?.name?.charAt(0)?.toUpperCase() || "G"}
               </AvatarFallback>
             </Avatar>
           </Link>
         </div>
       </aside>
 
-      <aside className="builder-surface-muted flex w-[340px] shrink-0 flex-col border-r border-white/5">
-        <div className="border-b border-white/5 px-5 py-5">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">Build Space</p>
-              <h2 className="mt-1 text-lg font-semibold">Library</h2>
-            </div>
-            <div className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-muted-foreground">
-              {nodes.length} nodes
-            </div>
-          </div>
-
-          <Tabs value={libraryTab} onValueChange={setLibraryTab}>
-            <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl border border-white/10 bg-black/20 p-1">
-              <TabsTrigger value="nodes" className="rounded-xl py-2 text-xs">Nodes</TabsTrigger>
-              <TabsTrigger value="blueprints" className="rounded-xl py-2 text-xs">Blueprints</TabsTrigger>
-              <TabsTrigger value="prompt" className="rounded-xl py-2 text-xs">Prompt</TabsTrigger>
+      {/* ── Library panel (collapsible) ── */}
+      <aside className={cn("builder-surface-muted flex shrink-0 flex-col border-r border-white/5 transition-all duration-300 relative", libraryCollapsed ? "w-0 overflow-hidden" : "w-[260px]")}>
+        {/* Panel header */}
+        <div className="border-b border-white/5 px-3 py-3 flex items-center justify-between gap-2">
+          <Tabs value={libraryTab} onValueChange={setLibraryTab} className="flex-1 min-w-0">
+            <TabsList className="grid h-7 w-full grid-cols-3 rounded-xl border border-white/10 bg-black/20 p-0.5">
+              <TabsTrigger value="nodes" className="rounded-lg py-1 text-[11px]">Nodes</TabsTrigger>
+              <TabsTrigger value="blueprints" className="rounded-lg py-1 text-[11px]">Blueprints</TabsTrigger>
+              <TabsTrigger value="prompt" className="rounded-lg py-1 text-[11px]">Prompt</TabsTrigger>
             </TabsList>
           </Tabs>
+          <span className="text-[10px] text-muted-foreground shrink-0">{nodes.length}n</span>
         </div>
 
         <ScrollArea className="flex-1">
-          <div className="space-y-5 px-5 py-5">
+          <div className="px-3 py-3 space-y-3">
             {libraryTab === "nodes" ? (
               <>
-                <div className="builder-surface rounded-3xl p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-sky-100">
-                    <Search className="h-4 w-4 text-sky-300" />
-                    Find production nodes
-                  </div>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     value={nodeQuery}
                     onChange={(event) => setNodeQuery(event.target.value)}
-                    placeholder="Search AI, backend, data, reliability..."
-                    className="h-11 rounded-2xl border-white/10 bg-black/20"
+                    placeholder="Search nodes..."
+                    className="h-8 rounded-xl border-white/10 bg-black/20 pl-8 text-xs"
                   />
-                  <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                    Drag a node into the canvas or select a blueprint to start from a complete architecture.
-                  </p>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {filteredNodeGroups.map((group) => (
-                    <section key={group.pack} className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className={cn("h-2.5 w-2.5 rounded-full border", packAccentClasses[group.pack])} />
-                          <h3 className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">
-                            {formatModeLabel(group.pack)}
-                          </h3>
-                        </div>
-                        <span className="text-[11px] text-muted-foreground">{group.items.length}</span>
+                    <section key={group.pack} className="space-y-1">
+                      <div className="flex items-center gap-1.5 px-1">
+                        <div className={cn("h-1.5 w-1.5 rounded-full", packAccentClasses[group.pack])} />
+                        <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                          {formatModeLabel(group.pack)}
+                        </h3>
                       </div>
-                      <div className="space-y-2">
+                      <div className="space-y-0.5">
                         {group.items.map((definition) => (
                           <button
                             key={definition.type}
                             type="button"
                             draggable
                             onDragStart={(event) => onDragStart(event, definition.type)}
-                            className="builder-surface group w-full rounded-2xl p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400/20"
+                            className="group w-full rounded-xl px-2.5 py-2 text-left transition-all duration-150 hover:bg-white/[0.05] hover:border-sky-400/20 border border-transparent"
                           >
-                            <div className="flex items-start gap-3">
-                              <div className={cn("mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border text-xs font-semibold", packAccentClasses[group.pack])}>
+                            <div className="flex items-center gap-2">
+                              <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[9px] font-bold", packAccentClasses[group.pack])}>
                                 {definition.category.slice(0, 2).toUpperCase()}
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="truncate text-sm font-semibold">{definition.title}</p>
-                                  <Badge variant="outline" className="border-white/10 bg-white/[0.03] text-[10px]">
-                                    {definition.category}
-                                  </Badge>
-                                </div>
-                                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                                  {definition.description}
-                                </p>
-                              </div>
+                              <p className="truncate text-xs font-medium flex-1">{definition.title}</p>
+                              <Badge variant="outline" className="border-white/8 bg-transparent text-[9px] px-1.5 py-0 h-4 hidden group-hover:flex">
+                                {definition.category}
+                              </Badge>
                             </div>
                           </button>
                         ))}
@@ -1134,59 +1110,47 @@ function BuilderCanvas() {
 
             {libraryTab === "blueprints" ? (
               <>
-                <div className="builder-surface rounded-3xl p-4">
-                  <div className="mb-3 flex items-center gap-2 text-sm font-medium text-sky-100">
-                    <Sparkles className="h-4 w-4 text-sky-300" />
-                    Browse blueprint starters
-                  </div>
-                  <div className="space-y-3">
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       value={blueprintQuery}
                       onChange={(event) => setBlueprintQuery(event.target.value)}
-                      placeholder="Search enterprise blueprints..."
-                      className="h-11 rounded-2xl border-white/10 bg-black/20"
+                      placeholder="Search blueprints..."
+                      className="h-8 rounded-xl border-white/10 bg-black/20 pl-8 text-xs"
                     />
-                    <Select value={selectedSector} onValueChange={(value) => setSelectedSector(value || "all")}>
-                      <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
-                        <SelectValue placeholder="Filter by sector" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sectors.map((sector) => (
-                          <SelectItem key={sector} value={sector}>
-                            {sector === "all" ? "All sectors" : sector}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
+                  <Select value={selectedSector} onValueChange={(value) => setSelectedSector(value || "all")}>
+                    <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
+                      <SelectValue placeholder="All sectors" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sectors.map((sector) => (
+                        <SelectItem key={sector} value={sector} className="text-xs">
+                          {sector === "all" ? "All sectors" : sector}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-1">
                   {filteredBlueprints.map((blueprint) => (
                     <button
                       key={blueprint.slug}
                       type="button"
-                      className="builder-surface group w-full rounded-3xl p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-sky-400/20"
+                      className="group w-full rounded-xl px-2.5 py-2.5 text-left transition-all duration-150 hover:bg-white/[0.05] border border-transparent hover:border-sky-400/20"
                       onClick={() => handleBlueprintApply(blueprint)}
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold leading-snug">{blueprint.name}</p>
-                          <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-                            {blueprint.description}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="border-sky-400/20 bg-sky-500/10 text-sky-200">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-xs font-medium leading-snug truncate flex-1">{blueprint.name}</p>
+                        <Badge variant="outline" className="border-sky-400/20 bg-sky-500/8 text-sky-200 text-[9px] shrink-0 px-1.5 py-0 h-4">
                           {blueprint.sector}
                         </Badge>
                       </div>
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {(blueprint.tags || []).slice(0, 4).map((tag) => (
-                          <span key={tag} className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-[10px] text-muted-foreground">
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
+                      <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-muted-foreground">
+                        {blueprint.description}
+                      </p>
                     </button>
                   ))}
                 </div>
@@ -1194,27 +1158,20 @@ function BuilderCanvas() {
             ) : null}
 
             {libraryTab === "prompt" ? (
-              <div className="builder-surface rounded-[28px] p-5">
-                <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-100">
-                  <Wand2 className="h-4 w-4 text-sky-300" />
-                  Prompt-to-System Compiler
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Describe the product, backend topology, AI layers, and constraints. We will compile it into a real editable graph with assumptions and warnings.
+              <div className="space-y-3">
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  Describe your system. We'll compile it into an editable graph.
                 </p>
                 <Textarea
                   value={promptInput}
                   onChange={(event) => setPromptInput(event.target.value)}
-                  placeholder="Design a fintech fraud review platform with API gateway, authentication, case orchestration service, queue, MongoDB, risk classifier, LLM reviewer, assertions, logs, and fallback handling."
-                  className="mt-4 min-h-[260px] rounded-3xl border-white/10 bg-black/20"
+                  placeholder="Design a fintech fraud review platform with API gateway, MongoDB, risk classifier, LLM reviewer..."
+                  className="min-h-[200px] rounded-2xl border-white/10 bg-black/20 text-xs"
                 />
-                <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-xs text-muted-foreground">
-                  <span>Consumes 1 credit and opens directly in the visual builder.</span>
-                  <Button className="rounded-2xl px-5" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
-                    {isCompilingPrompt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-                    Compile
-                  </Button>
-                </div>
+                <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
+                  {isCompilingPrompt ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <BrainCircuit className="mr-1.5 h-3 w-3" />}
+                  Compile (1 credit)
+                </Button>
               </div>
             ) : null}
           </div>
@@ -1222,82 +1179,76 @@ function BuilderCanvas() {
       </aside>
 
       <section className="flex min-w-0 flex-1 flex-col">
-        <header className="builder-surface-muted border-b border-white/5 px-6 py-5">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-            <div className="min-w-0">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl border border-white/10 bg-white/[0.03]" asChild>
-                  <Link href="/templates">
-                    <ArrowLeft className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <div className="min-w-0">
-                  <Input
-                    value={workflowName}
-                    onChange={(event) => setWorkflowName(event.target.value)}
-                    className="h-10 border-none bg-transparent px-0 text-2xl font-semibold tracking-tight text-white focus-visible:ring-0"
-                  />
-                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="uppercase tracking-[0.24em]">{autosaveStatus}</span>
-                    <span className="hidden h-1 w-1 rounded-full bg-muted-foreground/60 sm:inline-block" />
-                    <span>{nodes.length} nodes</span>
-                    <span className="hidden h-1 w-1 rounded-full bg-muted-foreground/60 sm:inline-block" />
-                    <span>{edges.length} edges</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                {sourceBlueprintSlug ? (
-                  <Badge className="rounded-full border border-sky-400/20 bg-sky-500/10 px-3 py-1 text-sky-100">
-                    Blueprint: {sourceBlueprintSlug}
-                  </Badge>
-                ) : null}
-                <Badge variant="outline" className="rounded-full border-white/10 bg-white/[0.03] px-3 py-1 text-muted-foreground">
-                  {session?.user ? `${creditBalance?.availableCredits ?? "--"} credits available` : "Anonymous local draft"}
+        {/* ── Compact single-row header ── */}
+        <header className="builder-surface-muted border-b border-white/5 px-4 py-2.5 flex items-center gap-3">
+          {/* Left: collapse toggle + back + name */}
+          <button
+            onClick={() => setLibraryCollapsed((c) => !c)}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground transition-colors"
+            title={libraryCollapsed ? "Show library" : "Hide library"}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+          </button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg border border-white/10 bg-white/[0.03] shrink-0" asChild>
+            <Link href="/templates"><ArrowLeft className="h-3.5 w-3.5" /></Link>
+          </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2">
+              <Input
+                value={workflowName}
+                onChange={(event) => setWorkflowName(event.target.value)}
+                className="h-7 w-auto max-w-[280px] border-none bg-transparent px-0 text-sm font-semibold text-white focus-visible:ring-0"
+              />
+              {sourceBlueprintSlug && (
+                <Badge className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0 text-[10px] text-sky-200 hidden sm:inline-flex">
+                  {sourceBlueprintSlug}
                 </Badge>
-                <Badge variant="outline" className="rounded-full border-white/10 bg-white/[0.03] px-3 py-1 text-muted-foreground">
-                  {formatModeLabel(scenario.trafficProfile)} traffic
-                </Badge>
-              </div>
+              )}
             </div>
+            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
+              {autosaveStatus} · {nodes.length}n {edges.length}e
+            </p>
+          </div>
 
-            <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={handleAnalyze} disabled={isAnalyzing}>
-                {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Analyze
+          {/* Right: action buttons */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleAnalyze} disabled={isAnalyzing}>
+              {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+              <span className="ml-1 hidden sm:inline">Analyze</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
+              {isBenchmarking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
+              <span className="ml-1 hidden sm:inline">Bench</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={() => handleSimulation()} disabled={isSimulating}>
+              {isSimulating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+              <span className="ml-1 hidden sm:inline">Simulate</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+              <span className="ml-1 hidden sm:inline">Save</span>
+            </Button>
+            <Button size="sm" className="h-7 rounded-lg bg-sky-500 text-slate-950 hover:bg-sky-400 px-3 text-xs" onClick={() => handleExecution()} disabled={isExecuting}>
+              {isExecuting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
+              <span className="ml-1">Execute</span>
+            </Button>
+            {workflowId ? (
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-300" onClick={handleDeleteWorkflow}>
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
-                {isBenchmarking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GitBranch className="mr-2 h-4 w-4" />}
-                Benchmark
-              </Button>
-              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => handleSimulation()} disabled={isSimulating}>
-                {isSimulating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-                Simulate
-              </Button>
-              <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={handleSave} disabled={isSaving}>
-                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                Save
-              </Button>
-              <Button className="rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400" onClick={() => handleExecution()} disabled={isExecuting}>
-                {isExecuting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
-                Execute
-              </Button>
-              {workflowId ? (
-                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-2xl text-red-300 hover:bg-red-500/10 hover:text-red-200" onClick={handleDeleteWorkflow}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              ) : null}
-            </div>
+            ) : null}
+            <button
+              onClick={() => setInspectorCollapsed((c) => !c)}
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground transition-colors"
+              title={inspectorCollapsed ? "Show inspector" : "Hide inspector"}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+            </button>
           </div>
         </header>
 
         <div className="flex min-h-0 flex-1">
           <main className="builder-grid-overlay relative min-w-0 flex-1 overflow-hidden">
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-sky-500/10 to-transparent" />
-            <div className="pointer-events-none absolute left-10 top-12 h-40 w-40 rounded-full bg-sky-500/10 blur-3xl" />
-            <div className="pointer-events-none absolute bottom-10 right-16 h-44 w-44 rounded-full bg-cyan-500/10 blur-3xl" />
-
             <ReactFlow
               nodes={nodes.map((node) => ({
                 ...node,
@@ -1332,99 +1283,66 @@ function BuilderCanvas() {
               fitView
               className="bg-transparent"
             >
-              <Background variant={BackgroundVariant.Cross} gap={36} size={1.2} color="#94a3b8" className="opacity-[0.06]" />
-              <Controls className="overflow-hidden rounded-2xl border border-white/10 bg-[#09101c]/90 shadow-[0_24px_50px_rgba(0,0,0,0.32)]" showInteractive={false} />
-              <MiniMap nodeColor="#12304d" maskColor="rgba(3,7,18,0.82)" className="!bottom-5 !right-5 !bg-[#09101c]/92 rounded-2xl border border-white/10 shadow-[0_18px_50px_rgba(0,0,0,0.35)]" />
-              <Panel position="top-left" className="mt-5 ml-5">
-                <div className="builder-surface rounded-3xl px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">Workspace</p>
-                  <p className="mt-1 text-sm font-medium text-white">Design production systems visually</p>
-                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                    Drag nodes, compile from prompt, or load a blueprint and simulate the full flow.
-                  </p>
-                </div>
-              </Panel>
-              <Panel position="bottom-center" className="mb-5">
-                <div className="builder-surface rounded-full px-5 py-3 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-                  <div className="flex items-center gap-3">
-                    <Workflow className="h-4 w-4 text-sky-300" />
-                    Design / Analysis / Simulation / Live Execution
-                  </div>
-                </div>
-              </Panel>
+              <Background variant={BackgroundVariant.Cross} gap={32} size={1} color="#94a3b8" className="opacity-[0.05]" />
+              <Controls className="overflow-hidden rounded-xl border border-white/10 bg-[#09101c]/90 shadow-lg" showInteractive={false} />
+              <MiniMap nodeColor="#12304d" maskColor="rgba(3,7,18,0.82)" className="!bottom-4 !right-4 !bg-[#09101c]/92 rounded-xl border border-white/10 shadow-lg" />
             </ReactFlow>
           </main>
 
-          <aside className="builder-surface-muted flex w-[360px] shrink-0 flex-col border-l border-white/5">
-            <div className="border-b border-white/5 px-5 py-5">
-              <p className="text-[11px] uppercase tracking-[0.24em] text-sky-200/70">Inspector</p>
-              <h2 className="mt-1 text-lg font-semibold">{selectedNodeLabel || "Workflow controls"}</h2>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                {selectedNodeLabel
-                  ? "Adjust node settings, runtime behavior, and output shaping."
-                  : "Tune metadata, scenario settings, and workspace access from one place."}
-              </p>
-            </div>
-
+          {/* ── Inspector panel (collapsible) ── */}
+          <aside className={cn("builder-surface-muted flex shrink-0 flex-col border-l border-white/5 transition-all duration-300", inspectorCollapsed ? "w-0 overflow-hidden" : "w-[300px]")}>
             <Tabs value={inspectorTab} onValueChange={setInspectorTab} className="flex min-h-0 flex-1 flex-col">
-              <div className="px-5 pt-4">
-                <TabsList className="grid h-auto w-full grid-cols-3 rounded-2xl border border-white/10 bg-black/20 p-1">
-                  <TabsTrigger value="workflow" className="rounded-xl py-2 text-xs">Workflow</TabsTrigger>
-                  <TabsTrigger value="scenario" className="rounded-xl py-2 text-xs">Scenario</TabsTrigger>
-                  <TabsTrigger value="node" className="rounded-xl py-2 text-xs">Node</TabsTrigger>
+              <div className="border-b border-white/5 px-3 py-3">
+                <TabsList className="grid h-7 w-full grid-cols-3 rounded-xl border border-white/10 bg-black/20 p-0.5">
+                  <TabsTrigger value="workflow" className="rounded-lg py-1 text-[11px]">Workflow</TabsTrigger>
+                  <TabsTrigger value="scenario" className="rounded-lg py-1 text-[11px]">Scenario</TabsTrigger>
+                  <TabsTrigger value="node" className="rounded-lg py-1 text-[11px]">
+                    {selectedNodeLabel ? selectedNodeLabel.slice(0, 8) : "Node"}
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
-              <ScrollArea className="flex-1 px-5 pb-5">
-                <TabsContent value="workflow" className="m-0 space-y-5 pt-5">
-                  <div className="builder-surface rounded-3xl p-4">
-                    <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">System description</Label>
-                    <Textarea
-                      value={workflowDescription}
-                      onChange={(event) => setWorkflowDescription(event.target.value)}
-                      placeholder="Describe what this system is responsible for, its users, and the production goal."
-                      className="mt-3 min-h-[140px] rounded-3xl border-white/10 bg-black/20"
-                    />
-                  </div>
+              <ScrollArea className="flex-1">
+                <div className="px-3 py-3">
+                  <TabsContent value="workflow" className="m-0 space-y-3">
+                    <div>
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Description</Label>
+                      <Textarea
+                        value={workflowDescription}
+                        onChange={(event) => setWorkflowDescription(event.target.value)}
+                        placeholder="What does this system do?"
+                        className="mt-1.5 min-h-[100px] rounded-2xl border-white/10 bg-black/20 text-xs"
+                      />
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="builder-surface rounded-3xl p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Blueprint</p>
-                      <p className="mt-2 text-sm font-medium text-white">{sourceBlueprintSlug || "Custom workflow"}</p>
-                    </div>
-                    <div className="builder-surface rounded-3xl p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Autosave</p>
-                      <p className="mt-2 text-sm font-medium text-white">{autosaveStatus}</p>
-                    </div>
-                  </div>
-
-                  <div className="builder-surface rounded-3xl p-4">
-                    <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-sky-100">
-                      <SlidersHorizontal className="h-4 w-4 text-sky-300" />
-                      Workspace summary
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                        <p className="text-muted-foreground">Nodes</p>
-                        <p className="mt-1 text-lg font-semibold text-white">{nodes.length}</p>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
+                        <p className="text-[10px] text-muted-foreground">Blueprint</p>
+                        <p className="mt-1 font-medium text-white truncate text-[11px]">{sourceBlueprintSlug || "Custom"}</p>
                       </div>
-                      <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-3">
-                        <p className="text-muted-foreground">Edges</p>
-                        <p className="mt-1 text-lg font-semibold text-white">{edges.length}</p>
+                      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
+                        <p className="text-[10px] text-muted-foreground">Nodes / Edges</p>
+                        <p className="mt-1 font-medium text-white text-[11px]">{nodes.length} / {edges.length}</p>
                       </div>
                     </div>
-                  </div>
-                </TabsContent>
 
-                <TabsContent value="scenario" className="m-0 space-y-5 pt-5">
-                  <div className="builder-surface rounded-3xl p-4">
-                    <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-sky-100">
-                      <Workflow className="h-4 w-4 text-sky-300" />
-                      Runtime scenario
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Traffic</Label>
+                    {!session?.user && (
+                      <div className="rounded-xl border border-sky-400/20 bg-sky-500/8 p-3">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-100">
+                          <ShieldCheck className="h-3.5 w-3.5 text-sky-300" />
+                          Sign in for cloud saves
+                        </div>
+                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                          GitHub / Google sign-in unlocks cloud save, simulations, and credits.
+                        </p>
+                      </div>
+                    )}
+                  </TabsContent>
+
+                  <TabsContent value="scenario" className="m-0 space-y-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Traffic</Label>
                         <Select
                           value={scenario.trafficProfile}
                           onValueChange={(value) =>
@@ -1434,7 +1352,7 @@ function BuilderCanvas() {
                             }))
                           }
                         >
-                          <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                          <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1445,8 +1363,8 @@ function BuilderCanvas() {
                         </Select>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Dependency mode</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Dependency</Label>
                         <Select
                           value={scenario.dependencyMode}
                           onValueChange={(value) =>
@@ -1456,7 +1374,7 @@ function BuilderCanvas() {
                             }))
                           }
                         >
-                          <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                          <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1467,8 +1385,8 @@ function BuilderCanvas() {
                         </Select>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Failure mode</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Failure</Label>
                         <Select
                           value={scenario.failureMode}
                           onValueChange={(value) =>
@@ -1478,77 +1396,61 @@ function BuilderCanvas() {
                             }))
                           }
                         >
-                          <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
+                          <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None</SelectItem>
                             <SelectItem value="latency_spike">Latency Spike</SelectItem>
                             <SelectItem value="partial_outage">Partial Outage</SelectItem>
-                            <SelectItem value="dependency_timeout">Dependency Timeout</SelectItem>
+                            <SelectItem value="dependency_timeout">Dep. Timeout</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Queue depth</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Queue depth</Label>
                         <Input
                           type="number"
                           value={scenario.queueDepth}
                           onChange={(event) =>
                             setScenario((current) => ({ ...current, queueDepth: Number(event.target.value) || 0 }))
                           }
-                          className="h-11 rounded-2xl border-white/10 bg-black/20"
+                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
                         />
                       </div>
                     </div>
 
-                    <div className="mt-4 space-y-3">
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Timeout (ms)</Label>
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Timeout (ms)</Label>
                         <Input
                           type="number"
                           value={scenario.timeoutMs}
                           onChange={(event) =>
                             setScenario((current) => ({ ...current, timeoutMs: Number(event.target.value) || 0 }))
                           }
-                          className="h-11 rounded-2xl border-white/10 bg-black/20"
+                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Benchmark models</Label>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Benchmark models</Label>
                         <Input
                           value={benchmarkModels}
                           onChange={(event) => setBenchmarkModels(event.target.value)}
-                          className="h-11 rounded-2xl border-white/10 bg-black/20"
-                          placeholder="gpt-4o,gpt-4.1-mini,claude-3-5-sonnet"
+                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                          placeholder="gpt-4o,gpt-4.1-mini,..."
                         />
                       </div>
                     </div>
-                  </div>
-                </TabsContent>
+                  </TabsContent>
 
-                <TabsContent value="node" className="m-0 pt-5">
-                  <div className="builder-surface rounded-3xl p-4">
+                  <TabsContent value="node" className="m-0">
                     <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
-                  </div>
-                </TabsContent>
+                  </TabsContent>
+                </div>
               </ScrollArea>
             </Tabs>
-
-            {!session?.user ? (
-              <div className="border-t border-white/5 px-5 py-5">
-                <div className="rounded-3xl border border-sky-400/20 bg-sky-500/8 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-sky-100">
-                    <ShieldCheck className="h-4 w-4 text-sky-300" />
-                    Unlock cloud runs and billing
-                  </div>
-                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    Anonymous mode keeps local autosave active. GitHub or Google sign-in unlocks cloud save, prompt compile persistence, simulations, benchmarks, and credits.
-                  </p>
-                </div>
-              </div>
-            ) : null}
           </aside>
         </div>
       </section>

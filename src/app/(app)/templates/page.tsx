@@ -169,31 +169,22 @@ export default function TemplatesPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl space-y-8 p-4 pb-10 md:p-8">
-      <div className="builder-surface relative overflow-hidden rounded-[32px] p-6 md:p-9">
-        <div className="absolute inset-y-0 right-0 w-[38%] bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.24),transparent_52%)]" />
-        <div className="absolute left-10 top-10 h-28 w-28 rounded-full bg-sky-500/10 blur-3xl" />
-        <div className="relative z-10 space-y-5">
-          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-            Production Blueprint Catalog
-          </Badge>
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
-            <div className="max-w-2xl">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
-                Enterprise Automation Templates
-              </h1>
-              <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
-                Start from curated production-grade blueprints across B2B, B2C, Fintech, D2C, E-Commerce, Payroll,
-                HR, Marketing, Sales, and Support. Every blueprint instantiates into a real editable workflow.
-              </p>
-            </div>
-            <Button className="h-11 rounded-2xl bg-sky-500 px-6 text-slate-950 hover:bg-sky-400" onClick={() => router.push("/builder")}>
-              <BrainCircuit className="w-4 h-4 mr-2" />
-              Open AI Architect
-            </Button>
+    <div className="mx-auto max-w-6xl space-y-6 p-4 pb-10 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground uppercase tracking-widest">Production Blueprint Catalog</span>
           </div>
+          <h1 className="text-2xl font-bold tracking-tight">Enterprise Automation Templates</h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+            Curated production-grade blueprints across B2B, Fintech, E-Commerce, HR, and more.
+          </p>
         </div>
+        <Button className="h-9 rounded-xl bg-sky-500 px-5 text-sm text-slate-950 hover:bg-sky-400 shrink-0" onClick={() => router.push("/builder")}>
+          <BrainCircuit className="w-4 h-4 mr-2" />
+          Open Builder
+        </Button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-3">

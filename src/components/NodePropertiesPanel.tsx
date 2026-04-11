@@ -16,13 +16,13 @@ interface NodePropertiesPanelProps {
 export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodePropertiesPanelProps) {
   if (!selectedNode) {
     return (
-      <div className="flex min-h-[260px] flex-col items-center justify-center rounded-[28px] border border-dashed border-white/12 bg-white/[0.03] px-6 text-center">
-        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-          <Settings className="h-6 w-6 opacity-70" />
+      <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 text-center">
+        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-white/8 bg-white/[0.03]">
+          <Settings className="h-5 w-5 opacity-50" />
         </div>
-        <p className="text-sm font-medium text-white">Select a node to inspect</p>
-        <p className="mt-2 max-w-xs text-xs leading-relaxed text-muted-foreground">
-          Pick any node on the canvas to configure labels, model choices, retries, prompts, or runtime options.
+        <p className="text-xs font-medium text-white">Select a node to inspect</p>
+        <p className="mt-1 max-w-[180px] text-[11px] leading-relaxed text-muted-foreground">
+          Click any node to configure its properties.
         </p>
       </div>
     );
@@ -65,11 +65,11 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
   }
 
   return (
-    <div className="space-y-5">
-      <div className="rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
-        <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Selected node</p>
-        <h3 className="mt-2 text-base font-semibold text-white">{definition.title}</h3>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{definition.description}</p>
+    <div className="space-y-3">
+      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Selected node</p>
+        <h3 className="mt-1 text-sm font-semibold text-white">{definition.title}</h3>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{definition.description}</p>
       </div>
 
       {definition.fields.map((field) => {
@@ -77,13 +77,13 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
         const currentValue = value ?? field.defaultValue ?? "";
 
         return (
-          <div key={field.name} className="space-y-1.5">
-            <Label className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+          <div key={field.name} className="space-y-1">
+            <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">
               {field.label}
             </Label>
             {field.type === "textarea" || field.type === "json" ? (
               <Textarea
-                className="min-h-[110px] rounded-3xl border-white/10 bg-black/20 font-mono text-xs"
+                className="min-h-[90px] rounded-2xl border-white/10 bg-black/20 font-mono text-xs"
                 value={String(currentValue)}
                 onChange={(e) => handleChange(field.name, e.target.value)}
                 placeholder={field.placeholder}
@@ -93,7 +93,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
                 value={String(currentValue || "")}
                 onValueChange={(nextValue) => handleChange(field.name, nextValue)}
               >
-                <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20 text-xs">
+                <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
                   <SelectValue placeholder={field.placeholder || `Select ${field.label}`} />
                 </SelectTrigger>
                 <SelectContent>
@@ -105,8 +105,8 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
                 </SelectContent>
               </Select>
             ) : field.type === "boolean" ? (
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 p-3">
-                <span className="text-xs text-muted-foreground">
+              <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black/20 p-2.5">
+                <span className="text-[11px] text-muted-foreground">
                   {currentValue ? "Enabled" : "Disabled"}
                 </span>
                 <Switch
@@ -133,7 +133,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
               ) : (
                 <Input
                   type="number"
-                  className="h-11 rounded-2xl border-white/10 bg-black/20 text-xs"
+                  className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
                   value={Number(currentValue || 0)}
                   onChange={(e) => handleChange(field.name, Number(e.target.value))}
                   placeholder={field.placeholder}
@@ -142,7 +142,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
             ) : (
               <Input
                 type={field.type === "password" ? "password" : "text"}
-                className="h-11 rounded-2xl border-white/10 bg-black/20 text-xs"
+                className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
                 value={String(currentValue)}
                 onChange={(e) => handleChange(field.name, e.target.value)}
                 placeholder={field.placeholder}
@@ -155,7 +155,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
         );
       })}
 
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-[11px] text-muted-foreground">
+      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5 text-[10px] text-muted-foreground">
         Supports:
         {" "}
         {[
