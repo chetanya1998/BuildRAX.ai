@@ -5,8 +5,15 @@ import { ensureBlueprintCatalogSeeded } from "@/lib/graph/seedBlueprints";
 
 export async function GET(req: NextRequest) {
   try {
-    await ensureBlueprintCatalogSeeded();
     await dbConnect();
+
+    // Seed the catalog on first request; if seeding fails, continue with whatever
+    // records already exist in the DB (don't hard-fail the whole endpoint).
+    try {
+      await ensureBlueprintCatalogSeeded();
+    } catch (seedErr) {
+      console.error("Blueprint catalog seeding error (non-fatal):", seedErr);
+    }
 
     const sector = req.nextUrl.searchParams.get("sector");
     const query = req.nextUrl.searchParams.get("q");
@@ -36,6 +43,8 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("Catalog error:", error);
-    return NextResponse.json({ error: "Failed to load blueprint catalog" }, { status: 500 });
+    // Return an empty catalog rather than 500 so the UI shows an empty state
+    // instead of an error banner.
+    return NextResponse.json({ blueprints: [], total: 0, warning: "Catalog unavailable" });
   }
 }

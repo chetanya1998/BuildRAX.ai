@@ -139,36 +139,33 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <div className="glass-panel p-6 md:p-9 rounded-3xl border border-border/40 relative overflow-hidden bg-card/40">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-primary/20 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
-        <div className="relative z-10 space-y-4">
-          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-            <CreditCard className="w-3.5 h-3.5 mr-1.5" />
-            Billing & Credits
-          </Badge>
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight">Credits Control Center</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-3xl leading-relaxed">
-            Credits are the hard runtime gate for prompt build, template instantiate, simulation, live execution,
-            and benchmark variants. Static analysis, local autosave, and cloud autosave stay free.
+    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6 pb-10">
+      {/* Compact page header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <CreditCard className="w-4 h-4 text-primary" />
+            <span className="text-xs text-muted-foreground uppercase tracking-widest">Billing & Credits</span>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Credits Control Center</h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-lg">
+            Credits gate runtime operations. Static analysis and local/cloud autosave are always free.
           </p>
         </div>
       </div>
 
-      <Card className="bg-card/30 border-border/40 rounded-2xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Coins className="w-5 h-5 text-primary" />
-            Current Entitlements
-          </CardTitle>
-          <CardDescription>
+      <div className="rounded-2xl border border-border/40 bg-card/30 p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Coins className="w-4 h-4 text-primary" />
+          <h2 className="font-semibold">Current Entitlements</h2>
+          <span className="text-xs text-muted-foreground ml-1">
             {data?.authenticated
-              ? "Usage and monthly limits for the active account."
-              : "Sign in with GitHub or Google to unlock cloud save, billing, and usage tracking."}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              ? "— usage and limits for the active account"
+              : "— sign in to unlock billing & usage tracking"}
+          </span>
+        </div>
+        <div className="space-y-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="rounded-xl border border-white/10 bg-black/15 px-4 py-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Plan</p>
               <p className="text-2xl font-bold mt-1">{data?.currentPlan || "free"}</p>
@@ -221,13 +218,13 @@ export default function BillingPage() {
               </Button>
             </div>
           ) : null}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       <section className="space-y-4">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
-          <h2 className="text-2xl font-semibold tracking-tight">Pricing Plans</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Pricing Plans</h2>
         </div>
         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5">
           {(data?.plans || []).map((plan) => {
