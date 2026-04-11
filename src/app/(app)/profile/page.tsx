@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ArrowLeft, Edit3, Github, Globe, Hexagon, Shield, Star, Trophy, Users } from "lucide-react";
+import { ArrowLeft, Edit3, Hexagon, Shield, Trophy, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
   const session = await getServerSession(authOptions);

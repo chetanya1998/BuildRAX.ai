@@ -6,11 +6,9 @@ import { cn } from "@/lib/utils";
 import { 
   LayoutDashboard, 
   Layers, 
-  PlusCircle, 
   Library, 
   GraduationCap, 
-  User, 
-  Settings,
+  CreditCard,
   LogOut,
   BrainCircuit,
   ChevronLeft,
@@ -30,6 +28,7 @@ const navItems = [
   { name: "My Workflows", href: "/workflows", icon: Layers },
   { name: "AI Architect", href: "/builder", icon: BrainCircuit },
   { name: "Templates", href: "/templates", icon: Library },
+  { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Learn", href: "/learn", icon: GraduationCap },
 ];
 

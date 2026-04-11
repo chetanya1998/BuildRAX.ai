@@ -1,20 +1,16 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, Geist_Mono } from "next/font/google";
+import type { CSSProperties } from "react";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "@/components/Providers";
 import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const FONT_VARIABLES: CSSProperties = {
+  ["--font-sans" as string]:
+    '"Space Grotesk", "Satoshi", "Avenir Next", "Segoe UI", system-ui, sans-serif',
+  ["--font-geist-mono" as string]:
+    '"JetBrains Mono", "Geist Mono", "SFMono-Regular", ui-monospace, Menlo, Monaco, Consolas, monospace',
+};
 
 export const metadata: Metadata = {
   title: "BuildRAX.ai — Build AI Visually",
@@ -45,7 +41,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`dark ${spaceGrotesk.variable} ${geistMono.variable} h-full antialiased`}
+      className="dark h-full antialiased"
+      style={FONT_VARIABLES}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <NextTopLoader color="#22d3ee" showSpinner={false} height={3} shadow="0 0 10px #22d3ee,0 0 5px #22d3ee" />

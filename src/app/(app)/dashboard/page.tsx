@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -68,7 +68,7 @@ export default function DashboardPage() {
             <div className="absolute top-0 right-0 p-4">
               <Trophy className="w-12 h-12 text-yellow-500/20" />
             </div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-2">Today's Mission</h3>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary mb-2">Today&apos;s Mission</h3>
             <h2 className="text-xl font-bold mb-2">Master the AI Architect</h2>
             <p className="text-sm text-muted-foreground mb-6 line-clamp-2">
               Learn how to connect multiple LLM nodes, vector databases, and integrations in our interactive tutorial space.
@@ -160,9 +160,9 @@ export default function DashboardPage() {
 
             <div className="p-5 rounded-2xl bg-card/20 border border-border/40">
               <Badge variant="outline" className="mb-3 rounded-md px-2 py-0.5 text-[10px] font-bold tracking-widest uppercase border-secondary/50 text-secondary">Templates</Badge>
-              <h4 className="font-bold text-base mb-2">30 New Agent Templates</h4>
+              <h4 className="font-bold text-base mb-2">100+ Enterprise Blueprints</h4>
               <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                We've added dozens of pre-configured AI Agent architectures. One-click clone directly to the Builder!
+                Launch production-ready systems for B2B, B2C, Fintech, D2C, E-Commerce, HR, Payroll, and RevOps from the new catalog.
               </p>
               <Button variant="link" className="p-0 h-auto text-foreground flex items-center gap-1 text-sm font-medium" asChild>
                 <Link href="/templates">Browse Library <ArrowRight className="w-3.5 h-3.5" /></Link>

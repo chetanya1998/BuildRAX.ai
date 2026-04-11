@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
@@ -8,7 +8,9 @@ import { Template } from "@/lib/models/Template";
 import { LessonProgress } from "@/lib/models/LessonProgress";
 import { getProgressSummary } from "@/lib/gamification";
 
-export async function GET(req: NextRequest) {
+type SessionUser = { id?: string };
+
+export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     await dbConnect();
@@ -49,14 +51,17 @@ export async function GET(req: NextRequest) {
           }
         ],
         featuredTemplates: featuredTemplates.length > 0 ? featuredTemplates : [
-          { name: "Research Synthesizer", category: "Memory + LLM" } as any,
-          { name: "Content Generator", category: "Input + LLM" } as any,
+          { name: "Research Synthesizer", category: "Memory + LLM" },
+          { name: "Content Generator", category: "Input + LLM" },
         ],
         learnProgress: { currentModuleId: "intro-nodes", completedModules: [] },
       });
     }
 
-    const userId = (session.user as any).id;
+    const userId = (session.user as SessionUser).id;
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Parallel fetching for high performance
     const [user, workflows, learnProgress] = await Promise.all([

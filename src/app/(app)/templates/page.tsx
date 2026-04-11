@@ -1,403 +1,499 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, BrainCircuit, Box, FileText, Blocks, LayoutPanelTop, Play, MessageSquareCode, Mail, Slack, Twitter, Database, Globe, Bot, Zap, Code, Loader2, ArrowRight, Clock, CheckCircle2, Check, Star, User, Cpu, Workflow, Sparkles } from "lucide-react";
-import { AGENT_TEMPLATES } from "@/lib/data/templates";
+import useSWR from "swr";
+import {
+  ArrowRight,
+  BrainCircuit,
+  Building2,
+  CheckCircle2,
+  CopyPlus,
+  Filter,
+  Layers,
+  Loader2,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+interface WorkflowNode {
+  id: string;
+  type: string;
+}
 
-const iconMap: Record<string, React.ReactNode> = {
-  Search: <Search className="w-5 h-5 text-blue-400" />,
-  BrainCircuit: <BrainCircuit className="w-5 h-5 text-purple-400" />,
-  MessageSquareCode: <MessageSquareCode className="w-5 h-5 text-green-400" />,
-  Mail: <Mail className="w-5 h-5 text-red-400" />,
-  Slack: <Slack className="w-5 h-5 text-pink-400" />,
-  Twitter: <Twitter className="w-5 h-5 text-sky-400" />,
-  Database: <Database className="w-5 h-5 text-indigo-400" />,
-  Globe: <Globe className="w-5 h-5 text-emerald-400" />,
-  Bot: <Bot className="w-5 h-5 text-orange-400" />,
-  Zap: <Zap className="w-5 h-5 text-yellow-400" />,
-  Code: <Code className="w-5 h-5 text-slate-400" />
+interface WorkflowGraphPreview {
+  nodes: WorkflowNode[];
+  edges: Array<{ id: string }>;
+}
+
+interface BlueprintRecord {
+  _id: string;
+  slug: string;
+  name: string;
+  description: string;
+  sector: string;
+  useCase: string;
+  maturity: "starter" | "production";
+  tags: string[];
+  requiredConnectors: string[];
+  configurableParameters: string[];
+  analysisRubric: string[];
+  benchmarkRubric: string[];
+  estimatedCreditCost: number;
+  graph: WorkflowGraphPreview;
+}
+
+interface CatalogResponse {
+  blueprints: BlueprintRecord[];
+  total: number;
+}
+
+interface CommunityTemplateRecord {
+  _id: string;
+  name: string;
+  description?: string;
+  category?: string;
+  averageRating?: number;
+  clones?: number;
+  nodes?: unknown[];
+}
+
+const fetcher = async <T,>(url: string): Promise<T> => {
+  const response = await fetch(url);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed: ${response.status}`);
+  }
+  return response.json();
 };
+
+function formatPackCount(blueprint: BlueprintRecord) {
+  const nodeCount = blueprint.graph?.nodes?.length || 0;
+  const connectorCount = blueprint.requiredConnectors?.length || 0;
+  return `${nodeCount} nodes • ${connectorCount} connectors`;
+}
 
 export default function TemplatesPage() {
   const router = useRouter();
-  const [cloningId, setCloningId] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [communityTemplates, setCommunityTemplates] = useState<any[]>([]);
-  const [isLoadingCommunity, setIsLoadingCommunity] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sector, setSector] = useState("all");
+  const [activeTab, setActiveTab] = useState<"enterprise" | "community">("enterprise");
+  const [selectedBlueprint, setSelectedBlueprint] = useState<BlueprintRecord | null>(null);
+  const [selectedCommunity, setSelectedCommunity] = useState<CommunityTemplateRecord | null>(null);
+  const [instantiatingSlug, setInstantiatingSlug] = useState<string | null>(null);
+  const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchCommunityTemplates() {
-      try {
-        setIsLoadingCommunity(true);
-        const res = await fetch("/api/templates");
-        if (res.ok) {
-          const data = await res.json();
-          setCommunityTemplates(data);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setIsLoadingCommunity(false);
-      }
-    }
-    fetchCommunityTemplates();
-  }, []);
+  const catalogQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    if (sector !== "all") params.set("sector", sector);
+    return `/api/templates/catalog?${params.toString()}`;
+  }, [query, sector]);
 
-  const allTemplates = [
-    ...AGENT_TEMPLATES,
-    ...communityTemplates.map(t => ({
-      id: t._id,
-      title: t.name,
-      description: t.description || "Community contributed template",
-      iconName: "Bot", // Default
-      level: "Community",
-      complexity: 3,
-      nodeCount: t.nodes?.length || 0,
-      time: "2 min",
-      tags: [t.category || "Community"],
-      nodeSequence: ["inputNode", "llmNode", "outputNode"],
-      detailedOverview: t.description || "A custom community template.",
-      useCases: ["Automation", "Custom Logic"],
-      expectedOutput: "Custom results",
-      averageRating: t.averageRating || 0,
-      isCommunity: true
-    }))
-  ];
+  const {
+    data: catalogData,
+    error: catalogError,
+    isLoading: isCatalogLoading,
+  } = useSWR<CatalogResponse>(catalogQuery, fetcher);
 
-  const filteredTemplates = allTemplates.filter((tmpl) => {
-    const matchesSearch = tmpl.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          tmpl.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesTab = activeTab === "all" || tmpl.tags.some((t: string) => {
-      const tagLower = t.toLowerCase();
-      return tagLower === activeTab || tagLower + "s" === activeTab || tagLower === activeTab + "s";
-    });
+  const {
+    data: communityTemplates,
+    error: communityError,
+    isLoading: isCommunityLoading,
+  } = useSWR<CommunityTemplateRecord[]>("/api/templates", fetcher);
 
-    return matchesSearch && matchesTab;
-  });
+  const sectors = useMemo(() => {
+    const allSectors = (catalogData?.blueprints || []).map((blueprint) => blueprint.sector);
+    return ["all", ...Array.from(new Set(allSectors))];
+  }, [catalogData?.blueprints]);
 
-  const handleRate = async (id: string, score: number) => {
+  const filteredCommunity = useMemo(() => {
+    const templates = communityTemplates || [];
+    if (!query.trim()) return templates;
+    const q = query.toLowerCase();
+    return templates.filter(
+      (template) =>
+        template.name.toLowerCase().includes(q) ||
+        (template.description || "").toLowerCase().includes(q) ||
+        (template.category || "").toLowerCase().includes(q)
+    );
+  }, [communityTemplates, query]);
+
+  const handleInstantiateBlueprint = async (slug: string) => {
     try {
-      const res = await fetch(`/api/templates/${id}/rate`, {
+      setInstantiatingSlug(slug);
+      const response = await fetch(`/api/templates/catalog/${slug}/instantiate`, {
         method: "POST",
-        body: JSON.stringify({ score }),
       });
-      if (res.ok) {
-        toast.success("Thank you for rating!", {
-          icon: <Star className="w-4 h-4 fill-primary text-primary" />,
-        });
-        // Update local state if needed
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to instantiate blueprint");
       }
-    } catch (err) {
-      console.error(err);
+      toast.success("Blueprint instantiated. Opening the builder...");
+      router.push(`/builder?id=${payload.workflowId}`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Instantiation failed");
+    } finally {
+      setInstantiatingSlug(null);
     }
   };
 
-  const handleClone = async (id: string) => {
+  const handleCloneCommunityTemplate = async (templateId: string) => {
     try {
-      setCloningId(id);
-      const res = await fetch(`/api/templates/${id}/clone`, {
-        method: "POST"
+      setCloningTemplateId(templateId);
+      const response = await fetch(`/api/templates/${templateId}/clone`, {
+        method: "POST",
       });
-      if (res.ok) {
-        const data = await res.json();
-        router.push(`/builder?id=${data.workflowId}`);
-      } else {
-        const errorData = await res.json().catch(() => ({}));
-        console.error("Failed to clone:", errorData);
-        toast.error(`Clone failed: ${errorData.error || "Server error"}`, {
-          icon: <Workflow className="w-4 h-4" />
-        });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to clone template");
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Network error. Please try again.");
+      toast.success("Community template cloned. Opening the builder...");
+      router.push(`/builder?id=${payload.workflowId}`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Clone failed");
     } finally {
-      setCloningId(null);
+      setCloningTemplateId(null);
     }
   };
 
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <div className="glass-panel p-6 md:p-8 rounded-3xl border border-border/40 relative overflow-hidden bg-card/40">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-secondary/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
-        <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-          <div className="max-w-xl">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">Agent Template Gallery</h1>
-            <p className="text-muted-foreground text-lg">Don't start from scratch. Clone any of our {AGENT_TEMPLATES.length} pre-configured agent architectures directly into the builder.</p>
-          </div>
-          <div className="flex w-full md:w-auto items-center relative max-w-sm">
-            <Search className="w-4 h-4 absolute left-3 text-muted-foreground" />
-            <Input 
-              placeholder="Search templates..." 
-              className="pl-9 h-12 w-full md:w-64 bg-background/50 border-white/10 rounded-xl"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+      <div className="glass-panel p-6 md:p-9 rounded-3xl border border-border/40 relative overflow-hidden bg-card/40">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/20 rounded-full blur-[110px] -translate-y-1/2 translate-x-1/3" />
+        <div className="relative z-10 space-y-5">
+          <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+            Production Blueprint Catalog
+          </Badge>
+          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+            <div className="max-w-2xl">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-2">
+                Enterprise Automation Templates
+              </h1>
+              <p className="text-muted-foreground text-base md:text-lg leading-relaxed">
+                Start from curated production-grade blueprints across B2B, B2C, Fintech, D2C, E-Commerce, Payroll,
+                HR, Marketing, Sales, and Support. Every blueprint instantiates into a real editable workflow.
+              </p>
+            </div>
+            <Button className="rounded-xl h-11 px-6" onClick={() => router.push("/builder")}>
+              <BrainCircuit className="w-4 h-4 mr-2" />
+              Open AI Architect
+            </Button>
           </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="bg-card/20 border border-border/40 mb-8 inline-flex flex-wrap h-auto p-1.5 rounded-2xl">
-          <TabsTrigger value="all" className="rounded-xl px-4 py-2">All Templates</TabsTrigger>
-          <TabsTrigger value="writing" className="rounded-xl px-4 py-2">Writing</TabsTrigger>
-          <TabsTrigger value="research" className="rounded-xl px-4 py-2">Research</TabsTrigger>
-          <TabsTrigger value="automation" className="rounded-xl px-4 py-2">Automation</TabsTrigger>
-          <TabsTrigger value="agents" className="rounded-xl px-4 py-2">Agents</TabsTrigger>
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            className="pl-9 h-11 bg-background/40 border-white/10 rounded-xl"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by blueprint name, use case, sector, or tags..."
+          />
+        </div>
+        <div className="w-full md:w-72">
+          <Select value={sector} onValueChange={(value) => setSector(value || "all")}>
+            <SelectTrigger className="h-11 rounded-xl bg-background/40 border-white/10">
+              <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="Filter by sector" />
+            </SelectTrigger>
+            <SelectContent>
+              {sectors.map((sectorOption) => (
+                <SelectItem key={sectorOption} value={sectorOption}>
+                  {sectorOption === "all" ? "All sectors" : sectorOption}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "enterprise" | "community")}>
+        <TabsList className="bg-card/20 border border-border/40 inline-flex h-auto p-1.5 rounded-2xl">
+          <TabsTrigger value="enterprise" className="rounded-xl px-4 py-2">
+            Enterprise Catalog
+          </TabsTrigger>
+          <TabsTrigger value="community" className="rounded-xl px-4 py-2">
+            Community Templates
+          </TabsTrigger>
         </TabsList>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredTemplates.map((tmpl) => (
-            <Card key={tmpl.id} onClick={() => setSelectedTemplate(tmpl)} className="bg-card/20 border-border/40 hover:border-primary/40 transition-all flex flex-col group cursor-pointer overflow-hidden relative rounded-2xl">
-              <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <CardHeader className="pb-4 relative z-10">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-background/60 shadow-inner border border-white/5 flex items-center justify-center">
-                    {iconMap[tmpl.iconName] || <Box className="w-5 h-5 text-muted-foreground" />}
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <Badge variant="outline" className="bg-background/50 backdrop-blur-sm border-white/10 text-[10px] uppercase font-bold tracking-wider">
-                      {tmpl.level}
-                    </Badge>
-                    {tmpl.averageRating > 0 && (
-                      <div className="flex items-center gap-1 text-yellow-500 bg-yellow-500/10 px-1.5 py-0.5 rounded-md border border-yellow-500/20">
-                        <Star className="w-3 h-3 fill-current" />
-                        <span className="text-[10px] font-bold">{tmpl.averageRating.toFixed(1)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <CardTitle className="text-lg group-hover:text-primary transition-colors line-clamp-1">{tmpl.title}</CardTitle>
-                <CardDescription className="text-sm mt-2 line-clamp-2 leading-relaxed h-10">
-                  {tmpl.description}
-                </CardDescription>
+        <TabsContent value="enterprise" className="mt-6 space-y-6">
+          {catalogError ? (
+            <Card className="bg-destructive/5 border-destructive/20">
+              <CardHeader>
+                <CardTitle>Failed to load blueprint catalog</CardTitle>
+                <CardDescription>{catalogError.message}</CardDescription>
               </CardHeader>
-              <CardContent className="flex-1 relative z-10">
-                <div className="flex flex-wrap gap-2 text-[10px] uppercase font-bold tracking-wider">
-                  {tmpl.tags.map(tag => (
-                    <span key={tag} className="px-2 py-1 rounded-md bg-secondary/20 text-secondary-foreground">#{tag}</span>
-                  ))}
-                </div>
-              </CardContent>
-              <CardFooter className="pt-4 border-t border-white/5 flex justify-between items-center relative z-10 bg-black/10">
-                <span className="text-xs text-muted-foreground font-medium">{tmpl.time} setup</span>
-                <span className="text-primary text-xs font-semibold flex items-center group-hover:translate-x-1 transition-transform">
-                  View Details <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                </span>
-              </CardFooter>
             </Card>
-          ))}
-        </div>
+          ) : isCatalogLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <Skeleton key={`catalog-skeleton-${index}`} className="h-[260px] rounded-2xl bg-card/40" />
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {(catalogData?.total || 0)} blueprints available
+                </p>
+              </div>
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {(catalogData?.blueprints || []).map((blueprint) => (
+                  <Card
+                    key={blueprint.slug}
+                    className="bg-card/20 border-border/40 hover:border-primary/30 transition-all rounded-2xl overflow-hidden"
+                  >
+                    <CardHeader className="space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="w-12 h-12 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                          <Building2 className="w-6 h-6 text-primary" />
+                        </div>
+                        <Badge variant="outline" className="border-white/10">
+                          {blueprint.sector}
+                        </Badge>
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg leading-snug">{blueprint.name}</CardTitle>
+                        <CardDescription className="line-clamp-2 mt-2">
+                          {blueprint.description}
+                        </CardDescription>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-xs text-muted-foreground">{formatPackCount(blueprint)}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(blueprint.tags || []).slice(0, 4).map((tag) => (
+                          <span
+                            key={`${blueprint.slug}-${tag}`}
+                            className="text-[10px] px-2 py-1 rounded-full bg-secondary/20 text-secondary-foreground"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="flex gap-2 border-t border-white/5 bg-black/10">
+                      <Button
+                        className="flex-1 rounded-xl"
+                        onClick={() => handleInstantiateBlueprint(blueprint.slug)}
+                        disabled={instantiatingSlug === blueprint.slug}
+                      >
+                        {instantiatingSlug === blueprint.slug ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <CopyPlus className="w-4 h-4 mr-2" />
+                        )}
+                        Use Blueprint
+                      </Button>
+                      <Button variant="outline" className="rounded-xl" onClick={() => setSelectedBlueprint(blueprint)}>
+                        View
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="community" className="mt-6 space-y-6">
+          {communityError ? (
+            <Card className="bg-destructive/5 border-destructive/20">
+              <CardHeader>
+                <CardTitle>Failed to load community templates</CardTitle>
+                <CardDescription>{communityError.message}</CardDescription>
+              </CardHeader>
+            </Card>
+          ) : isCommunityLoading ? (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <Skeleton key={`community-skeleton-${index}`} className="h-[220px] rounded-2xl bg-card/40" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filteredCommunity.map((template) => (
+                <Card
+                  key={template._id}
+                  className="bg-card/20 border-border/40 hover:border-primary/30 transition-all rounded-2xl overflow-hidden"
+                >
+                  <CardHeader className="space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="w-11 h-11 rounded-xl bg-secondary/20 border border-white/10 flex items-center justify-center">
+                        <Layers className="w-5 h-5 text-secondary-foreground" />
+                      </div>
+                      <Badge variant="outline" className="border-white/10">
+                        {template.category || "Community"}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-lg">{template.name}</CardTitle>
+                    <CardDescription className="line-clamp-2">
+                      {template.description || "Community-contributed template."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    <p className="text-xs text-muted-foreground">
+                      {(template.nodes?.length || 0)} nodes • {template.clones || 0} clones
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Rating: {(template.averageRating || 0).toFixed(1)}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="flex gap-2 border-t border-white/5 bg-black/10">
+                    <Button
+                      className="flex-1 rounded-xl"
+                      onClick={() => handleCloneCommunityTemplate(template._id)}
+                      disabled={cloningTemplateId === template._id}
+                    >
+                      {cloningTemplateId === template._id ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <CopyPlus className="w-4 h-4 mr-2" />
+                      )}
+                      Clone
+                    </Button>
+                    <Button variant="outline" className="rounded-xl" onClick={() => setSelectedCommunity(template)}>
+                      View
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
 
-      {/* Next-Gen Detailed Overview Modal */}
-      <Dialog open={!!selectedTemplate} onOpenChange={(open) => !open && setSelectedTemplate(null)}>
-        <DialogContent className="max-w-4xl sm:max-w-4xl md:max-w-5xl bg-[#09090b] border border-white/10 rounded-[2.5rem] p-0 overflow-hidden shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] flex flex-col md:flex-row h-full max-h-[85vh]">
-          {selectedTemplate && (
-            <>
-              {/* Left Sidebar - Stats & Metadata */}
-              <div className="w-full md:w-72 bg-black/40 border-r border-white/5 p-8 flex flex-col gap-8 shrink-0 relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
-                
-                <div className="space-y-6 relative z-10">
-                  <div className="space-y-1">
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Complexity</h4>
-                    <div className="flex gap-1.5">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= selectedTemplate.complexity ? 'bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]' : 'bg-white/10'}`} />
-                      ))}
-                    </div>
-                  </div>
+      <Dialog open={!!selectedBlueprint} onOpenChange={(open) => !open && setSelectedBlueprint(null)}>
+        <DialogContent className="max-w-3xl bg-[#09090b] border border-white/10 rounded-3xl p-0 overflow-hidden">
+          {selectedBlueprint ? (
+            <div className="grid md:grid-cols-[320px_1fr]">
+              <div className="p-7 border-r border-white/5 bg-black/40 space-y-6">
+                <div className="space-y-2">
+                  <Badge variant="outline" className="border-primary/30 text-primary">
+                    {selectedBlueprint.sector}
+                  </Badge>
+                  <h3 className="text-2xl font-bold leading-tight">{selectedBlueprint.name}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {selectedBlueprint.description}
+                  </p>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <p className="text-muted-foreground">Use Case</p>
+                  <p className="font-semibold">{selectedBlueprint.useCase}</p>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <p className="text-muted-foreground">Estimated Credits</p>
+                  <p className="font-semibold">{selectedBlueprint.estimatedCreditCost}</p>
+                </div>
+                <Button
+                  className="w-full rounded-xl"
+                  onClick={() => handleInstantiateBlueprint(selectedBlueprint.slug)}
+                  disabled={instantiatingSlug === selectedBlueprint.slug}
+                >
+                  {instantiatingSlug === selectedBlueprint.slug ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                  )}
+                  Instantiate Blueprint
+                </Button>
+              </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Nodes</h4>
-                      <div className="text-xl font-bold tracking-tight">{selectedTemplate.nodeCount}</div>
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Setup</h4>
-                      <div className="text-xl font-bold tracking-tight">{selectedTemplate.time.split(' ')[0]}<span className="text-xs text-muted-foreground ml-1 font-medium">m</span></div>
-                    </div>
-                  </div>
+              <div className="p-7 space-y-6">
+                <DialogHeader className="space-y-2">
+                  <DialogTitle>Production Blueprint Details</DialogTitle>
+                  <DialogDescription>
+                    Review connectors, analysis rubric, and benchmark rubric before instantiation.
+                  </DialogDescription>
+                </DialogHeader>
 
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">Integrations</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {selectedTemplate.tags.slice(0, 4).map((tag: string) => (
-                        <div key={tag} className="px-2 py-1 rounded-md bg-secondary/10 border border-white/5 text-[10px] font-bold text-secondary-foreground uppercase tracking-wider">
-                          {tag}
-                        </div>
-                      ))}
-                    </div>
+                <div className="space-y-3">
+                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Required Connectors</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedBlueprint.requiredConnectors.map((connector) => (
+                      <span key={connector} className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary border border-primary/20">
+                        {connector}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                <div className="mt-auto space-y-4 relative z-10">
-                  <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-primary mb-2 flex items-center gap-1.5">
-                      <Star className="w-3 h-3 fill-current" /> {selectedTemplate.isCommunity ? "Rate this Template" : "Pro Tip"}
-                    </div>
-                    {selectedTemplate.isCommunity ? (
-                      <div className="flex items-center gap-2 mt-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                          <button
-                            key={star}
-                            onClick={() => handleRate(selectedTemplate.id, star)}
-                            className="hover:scale-125 transition-transform text-muted-foreground hover:text-yellow-500"
-                          >
-                            <Star className={`w-4 h-4 ${star <= (selectedTemplate.averageRating || 0) ? 'fill-yellow-500 text-yellow-500' : ''}`} />
-                          </button>
-                        ))}
+                <div className="space-y-3">
+                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Analysis Rubric</h4>
+                  <div className="space-y-2">
+                    {selectedBlueprint.analysisRubric.map((item, index) => (
+                      <div key={`analysis-${index}`} className="text-sm text-muted-foreground bg-card/40 border border-white/10 rounded-xl px-3 py-2">
+                        {item}
                       </div>
-                    ) : (
-                      <p className="text-[11px] leading-relaxed text-muted-foreground font-medium">
-                        Combine this with the <strong>Logic Loop</strong> node for repetitive batch processing.
-                      </p>
-                    )}
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Benchmark Rubric</h4>
+                  <div className="space-y-2">
+                    {selectedBlueprint.benchmarkRubric.map((item, index) => (
+                      <div key={`benchmark-${index}`} className="text-sm text-muted-foreground bg-card/40 border border-white/10 rounded-xl px-3 py-2">
+                        {item}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
 
-              {/* Main Content Area */}
-              <div className="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-black to-[#0c0c0e] relative overflow-y-auto">
-                {/* Hero Mesh Section */}
-                <div className="relative p-10 pb-8 overflow-hidden">
-                  <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/10 rounded-full blur-[120px] -translate-y-1/2 translate-x-1/2 pointer-events-none opacity-60" />
-                  
-                  <div className="relative z-10 space-y-6">
-                    <div className="flex items-center gap-5">
-                      <div className="w-20 h-20 rounded-3xl bg-black/60 shadow-2xl flex items-center justify-center border border-white/10 ring-1 ring-primary/20 backdrop-blur-xl group">
-                        {iconMap[selectedTemplate.iconName] || <Box className="w-10 h-10 text-primary" />}
-                      </div>
-                      <div className="space-y-2">
-                        <Badge className="bg-primary/20 text-primary uppercase tracking-[0.15em] text-[10px] font-extrabold px-3 py-1 rounded-lg border border-primary/20 backdrop-blur-md">
-                          {selectedTemplate.level} Template
-                        </Badge>
-                        <DialogTitle className="text-4xl font-extrabold tracking-tight text-white">{selectedTemplate.title}</DialogTitle>
-                      </div>
-                    </div>
-                    <DialogDescription className="text-xl text-foreground/70 leading-relaxed font-medium max-w-2xl">
-                      {selectedTemplate.description}
-                    </DialogDescription>
-                  </div>
-                </div>
-
-                <div className="p-10 pt-0 space-y-12">
-                  {/* Architecture Flow Visualization */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary/80 flex items-center gap-2">
-                      <Cpu className="w-3.5 h-3.5" /> Architecture Sequence
-                    </h4>
-                    <div className="flex items-center gap-3 p-6 bg-white/[0.02] rounded-[2rem] border border-white/5 shadow-inner">
-                      {selectedTemplate.nodeSequence.map((type: string, idx: number) => (
-                        <div key={idx} className="flex items-center gap-3">
-                          <div className="group relative">
-                            <div className="w-12 h-12 rounded-2xl bg-black/40 border border-white/10 flex items-center justify-center shadow-lg transition-transform hover:scale-110 cursor-help">
-                              {type === 'inputNode' && <MessageSquareCode className="w-5 h-5 text-blue-400" />}
-                              {type === 'llmNode' && <BrainCircuit className="w-5 h-5 text-purple-400" />}
-                              {type === 'logicNode' && <Zap className="w-5 h-5 text-yellow-400" />}
-                              {type === 'outputNode' && <ArrowRight className="w-5 h-5 text-green-400" />}
-                            </div>
-                            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap bg-black text-[9px] font-bold uppercase tracking-wider py-1 px-2 rounded-md border border-white/10 pointer-events-none z-20">
-                              {type.replace('Node', '')}
-                            </div>
-                          </div>
-                          {idx < selectedTemplate.nodeSequence.length - 1 && (
-                            <div className="w-6 h-px bg-white/10" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-                        <Blocks className="w-3.5 h-3.5" /> Overview
-                      </h4>
-                      <p className="text-foreground/80 leading-relaxed text-[15px] font-medium">
-                        {selectedTemplate.detailedOverview}
-                      </p>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h4 className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Core Benefits
-                      </h4>
-                      <ul className="space-y-3">
-                        {selectedTemplate.useCases?.map((uc: string, i: number) => (
-                          <li key={i} className="flex items-center gap-3 text-sm font-semibold text-foreground/80 group">
-                            <Check className="w-4 h-4 text-primary shrink-0 transition-transform group-hover:scale-125" />
-                            <span>{uc}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-
-                  {/* Expected Output Card */}
-                  <div className="relative group p-1">
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-primary/5 to-transparent rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    <div className="relative p-6 rounded-3xl bg-white/[0.03] border border-white/5 flex items-center gap-6 transition-all group-hover:bg-white/[0.05] group-hover:translate-y-[-2px]">
-                      <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20 shadow-[0_0_20px_rgba(var(--primary),0.1)]">
-                        <Zap className="w-6 h-6 text-primary fill-current" />
-                      </div>
-                      <div className="space-y-1">
-                        <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Expected Output</h4>
-                        <p className="text-[15px] text-foreground/90 font-bold tracking-tight">
-                          {selectedTemplate.expectedOutput}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sticky Action Footer */}
-                <DialogFooter className="sticky bottom-0 mt-auto p-10 pt-6 border-t border-white/5 bg-black/80 backdrop-blur-xl flex sm:justify-between items-center gap-6 z-20">
-                  <div className="hidden sm:flex items-center gap-3">
-                    <div className="flex -space-x-3">
-                      {[1, 2, 3].map((i) => (
-                        <div key={i} className="w-8 h-8 rounded-full border-2 border-background bg-secondary/50 flex items-center justify-center text-[10px] font-bold text-white shadow-lg ring-1 ring-white/5">
-                          <User className="w-4 h-4" />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Join 1.2k+ architects</div>
-                  </div>
-
-                  <Button 
-                    size="lg"
-                    className="flex-1 sm:flex-none rounded-2xl px-12 py-7 shadow-[0_20px_40px_-15px_rgba(var(--primary),0.5)] hover:shadow-[0_25px_50px_-15px_rgba(var(--primary),0.6)] transition-all text-lg font-black bg-primary text-primary-foreground border-t border-white/20 relative overflow-hidden group min-w-[280px]" 
-                    onClick={() => handleClone(selectedTemplate.id)}
-                    disabled={cloningId === selectedTemplate.id}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-in-out" />
-                    <span className="relative flex items-center justify-center">
-                      {cloningId === selectedTemplate.id ? (
-                        <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                      ) : (
-                        <Workflow className="w-6 h-6 mr-3" />
-                      )}
-                      {cloningId === selectedTemplate.id ? "Initializing..." : "Clone Architecture"}
-                    </span>
-                  </Button>
-                </DialogFooter>
+      <Dialog open={!!selectedCommunity} onOpenChange={(open) => !open && setSelectedCommunity(null)}>
+        <DialogContent className="max-w-xl bg-[#09090b] border border-white/10 rounded-2xl">
+          {selectedCommunity ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedCommunity.name}</DialogTitle>
+                <DialogDescription>
+                  Community template preview.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>{selectedCommunity.description || "No description provided."}</p>
+                <p>Category: {selectedCommunity.category || "Community"}</p>
+                <p>Nodes: {selectedCommunity.nodes?.length || 0}</p>
+                <p>Clones: {selectedCommunity.clones || 0}</p>
+                <p>Rating: {(selectedCommunity.averageRating || 0).toFixed(1)}</p>
+              </div>
+              <div className="flex justify-end">
+                <Button
+                  className="rounded-xl"
+                  onClick={() => handleCloneCommunityTemplate(selectedCommunity._id)}
+                  disabled={cloningTemplateId === selectedCommunity._id}
+                >
+                  {cloningTemplateId === selectedCommunity._id ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <ArrowRight className="w-4 h-4 mr-2" />
+                  )}
+                  Clone to Builder
+                </Button>
               </div>
             </>
-          )}
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>

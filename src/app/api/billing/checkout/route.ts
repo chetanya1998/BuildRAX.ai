@@ -1,19 +1,17 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
+import { BILLING_PLANS, BillingTier } from "@/lib/billing/plans";
 
 const PLAN_CONFIG = {
   pro_20: {
     checkoutUrl: process.env.STRIPE_PRICE_20_CHECKOUT_URL,
-    monthlyCredits: 100,
   },
   growth_40: {
     checkoutUrl: process.env.STRIPE_PRICE_40_CHECKOUT_URL,
-    monthlyCredits: 250,
   },
   enterprise: {
     checkoutUrl: process.env.ENTERPRISE_CONTACT_URL,
-    monthlyCredits: 1000,
   },
 } as const;
 
@@ -27,10 +25,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const { tier } = await req.json();
-    const plan = PLAN_CONFIG[tier as keyof typeof PLAN_CONFIG];
+    const { tier } = (await req.json()) as { tier?: BillingTier };
+    const plan = tier ? PLAN_CONFIG[tier as keyof typeof PLAN_CONFIG] : null;
 
-    if (!plan) {
+    if (!tier || !plan) {
       return NextResponse.json({ error: "Unknown billing tier" }, { status: 400 });
     }
 
@@ -44,7 +42,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       tier,
       checkoutUrl: plan.checkoutUrl,
-      monthlyCredits: plan.monthlyCredits,
+      monthlyCredits: BILLING_PLANS[tier].monthlyCredits,
     });
   } catch (error) {
     console.error("Billing checkout error:", error);
