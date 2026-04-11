@@ -3,15 +3,45 @@
 import useSWR from "swr";
 import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Play, Plus, Clock, Layers, ArrowRight } from "lucide-react";
+import { Play, Plus, Clock, Layers, ArrowRight, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+
+interface WorkflowListItem {
+  _id: string;
+  name: string;
+  description?: string;
+  isPublic?: boolean;
+  lifecycle?: string;
+  updatedAt: string;
+}
 
 export default function WorkflowsPage() {
-  const { data, error, isLoading } = useSWR("/api/workflows", fetcher);
+  const { data, error, isLoading, mutate } = useSWR("/api/workflows", fetcher);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const workflows = data?.workflows || [];
+
+  const handleDelete = async (workflowId: string) => {
+    try {
+      setDeletingId(workflowId);
+      const res = await fetch(`/api/workflows/${workflowId}`, { method: "DELETE" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body.error || "Delete failed");
+      }
+      toast.success("Workflow deleted");
+      mutate();
+    } catch (deleteError) {
+      console.error(deleteError);
+      toast.error(deleteError instanceof Error ? deleteError.message : "Delete failed");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   if (isLoading && !data) {
     return <WorkflowsSkeleton />;
@@ -37,19 +67,31 @@ export default function WorkflowsPage() {
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {workflows.length > 0 ? (
-          workflows.map((workflow: any) => (
+          workflows.map((workflow: WorkflowListItem) => (
             <Card key={workflow._id} className="bg-card/30 border-border/40 hover:border-primary/50 hover:bg-card/50 transition-all duration-300 group cursor-pointer relative overflow-hidden flex flex-col">
-              {workflow.isDemo && (
-                <Badge className="absolute top-3 right-3 bg-secondary/80 text-secondary-foreground text-[10px] uppercase font-bold backdrop-blur-sm">Demo</Badge>
-              )}
               <CardHeader className="pb-4">
                 <div className="flex justify-between items-start">
                   <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/10 px-2 py-0.5">
-                    {workflow.isPublic ? "Public" : "Private"}
+                    {workflow.lifecycle || (workflow.isPublic ? "Public" : "Private")}
                   </Badge>
-                  <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-md">
-                    <Play className="w-4 h-4 text-primary fill-primary" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-md">
+                      <Play className="w-4 h-4 text-primary fill-primary" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-md text-red-400 hover:text-red-300"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        handleDelete(workflow._id);
+                      }}
+                      disabled={deletingId === workflow._id}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
                 <CardTitle className="text-xl mt-4 group-hover:text-primary transition-colors">{workflow.name}</CardTitle>
                 <CardDescription className="line-clamp-2 mt-2 text-sm leading-relaxed">

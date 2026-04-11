@@ -1,704 +1,1337 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { cn } from "@/lib/utils";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { signIn, useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import {
-  ReactFlow,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
   addEdge,
+  Background,
   BackgroundVariant,
-  Panel
+  Connection,
+  Controls,
+  Edge,
+  MiniMap,
+  Node,
+  Panel,
+  ReactFlow,
+  useEdgesState,
+  useNodesState,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
-  ArrowLeft, Play, Save, Share2,
-  MessageSquare, Cpu, Database,
-  Wrench, FileOutput, CheckCircle2, ChevronRight, Settings,
-  Type, MessageSquareCode, Bot, Cog, TerminalSquare, Sparkles,
-  Globe, Search, Newspaper, BookOpen, Warehouse, Table, Mail, 
-  Slack, Disc, Twitter, Clock, Zap, Code, ShieldCheck, 
-  Image as ImageIcon, Mic, AudioLines, ShoppingCart, CreditCard,
-  Repeat, BrainCircuit, Layers, History as HistoryIcon
+  ArrowLeft,
+  BrainCircuit,
+  GitBranch,
+  Loader2,
+  Play,
+  Rocket,
+  Save,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  Wand2,
+  Workflow,
 } from "lucide-react";
-import Link from "next/link";
-import { ExecutionPanel } from "@/components/ExecutionPanel";
-import { PublishModal } from "@/components/PublishModal";
-import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
-import { VersionHistoryPanel } from "@/components/VersionHistoryPanel";
-import { FancyLoader } from "@/components/ui/FancyLoader";
-
-const initialNodes: any[] = [
-  { id: "1", position: { x: 250, y: 150 }, data: { label: "Input Node", value: "" }, type: "inputNode" },
-  { id: "2", position: { x: 500, y: 150 }, data: { label: "LLM Node" }, type: "llmNode" },
-  { id: "3", position: { x: 750, y: 150 }, data: { label: "Output Node" }, type: "outputNode" },
-];
-
-const initialEdges: any[] = [
-  { id: "e1-2", source: "1", target: "2", animated: true, style: {} },
-  { id: "e2-3", source: "2", target: "3", animated: true, style: {} },
-];
-
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
-import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
+import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { FancyLoader } from "@/components/ui/FancyLoader";
+import { getDefaultNodeData, NODE_DEFINITIONS, NODE_PACK_ORDER } from "@/lib/graph/catalog";
+import { DEFAULT_VIEWPORT } from "@/lib/graph/persistence";
+import { CreditBalance, NodeExecutionResult, ScenarioDefinition, WorkflowGraph } from "@/lib/graph/types";
+import { nodeTypes } from "@/components/nodes";
 
-// Predefined mock template data to load based on ?template=id
-const templatesData: Record<string, { nodes: any[], edges: any[] }> = {
-  "0": { // Resume Analyzer
-    nodes: [
-      { id: "1", position: { x: 250, y: 150 }, data: { value: "Resume Details:\nTarget Job:\n" }, type: "inputNode" },
-      { id: "2", position: { x: 500, y: 150 }, data: { template: "Analyze this resume against the target job. {{default}}" }, type: "promptNode" },
-      { id: "3", position: { x: 750, y: 150 }, data: { model: "gpt-4o", systemPrompt: "You are an expert HR reviewer.", temperature: 0.5 }, type: "llmNode" },
-      { id: "4", position: { x: 1000, y: 150 }, data: { label: "Output" }, type: "outputNode" }
-    ],
-    edges: [
-      { id: "e1-2", source: "1", target: "2", animated: true },
-      { id: "e2-3", source: "2", target: "3", animated: true },
-      { id: "e3-4", source: "3", target: "4", animated: true }
-    ]
+const LOCAL_DRAFT_KEY = "buildrax:builder-draft:v2";
+const PENDING_ACTION_KEY = "buildrax:pending-builder-action";
+
+type FlowNode = Node<Record<string, unknown>, string>;
+type FlowEdge = Edge;
+
+interface BlueprintRecord {
+  slug: string;
+  name: string;
+  description: string;
+  sector: string;
+  useCase: string;
+  tags: string[];
+  graph: WorkflowGraph;
+}
+
+interface BenchmarkScore {
+  variantId: string;
+  model?: string;
+  totalScore?: number;
+  assertionPassRate: number;
+  latencyMs: number;
+  tokenUsage: number;
+  cost: number;
+}
+
+interface RunPanelData {
+  mode: string;
+  summary: {
+    status: string;
+    latencyMs: number;
+    tokenUsage: number;
+    cost: number;
+    warnings: string[];
+  };
+  analysis?: Record<string, unknown>;
+  nodeResults?: NodeExecutionResult[];
+  scores?: BenchmarkScore[];
+  winnerVariantId?: string;
+  confidence?: number;
+}
+
+interface LocalDraft {
+  workflowId?: string;
+  workflowName?: string;
+  workflowDescription?: string;
+  sourceBlueprintSlug?: string;
+  graph?: WorkflowGraph;
+  scenario?: ScenarioDefinition;
+  benchmarkModels?: string;
+  promptInput?: string;
+}
+
+interface FlowViewportController {
+  getViewport: () => { x: number; y: number; zoom: number };
+  screenToFlowPosition: (position: { x: number; y: number }) => { x: number; y: number };
+}
+
+const blankNodes: FlowNode[] = [
+  {
+    id: "gateway",
+    type: "apiGatewayNode",
+    position: { x: 80, y: 180 },
+    data: { ...getDefaultNodeData("apiGatewayNode"), route: "/api/workflow" },
   },
-  "1": { // Research Synthesizer
-    nodes: [
-      { id: "1", position: { x: 250, y: 150 }, data: { value: "Context:\n" }, type: "inputNode" },
-      { id: "2", position: { x: 500, y: 150 }, data: { template: "Summarize into 3 key themes. {{default}}" }, type: "promptNode" },
-      { id: "3", position: { x: 750, y: 150 }, data: { model: "gpt-3.5-turbo", systemPrompt: "You are a research bot.", temperature: 0.2 }, type: "llmNode" },
-      { id: "4", position: { x: 1000, y: 150 }, data: { label: "Output" }, type: "outputNode" }
-    ],
-    edges: [
-      { id: "e1-2", source: "1", target: "2", animated: true },
-      { id: "e2-3", source: "2", target: "3", animated: true },
-      { id: "e3-4", source: "3", target: "4", animated: true }
-    ]
-  }
+  {
+    id: "service",
+    type: "serviceNode",
+    position: { x: 340, y: 180 },
+    data: { ...getDefaultNodeData("serviceNode"), serviceName: "orchestrator-service" },
+  },
+  {
+    id: "output",
+    type: "outputNode",
+    position: { x: 620, y: 180 },
+    data: { ...getDefaultNodeData("outputNode"), label: "Output" },
+  },
+];
+
+const blankEdges: FlowEdge[] = [
+  { id: "gateway-service", source: "gateway", target: "service", animated: true },
+  { id: "service-output", source: "service", target: "output", animated: true },
+];
+
+const defaultScenario: ScenarioDefinition = {
+  name: "Baseline",
+  trafficProfile: "steady",
+  dependencyMode: "stub",
+  failureMode: "none",
+  timeoutMs: 1200,
+  queueDepth: 25,
+  assertionRules: [],
 };
 
-import { nodeTypes } from "@/components/nodes";
-import { PlusSquare } from "lucide-react";
-import { INTEGRATION_REGISTRY, IntegrationApp } from "@/lib/integrations";
-
-const NODE_LIBRARY = [
-  // --- AI & LLM Models ---
-  { type: "llmNode", label: "GPT-4o (OpenAI)", description: "Most capable model", icon: <Bot className="w-4 h-4" />, color: "text-purple-400 bg-purple-500/10", category: "AI Models" },
-  { type: "llmNode", label: "Claude 3.5 Sonnet", description: "Nuanced & Fast", icon: <BrainCircuit className="w-4 h-4" />, color: "text-orange-400 bg-orange-500/10", category: "AI Models" },
-  { type: "llmNode", label: "Gemini 1.5 Pro", description: "Large Context", icon: <Sparkles className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "AI Models" },
-  { type: "llmNode", label: "Llama 3 (Local)", description: "Privacy-focused", icon: <TerminalSquare className="w-4 h-4" />, color: "text-green-400 bg-green-500/10", category: "AI Models" },
-  { type: "imageGenNode", label: "DALL-E 3", description: "High-quality images", icon: <ImageIcon className="w-4 h-4" />, color: "text-pink-400 bg-pink-500/10", category: "AI Models" },
-
-  // --- Search & intelligence ---
-  { type: "searchNode", label: "Google Search", description: "Live web results", icon: <Search className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Search" },
-  { type: "scraperNode", label: "Web Scraper", description: "Extract page content", icon: <Globe className="w-4 h-4" />, color: "text-teal-400 bg-teal-500/10", category: "Search" },
-  { type: "newsNode", label: "News Feed", description: "Latest headlines", icon: <Newspaper className="w-4 h-4" />, color: "text-red-400 bg-red-500/10", category: "Search" },
-  { type: "wikiNode", label: "Wikipedia", description: "Knowledge lookup", icon: <BookOpen className="w-4 h-4" />, color: "text-slate-400 bg-slate-500/10", category: "Search" },
-
-  // --- Data & Persistence ---
-  { type: "memoryNode", label: "Vector Search", description: "Pinecone / Weaviate", icon: <Database className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10", category: "Data" },
-  { type: "mongoNode", label: "MongoDB", description: "Read/Write JSON", icon: <Warehouse className="w-4 h-4" />, color: "text-green-400 bg-green-500/10", category: "Data" },
-  { type: "sheetsNode", label: "Google Sheets", description: "Spreadsheet sync", icon: <Table className="w-4 h-4" />, color: "text-emerald-400 bg-emerald-500/10", category: "Data" },
-  { type: "notionNode", label: "Notion", description: "Create pages/rows", icon: <Layers className="w-4 h-4" />, color: "text-slate-500 bg-slate-500/10", category: "Data" },
-  { type: "airtableNode", label: "Airtable", description: "Low-code database", icon: <Table className="w-4 h-4" />, color: "text-blue-500 bg-blue-500/10", category: "Data" },
-
-  // --- Communication ---
-  { type: "emailNode", label: "Send Email", description: "SMTP / SendGrid", icon: <Mail className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Communication" },
-  { type: "twitterNode", label: "Twitter Post", description: "Automated tweet", icon: <Twitter className="w-4 h-4" />, color: "text-sky-400 bg-sky-500/10", category: "Communication" },
-
-
-  // --- Logic & Process ---
-  { type: "inputNode", label: "Input", description: "Receive initial data", icon: <Type className="w-4 h-4" />, color: "text-blue-400 bg-blue-500/10", category: "Logic" },
-  { type: "promptNode", label: "Prompt", description: "Template strings", icon: <MessageSquareCode className="w-4 h-4" />, color: "text-orange-400 bg-orange-500/10", category: "Logic" },
-  { type: "conditionNode", label: "Condition", description: "If/Else branching", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-yellow-400 bg-yellow-500/10", category: "Logic" },
-  { type: "combineNode", label: "Combine", description: "Merge strings", icon: <PlusSquare className="w-4 h-4" />, color: "text-teal-400 bg-teal-500/10", category: "Logic" },
-  { type: "loopNode", label: "Loop", description: "Iterate arrays", icon: <Repeat className="w-4 h-4" />, color: "text-pink-400 bg-pink-500/10", category: "Logic" },
-  { type: "delayNode", label: "Delay", description: "Wait (Sleep)", icon: <Clock className="w-4 h-4" />, color: "text-slate-400 bg-slate-500/10", category: "Logic" },
-  { type: "webhookNode", label: "Webhook", description: "API (GET/POST)", icon: <Zap className="w-4 h-4" />, color: "text-amber-400 bg-amber-500/10", category: "Logic" },
-  { type: "codeNode", label: "JS Sandbox", description: "Custom logic", icon: <Code className="w-4 h-4" />, color: "text-gray-400 bg-gray-500/10", category: "Logic" },
-  { type: "outputNode", label: "Output", description: "Final response", icon: <TerminalSquare className="w-4 h-4" />, color: "text-green-400 bg-green-500/10", category: "Logic" },
-
-  // --- Multimodal & Auth ---
-  { type: "whisperNode", label: "Whisper", description: "Voice-to-Text", icon: <Mic className="w-4 h-4" />, color: "text-cyan-400 bg-cyan-500/10", category: "Audio/Vision" },
-  { type: "ttsNode", label: "Speech", description: "Text-to-Voice", icon: <AudioLines className="w-4 h-4" />, color: "text-violet-400 bg-violet-500/10", category: "Audio/Vision" },
-  { type: "authNode", label: "Auth Guard", description: "API Key Security", icon: <ShieldCheck className="w-4 h-4" />, color: "text-zinc-400 bg-zinc-500/10", category: "Security" },
-  { type: "stripeNode", label: "Stripe", description: "Invoices & Payments", icon: <CreditCard className="w-4 h-4" />, color: "text-indigo-400 bg-indigo-500/10", category: "Commerce" },
-  { type: "shopifyNode", label: "Shopify", description: "Store products", icon: <ShoppingCart className="w-4 h-4" />, color: "text-lime-400 bg-lime-500/10", category: "Commerce" },
-];
+function makeGraph(args: {
+  name: string;
+  description: string;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  tags?: string[];
+  assumptions?: string[];
+  riskWarnings?: string[];
+  suggestedScenarios?: string[];
+}): WorkflowGraph {
+  return {
+    version: "1.0",
+    nodes: args.nodes as WorkflowGraph["nodes"],
+    edges: args.edges.map((edge) => ({
+      ...edge,
+      sourceHandle: edge.sourceHandle || undefined,
+      targetHandle: edge.targetHandle || undefined,
+    })) as WorkflowGraph["edges"],
+    metadata: {
+      name: args.name,
+      description: args.description,
+      mode: "design",
+      tags: args.tags || [],
+      assumptions: args.assumptions || [],
+      riskWarnings: args.riskWarnings || [],
+      suggestedScenarios: args.suggestedScenarios || [],
+    },
+  };
+}
 
 function BuilderCanvas() {
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
-  const templateId = searchParams?.get("template") || null;
+  const queryWorkflowId = searchParams?.get("id") || "";
+  const resumeAfterLogin = searchParams?.get("resume") === "1";
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
-  const [reactFlowInstance, setReactFlowInstance] = useState<any>(null);
-  
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [isExecutionPanelOpen, setIsExecutionPanelOpen] = useState(false);
-  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [architectPrompt, setArchitectPrompt] = useState("");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(blankNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(blankEdges);
+  const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
+  const [workflowId, setWorkflowId] = useState<string>(queryWorkflowId);
+  const [workflowName, setWorkflowName] = useState("Untitled Workflow");
+  const [workflowDescription, setWorkflowDescription] = useState("");
+  const [sourceBlueprintSlug, setSourceBlueprintSlug] = useState("");
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [autosaveStatus, setAutosaveStatus] = useState("Local draft");
+  const [promptInput, setPromptInput] = useState("");
+  const [runData, setRunData] = useState<RunPanelData | null>(null);
+  const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isCompilingPrompt, setIsCompilingPrompt] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isArchitectSidebarOpen, setIsArchitectSidebarOpen] = useState(false);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simulationResults, setSimulationResults] = useState<Record<string, any>>({});
-  const [activeSimulationNode, setActiveSimulationNode] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"build" | "architect">("build");
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [isBenchmarking, setIsBenchmarking] = useState(false);
+  const [blueprints, setBlueprints] = useState<BlueprintRecord[]>([]);
+  const [blueprintQuery, setBlueprintQuery] = useState("");
+  const [selectedSector, setSelectedSector] = useState("all");
+  const [libraryTab, setLibraryTab] = useState("nodes");
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [scenario, setScenario] = useState(defaultScenario);
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  const [benchmarkModels, setBenchmarkModels] = useState("gpt-4o,gpt-4.1-mini,claude-3-5-sonnet");
+  const reactFlowInstanceRef = useRef<FlowViewportController | null>(null);
+  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleDeleteNode = useCallback((nodeId: string) => {
-    setNodes((nds) => nds.filter((node) => node.id !== nodeId));
-    setEdges((eds) => eds.filter((edge) => edge.source !== nodeId && edge.target !== nodeId));
-    if (selectedNode?.id === nodeId) setSelectedNode(null);
-  }, [setNodes, setEdges, selectedNode]);
+  const packedNodes = useMemo(
+    () =>
+      NODE_PACK_ORDER.map((pack) => ({
+        pack,
+        items: NODE_DEFINITIONS.filter((definition) => !definition.experimental && definition.pack === pack),
+      })),
+    []
+  );
 
-  const handleEditNode = useCallback((nodeId: string) => {
-    const node = nodes.find((n) => n.id === nodeId);
-    if (node) {
-      setSelectedNode(node);
-      // Ensure we are in build mode to see the properties panel
-      setViewMode("build");
+  const sectors = useMemo(
+    () => ["all", ...Array.from(new Set(blueprints.map((blueprint) => blueprint.sector)))],
+    [blueprints]
+  );
+
+  const filteredBlueprints = useMemo(() => {
+    return blueprints.filter((blueprint) => {
+      const matchesSector = selectedSector === "all" || blueprint.sector === selectedSector;
+      const query = blueprintQuery.trim().toLowerCase();
+      const matchesQuery =
+        !query ||
+        blueprint.name.toLowerCase().includes(query) ||
+        blueprint.description.toLowerCase().includes(query) ||
+        blueprint.useCase.toLowerCase().includes(query) ||
+        (blueprint.tags || []).some((tag: string) => tag.toLowerCase().includes(query));
+
+      return matchesSector && matchesQuery;
+    });
+  }, [blueprints, blueprintQuery, selectedSector]);
+
+  const simulationOutputs = useMemo(() => {
+    const results = runData?.nodeResults || [];
+    return Object.fromEntries(
+      results.map((result: NodeExecutionResult) => [result.nodeId, JSON.stringify(result.outputs)])
+    );
+  }, [runData]);
+
+  const currentGraph = useMemo(
+    () =>
+      makeGraph({
+        name: workflowName,
+        description: workflowDescription,
+        nodes,
+        edges,
+      }),
+    [workflowName, workflowDescription, nodes, edges]
+  );
+
+  const saveLocalDraft = useCallback(
+    (nextWorkflowId = workflowId) => {
+      if (typeof window === "undefined") return;
+      localStorage.setItem(
+        LOCAL_DRAFT_KEY,
+        JSON.stringify({
+          workflowId: nextWorkflowId,
+          workflowName,
+          workflowDescription,
+          sourceBlueprintSlug,
+          graph: currentGraph,
+          scenario,
+          benchmarkModels,
+          promptInput,
+          viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
+          updatedAt: new Date().toISOString(),
+        })
+      );
+    },
+    [
+      benchmarkModels,
+      currentGraph,
+      promptInput,
+      scenario,
+      sourceBlueprintSlug,
+      workflowDescription,
+      workflowId,
+      workflowName,
+    ]
+  );
+
+  const fetchCreditBalance = useCallback(async () => {
+    if (!session?.user) return;
+    try {
+      const res = await fetch("/api/credits/balance");
+      if (res.ok) {
+        setCreditBalance(await res.json());
+      }
+    } catch (error) {
+      console.error("Failed to load credit balance", error);
     }
-  }, [nodes]);
+  }, [session?.user]);
 
-  const handleSimulation = async () => {
-    setViewMode("architect"); // Switch to architect mode for simulation
-    setIsArchitectSidebarOpen(true);
+  const loadBlueprintCatalog = useCallback(async () => {
+    try {
+      const query = new URLSearchParams();
+      if (blueprintQuery.trim()) query.set("q", blueprintQuery.trim());
+      if (selectedSector !== "all") query.set("sector", selectedSector);
+
+      const res = await fetch(`/api/templates/catalog?${query.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setBlueprints(data.blueprints || []);
+      }
+    } catch (error) {
+      console.error("Failed to load blueprints", error);
+    }
+  }, [blueprintQuery, selectedSector]);
+
+  const applyGraph = useCallback((graph: WorkflowGraph, options?: { sourceBlueprintSlug?: string }) => {
+    setNodes(graph.nodes as FlowNode[]);
+    setEdges(graph.edges as FlowEdge[]);
+    setWorkflowName(graph.metadata.name || "Untitled Workflow");
+    setWorkflowDescription(graph.metadata.description || "");
+    setSourceBlueprintSlug(options?.sourceBlueprintSlug || "");
+    setSelectedNode(null);
+    setRunData(null);
+    setAutosaveStatus("Local draft updated");
+  }, [setEdges, setNodes]);
+
+  const loadWorkflow = useCallback(
+    async (id: string) => {
+      try {
+        const res = await fetch(`/api/workflows/${id}`);
+        if (!res.ok) {
+          throw new Error("Failed to load workflow");
+        }
+
+        const workflow = await res.json();
+        const graph = workflow.graph || makeGraph({
+          name: workflow.name,
+          description: workflow.description,
+          nodes: workflow.nodes || [],
+          edges: workflow.edges || [],
+        });
+
+        applyGraph(graph, { sourceBlueprintSlug: workflow.sourceBlueprintSlug });
+        setWorkflowId(workflow._id);
+        setAutosaveStatus("Cloud workflow loaded");
+      } catch (error) {
+        console.error(error);
+        toast.error("Failed to load workflow");
+      } finally {
+        setIsHydrated(true);
+      }
+    },
+    [applyGraph]
+  );
+
+  useEffect(() => {
+    loadBlueprintCatalog();
+  }, [loadBlueprintCatalog]);
+
+  useEffect(() => {
+    fetchCreditBalance();
+  }, [fetchCreditBalance]);
+
+  useEffect(() => {
+    if (queryWorkflowId) {
+      loadWorkflow(queryWorkflowId);
+      return;
+    }
+
+    if (typeof window !== "undefined") {
+      const draft = localStorage.getItem(LOCAL_DRAFT_KEY);
+      if (draft) {
+        try {
+          const parsed = JSON.parse(draft) as LocalDraft;
+          if (parsed.graph) {
+            applyGraph(parsed.graph, { sourceBlueprintSlug: parsed.sourceBlueprintSlug });
+          }
+          setWorkflowId(parsed.workflowId || "");
+          setWorkflowName(parsed.workflowName || "Untitled Workflow");
+          setWorkflowDescription(parsed.workflowDescription || "");
+          setSourceBlueprintSlug(parsed.sourceBlueprintSlug || "");
+          setScenario(parsed.scenario || defaultScenario);
+          setBenchmarkModels(parsed.benchmarkModels || benchmarkModels);
+          setPromptInput(parsed.promptInput || "");
+          setAutosaveStatus("Recovered local draft");
+        } catch (error) {
+          console.error("Failed to restore local draft", error);
+        }
+      }
+    }
+
+    setIsHydrated(true);
+  }, [applyGraph, benchmarkModels, loadWorkflow, queryWorkflowId]);
+
+  const ensureCloudWorkflow = useCallback(async () => {
+    if (!session?.user) {
+      setShowLoginPrompt(true);
+      return null;
+    }
+
+    if (workflowId) {
+      return workflowId;
+    }
+
+    setIsSaving(true);
+    try {
+      const res = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: workflowName,
+          description: workflowDescription,
+          graph: currentGraph,
+          viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
+          sourceBlueprintSlug,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to create workflow");
+      }
+
+      const workflow = await res.json();
+      setWorkflowId(workflow._id);
+      saveLocalDraft(workflow._id);
+      setAutosaveStatus("Cloud workflow created");
+      await fetchCreditBalance();
+      return workflow._id as string;
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Failed to save workflow");
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [
+    currentGraph,
+    fetchCreditBalance,
+    saveLocalDraft,
+    session?.user,
+    sourceBlueprintSlug,
+    workflowDescription,
+    workflowId,
+    workflowName,
+  ]);
+
+  const persistCloudWorkflow = useCallback(async () => {
+    if (!session?.user || !workflowId) return;
+
+    try {
+      setAutosaveStatus("Saving to cloud...");
+      const res = await fetch(`/api/workflows/${workflowId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: workflowName,
+          description: workflowDescription,
+          graph: currentGraph,
+          viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
+          sourceBlueprintSlug,
+          lifecycle: "draft",
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Cloud autosave failed");
+      }
+
+      setAutosaveStatus("Cloud autosaved");
+    } catch (error) {
+      console.error(error);
+      setAutosaveStatus("Cloud autosave failed");
+    }
+  }, [currentGraph, session?.user, sourceBlueprintSlug, workflowDescription, workflowId, workflowName]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    saveLocalDraft();
+    setAutosaveStatus(session?.user && workflowId ? "Queued cloud autosave" : "Local draft autosaved");
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      if (session?.user && workflowId) {
+        persistCloudWorkflow();
+      }
+    }, 1200);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+      }
+    };
+  }, [currentGraph, isHydrated, persistCloudWorkflow, saveLocalDraft, session?.user, workflowId]);
+
+  const onConnect = useCallback(
+    (connection: Connection) =>
+      setEdges((currentEdges) =>
+        addEdge(
+          {
+            ...connection,
+            id: `${connection.source}-${connection.sourceHandle || "default"}-${connection.target}-${connection.targetHandle || "default"}-${Date.now()}`,
+            animated: true,
+          },
+          currentEdges
+        )
+      ),
+    [setEdges]
+  );
+
+  const updateNodeData = useCallback(
+    (nodeId: string, newData: Record<string, unknown>) => {
+      setNodes((currentNodes) =>
+        currentNodes.map((node) =>
+          node.id === nodeId
+            ? {
+                ...node,
+                data:
+                  "__replace__" in newData
+                    ? (newData.__replace__ as Record<string, unknown>)
+                    : { ...node.data, ...newData },
+              }
+            : node
+        )
+      );
+      setSelectedNode((currentSelected) =>
+        currentSelected?.id === nodeId
+          ? {
+              ...currentSelected,
+              data:
+                "__replace__" in newData
+                  ? (newData.__replace__ as Record<string, unknown>)
+                  : { ...currentSelected.data, ...newData },
+            }
+          : currentSelected
+      );
+    },
+    [setNodes]
+  );
+
+  const handleDeleteNode = useCallback(
+    (nodeId: string) => {
+      setNodes((currentNodes) => currentNodes.filter((node) => node.id !== nodeId));
+      setEdges((currentEdges) =>
+        currentEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
+      );
+      if (selectedNode?.id === nodeId) {
+        setSelectedNode(null);
+      }
+    },
+    [selectedNode?.id, setEdges, setNodes]
+  );
+
+  const handleEditNode = useCallback(
+    (nodeId: string) => {
+      const node = nodes.find((item) => item.id === nodeId);
+      if (node) {
+        setSelectedNode(node);
+      }
+    },
+    [nodes]
+  );
+
+  const handleSave = useCallback(async () => {
+    if (!session?.user) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(PENDING_ACTION_KEY, "save");
+      }
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    const id = await ensureCloudWorkflow();
+    if (!id) return;
+    await persistCloudWorkflow();
+    toast.success("Workflow saved");
+  }, [ensureCloudWorkflow, persistCloudWorkflow, session?.user]);
+
+  const runAction = useCallback(
+    async (path: string, action: "simulate" | "execute", idOverride?: string) => {
+      const targetWorkflowId = idOverride || (await ensureCloudWorkflow());
+      if (!targetWorkflowId) return;
+
+      const res = await fetch(`/api/workflows/${targetWorkflowId}/${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: workflowName,
+          description: workflowDescription,
+          graph: currentGraph,
+          scenario,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || `Failed to ${action} workflow`);
+      }
+
+      setRunData(data);
+      setIsRunPanelOpen(true);
+      await fetchCreditBalance();
+      toast.success(action === "simulate" ? "Simulation complete" : "Execution complete");
+    },
+    [
+      currentGraph,
+      ensureCloudWorkflow,
+      fetchCreditBalance,
+      scenario,
+      workflowDescription,
+      workflowName,
+    ]
+  );
+
+  const handleSimulation = useCallback(async (idOverride?: string) => {
     try {
       setIsSimulating(true);
-      setSimulationResults({});
-      
-      // Basic topological sort/execution order
-      // For simulation, we'll just go through nodes that have all inputs ready
-      const executionOrder = nodes.map(n => n.id); // Simple for now
-      
-      for (const nodeId of executionOrder) {
-        setActiveSimulationNode(nodeId);
-        // Simulate "Processing" time
-        await new Promise(r => setTimeout(r, 800));
-        
-        const node = nodes.find(n => n.id === nodeId);
-        let mockOutput = "Simulated data...";
-        
-        if (node?.type === "inputNode") mockOutput = node.data?.value || "User Input";
-        if (node?.type === "llmNode") mockOutput = "AI generated response for this step.";
-        if (node?.type === "outputNode") mockOutput = "Final result verified.";
-
-        setSimulationResults(prev => ({ ...prev, [nodeId]: mockOutput }));
-      }
-      setActiveSimulationNode(null);
-      // Optional: Add a small delay then reset or show summary
-    } catch (err) {
-      console.error(err);
+      await runAction("simulate", "simulate", idOverride);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Simulation failed");
     } finally {
       setIsSimulating(false);
     }
-  };
+  }, [runAction]);
 
-  const handleGenerateArchitecture = async () => {
-    if (!architectPrompt.trim()) return;
+  const handleExecution = useCallback(async (idOverride?: string) => {
     try {
-      setIsGenerating(true);
-      const res = await fetch("/api/architect/generate", {
-        method: "POST",
-        body: JSON.stringify({ prompt: architectPrompt }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setNodes(data.nodes);
-        setEdges(data.edges);
-        setArchitectPrompt("");
-      }
-    } catch (err) {
-      console.error(err);
+      setIsExecuting(true);
+      await runAction("execute", "execute", idOverride);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Execution failed");
     } finally {
-      setIsGenerating(false);
+      setIsExecuting(false);
     }
-  };
+  }, [runAction]);
 
-  const handleAnalyzeArchitecture = async () => {
+  const handleAnalyze = useCallback(async () => {
     try {
       setIsAnalyzing(true);
-      setIsArchitectSidebarOpen(true);
       const res = await fetch("/api/architect/analyze", {
         method: "POST",
-        body: JSON.stringify({ nodes, edges }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ graph: currentGraph }),
       });
-      if (res.ok) {
-        setAnalysisResult(await res.json());
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Analysis failed");
       }
-    } catch (err) {
-      console.error(err);
+      setRunData({
+        mode: "analysis",
+        analysis: data,
+        summary: {
+          status: "completed",
+          latencyMs: 0,
+          tokenUsage: 0,
+          cost: 0,
+          warnings: data.warnings || [],
+        },
+        nodeResults: [],
+      });
+      setIsRunPanelOpen(true);
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Analysis failed");
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [currentGraph]);
 
-  const workflowId = searchParams?.get("id") || null;
+  const handleBenchmark = useCallback(async (idOverride?: string) => {
+    const models = benchmarkModels
+      .split(",")
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (models.length < 2) {
+      toast.error("Add at least two models to benchmark");
+      return;
+    }
+
+    if (!currentGraph.nodes.some((node) => node.type === "llmNode")) {
+      toast.error("Benchmarking requires at least one LLM node in the graph");
+      return;
+    }
+
+    if (!session?.user) {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(PENDING_ACTION_KEY, "benchmark");
+      }
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    const targetWorkflowId = idOverride || (await ensureCloudWorkflow());
+    if (!targetWorkflowId) return;
+
+    try {
+      setIsBenchmarking(true);
+      const variants = models.map((model, index) => ({
+        variantId: model,
+        label: `Variant ${index + 1}`,
+        graph: {
+          ...currentGraph,
+          metadata: {
+            ...currentGraph.metadata,
+            name: `${workflowName} (${model})`,
+          },
+          nodes: currentGraph.nodes.map((node) =>
+            node.type === "llmNode"
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    model,
+                  },
+                }
+              : node
+          ),
+        },
+      }));
+
+      const res = await fetch(`/api/workflows/${targetWorkflowId}/benchmarks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          baseGraph: currentGraph,
+          variants,
+          scenario,
+          scoringConfig: {
+            qualityMode: "llm_judge",
+          },
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Benchmark failed");
+      }
+
+      setRunData({
+        mode: "benchmark",
+        ...data,
+        summary: {
+          status: "completed",
+          latencyMs: Math.max(...((data.scores || []) as BenchmarkScore[]).map((score) => score.latencyMs), 0),
+          tokenUsage: ((data.scores || []) as BenchmarkScore[]).reduce((sum, score) => sum + (score.tokenUsage || 0), 0),
+          cost: Number((((data.scores || []) as BenchmarkScore[]).reduce((sum, score) => sum + (score.cost || 0), 0)).toFixed(4)),
+          warnings: [],
+        },
+        analysis: {
+          score: Math.round((data.confidence || 0) * 100),
+          feedback: `Winner: ${data.winnerVariantId || "n/a"}`,
+          flaws: [],
+          suggestedScenarios: [],
+        },
+      });
+      setIsRunPanelOpen(true);
+      await fetchCreditBalance();
+      toast.success("Benchmark completed");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Benchmark failed");
+    } finally {
+      setIsBenchmarking(false);
+    }
+  }, [
+    benchmarkModels,
+    currentGraph,
+    ensureCloudWorkflow,
+    fetchCreditBalance,
+    scenario,
+    session?.user,
+    workflowName,
+  ]);
 
   useEffect(() => {
-    async function loadWorkflow() {
-      if (workflowId) {
-        try {
-          const res = await fetch(`/api/workflows/${workflowId}`);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.nodes && data.edges) {
-              setNodes(data.nodes);
-              setEdges(data.edges);
-            }
-          }
-        } catch (err) {
-          console.error("Failed to load workflow:", err);
-        }
-      } else if (templateId && templatesData[templateId]) {
-        setNodes(templatesData[templateId].nodes);
-        setEdges(templatesData[templateId].edges);
+    if (!resumeAfterLogin || status !== "authenticated") return;
+
+    const pendingAction = typeof window !== "undefined" ? localStorage.getItem(PENDING_ACTION_KEY) : null;
+
+    async function resumePendingAction() {
+      if (!pendingAction) return;
+
+      const id = await ensureCloudWorkflow();
+      if (!id) return;
+
+      localStorage.removeItem(PENDING_ACTION_KEY);
+      setShowLoginPrompt(false);
+
+      if (pendingAction === "save") {
+        toast.success("Workflow saved to your workspace");
+      } else if (pendingAction === "simulate") {
+        await handleSimulation(id);
+      } else if (pendingAction === "execute") {
+        await handleExecution(id);
+      } else if (pendingAction === "benchmark") {
+        await handleBenchmark(id);
       }
     }
-    loadWorkflow();
-  }, [templateId, workflowId, setNodes, setEdges]);
 
-  const onConnect = useCallback(
-    (params: any) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges],
-  );
+    resumePendingAction();
+  }, [ensureCloudWorkflow, handleBenchmark, handleExecution, handleSimulation, resumeAfterLogin, status]);
 
-  const onDragStart = (event: React.DragEvent, nodeType: string) => {
-    event.dataTransfer.setData("application/reactflow", nodeType);
-    event.dataTransfer.effectAllowed = "move";
-  };
+  const handleDeleteWorkflow = useCallback(async () => {
+    if (!workflowId || !session?.user) {
+      toast.error("Only saved workflows can be deleted");
+      return;
+    }
 
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
+    try {
+      const res = await fetch(`/api/workflows/${workflowId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Delete failed");
+      }
+
+      setWorkflowId("");
+      setWorkflowName("Untitled Workflow");
+      setWorkflowDescription("");
+      setSourceBlueprintSlug("");
+      setNodes(blankNodes);
+      setEdges(blankEdges);
+      setSelectedNode(null);
+      setRunData(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(LOCAL_DRAFT_KEY);
+      }
+      toast.success("Workflow deleted");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Delete failed");
+    }
+  }, [session?.user, workflowId, setEdges, setNodes]);
+
+  const handleCompilePrompt = useCallback(async () => {
+    if (!promptInput.trim()) {
+      toast.error("Describe the system you want to build");
+      return;
+    }
+
+    if (!session?.user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    try {
+      setIsCompilingPrompt(true);
+      const res = await fetch("/api/prompt/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: promptInput }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Prompt compile failed");
+      }
+
+      applyGraph(data.graph);
+      setLibraryTab("nodes");
+      await fetchCreditBalance();
+      toast.success("Prompt compiled into an editable system graph");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Prompt compile failed");
+    } finally {
+      setIsCompilingPrompt(false);
+    }
+  }, [applyGraph, fetchCreditBalance, promptInput, session?.user]);
+
+  const handleBlueprintApply = useCallback((blueprint: BlueprintRecord) => {
+    applyGraph(blueprint.graph, { sourceBlueprintSlug: blueprint.slug });
+    setSourceBlueprintSlug(blueprint.slug);
+    setLibraryTab("nodes");
+    toast.success(`Loaded blueprint: ${blueprint.name}`);
+  }, [applyGraph]);
 
   const onDrop = useCallback(
     (event: React.DragEvent) => {
       event.preventDefault();
-
-      if (!reactFlowInstance) return;
-
       const type = event.dataTransfer.getData("application/reactflow");
-      if (typeof type === "undefined" || !type) return;
+      if (!type || !reactFlowInstanceRef.current) return;
 
-      const position = reactFlowInstance.screenToFlowPosition({
+      const position = reactFlowInstanceRef.current.screenToFlowPosition({
         x: event.clientX,
         y: event.clientY,
       });
 
-      let nodeType = type;
-      let appId = undefined;
-
-      if (type.startsWith("integrationNode:")) {
-        const parts = type.split(":");
-        nodeType = parts[0];
-        appId = parts[1];
-      }
-
       const newNode = {
-        id: `node_${Date.now()}`,
-        type: nodeType,
+        id: `${type}-${Date.now()}`,
+        type,
         position,
-        data: { label: `${nodeType} node`, appId, actionId: null },
+        data: getDefaultNodeData(type),
       };
 
-      setNodes((nds) => nds.concat(newNode));
+      setNodes((currentNodes) => currentNodes.concat(newNode as FlowNode));
     },
-    [reactFlowInstance, setNodes]
+    [setNodes]
   );
 
-  const updateNodeData = (nodeId: string, newData: any) => {
-    setNodes((nds) => nds.map((node) => {
-      if (node.id === nodeId) {
-        return {
-          ...node,
-          data: { ...node.data, ...newData }
-        };
-      }
-      return node;
-    }));
-    setSelectedNode((prev: any) => prev?.id === nodeId ? { ...prev, data: { ...prev.data, ...newData } } : prev);
-  };
+  const onDragStart = useCallback((event: React.DragEvent, type: string) => {
+    event.dataTransfer.setData("application/reactflow", type);
+    event.dataTransfer.effectAllowed = "move";
+  }, []);
 
-  const handleLaunch = async () => {
-    if (workflowId) {
-      try {
-        await fetch(`/api/workflows/${workflowId}/versions/save`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ nodes, edges, name: `Execution ${new Date().toLocaleTimeString()}` }),
-        });
-      } catch (err) {
-        console.error("Failed to save version:", err);
-      }
-    }
-    setIsExecutionPanelOpen(true);
-  };
+  if (!isHydrated) {
+    return (
+      <div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground">
+        <FancyLoader text="Initializing production workspace..." />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden relative selection:bg-primary/30">
-      {/* Unified Command Center Header */}
-      <header className="h-16 flex items-center justify-between px-6 border-b border-white/[0.05] bg-card/40 backdrop-blur-3xl shrink-0 z-50">
-        {/* Left Section: Meta & Mode Toggle */}
-        <div className="flex items-center gap-4 w-[320px]">
-          <Button variant="ghost" size="icon" className="w-9 h-9 rounded-xl hover:bg-white/5" asChild title="Back to Dashboard">
-            <Link href="/dashboard"><ArrowLeft className="w-5 h-5" /></Link>
+    <div className="flex flex-col h-screen bg-[#0A0A0B] overflow-hidden">
+      <header className="h-16 border-b border-white/[0.05] bg-card/40 backdrop-blur-3xl px-5 flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center gap-4 min-w-0">
+          <Button variant="ghost" size="icon" className="rounded-xl" asChild>
+            <Link href="/dashboard">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
           </Button>
-
-          <div className="flex flex-col min-w-0 pr-4">
-            <h1 className="text-sm font-bold tracking-tight truncate">Untitled Workflow</h1>
-            <div className="flex items-center gap-2 mt-0.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-              <span className="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-widest">Autosaved</span>
-            </div>
+          <div className="min-w-0">
+            <Input
+              value={workflowName}
+              onChange={(event) => setWorkflowName(event.target.value)}
+              className="h-9 bg-transparent border-none px-0 text-base font-bold focus-visible:ring-0"
+            />
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              {autosaveStatus}
+            </p>
           </div>
-
-          <div className="flex items-center bg-black/40 p-1 rounded-xl border border-white/[0.08] shadow-inner ml-auto">
-            <Button 
-              size="sm" 
-              variant="ghost"
-              className={cn("h-7 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all", 
-                viewMode === "build" ? "bg-white/10 text-white shadow-lg shadow-white/5" : "text-muted-foreground hover:text-white")}
-              onClick={() => setViewMode("build")}
-            >
-              Build
-            </Button>
-            <Button 
-              size="sm" 
-              variant="ghost"
-              className={cn("h-7 px-3 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all", 
-                viewMode === "architect" ? "bg-white/10 text-white shadow-lg shadow-white/5" : "text-muted-foreground hover:text-white")}
-              onClick={() => setViewMode("architect")}
-            >
-              Architect
-            </Button>
-          </div>
+          {sourceBlueprintSlug ? (
+            <Badge variant="outline" className="hidden xl:inline-flex border-primary/20 text-primary">
+              Blueprint: {sourceBlueprintSlug}
+            </Badge>
+          ) : null}
         </div>
 
-        {/* Center Section: Neural Command Center */}
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
-          <div className="relative group">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/50 to-indigo-500/50 rounded-2xl blur opacity-0 group-focus-within:opacity-40 transition duration-500" />
-            <div className="relative flex items-center bg-[#0D0D0E] border border-white/[0.08] rounded-2xl w-[400px] xl:w-[500px] h-10 px-4 group-focus-within:border-primary/50 transition-all shadow-2xl">
-              <Sparkles className="w-4 h-4 text-primary animate-pulse mr-3 group-focus-within:scale-110 transition-transform" />
-              <input 
-                type="text" 
-                placeholder="Architect Prompt... (⌘ K)"
-                className="flex-1 bg-transparent border-none outline-none text-xs font-semibold placeholder:text-muted-foreground/40 text-white"
-                value={architectPrompt}
-                onChange={(e) => setArchitectPrompt(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleGenerateArchitecture()}
-              />
-              <div className="flex items-center gap-1 ml-2">
-                <kbd className="hidden sm:inline-flex h-5 select-none items-center gap-1 rounded border border-white/10 bg-white/5 px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
-                  <span className="text-xs">↵</span>
-                </kbd>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="h-7 px-3 text-[10px] font-black uppercase tracking-tighter hover:bg-white/10 text-primary"
-                  disabled={isGenerating || !architectPrompt.trim()}
-                  onClick={handleGenerateArchitecture}
-                >
-                  {isGenerating ? "Working..." : "Design"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {session?.user ? (
+            <Badge variant="outline" className="border-white/10 bg-white/5 hidden lg:inline-flex">
+              {creditBalance?.availableCredits ?? "--"} credits
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-white/10 bg-white/5 hidden lg:inline-flex">
+              Local draft mode
+            </Badge>
+          )}
 
-        {/* Right Section: Actions */}
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" className="rounded-xl h-9 hover:bg-white/5 px-3 font-bold text-xs" onClick={handleAnalyzeArchitecture} disabled={isAnalyzing}>
-            <Sparkles className={`w-3.5 h-3.5 mr-2 ${isAnalyzing ? "animate-spin" : "text-primary"}`} /> AI Audit
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={handleAnalyze} disabled={isAnalyzing}>
+            {isAnalyzing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+            Analyze
           </Button>
-          
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={cn("rounded-xl h-9 hover:bg-white/5 px-3 font-bold text-xs", isHistoryOpen ? "text-primary bg-primary/5" : "")}
-            onClick={() => setIsHistoryOpen(true)}
-          >
-            <HistoryIcon className="w-3.5 h-3.5 mr-2" /> History
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
+            {isBenchmarking ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <GitBranch className="w-4 h-4 mr-2" />}
+            Benchmark
           </Button>
-
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className={cn("rounded-xl h-9 hover:bg-white/5 px-3 font-bold text-xs", isSimulating && "text-primary")}
-            onClick={handleSimulation}
-            disabled={isSimulating}
-          >
-            <Play className={cn("w-3.5 h-3.5 mr-2", isSimulating && "animate-pulse")} /> Simulate
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={() => handleSimulation()} disabled={isSimulating}>
+            {isSimulating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Play className="w-4 h-4 mr-2" />}
+            Simulate
           </Button>
-
-          <div className="w-px h-8 bg-white/10 mx-1" />
-
-          <Button onClick={handleLaunch} size="sm" className="rounded-xl h-10 bg-primary hover:primary/90 text-primary-foreground font-black text-xs shadow-lg shadow-primary/20 transition-all active:scale-95 group">
-            Launch Agent
-            <ChevronRight className="w-3.5 h-3.5 ml-1.5 group-hover:translate-x-0.5 transition-transform" />
+          <Button variant="ghost" size="sm" className="rounded-xl" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Save
           </Button>
+          <Button size="sm" className="rounded-xl" onClick={() => handleExecution()} disabled={isExecuting}>
+            {isExecuting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Rocket className="w-4 h-4 mr-2" />}
+            Execute
+          </Button>
+          {workflowId ? (
+            <Button variant="ghost" size="icon" className="rounded-xl text-red-400 hover:text-red-300" onClick={handleDeleteWorkflow}>
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          ) : null}
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden relative">
-        {/* Left Node Library Panel */}
-        {isSidebarOpen && viewMode === "build" && (
-          <aside className="w-72 border-r border-white-0.05 bg-gradient-to-b from-[#0D0D0E] to-[#0A0A0B] backdrop-blur-3xl flex flex-col shrink-0 overflow-y-auto hidden md:flex z-40 animate-in slide-in-from-left duration-500">
-            <div className="p-6 border-b border-white/[0.05] bg-white/[0.01]">
-              <h2 className="text-xs font-black text-muted-foreground/60 uppercase tracking-[0.2em]">Node Library</h2>
-              <p className="text-[10px] text-muted-foreground/40 mt-1 uppercase tracking-widest font-bold">Tools & Integrations</p>
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="w-80 border-r border-white/[0.05] bg-card/20 backdrop-blur-3xl flex flex-col shrink-0">
+          <Tabs value={libraryTab} onValueChange={setLibraryTab} className="flex-1 flex flex-col">
+            <div className="p-4 border-b border-white/[0.05]">
+              <TabsList className="grid grid-cols-3 w-full bg-black/20">
+                <TabsTrigger value="nodes">Nodes</TabsTrigger>
+                <TabsTrigger value="blueprints">Blueprints</TabsTrigger>
+                <TabsTrigger value="prompt">Prompt</TabsTrigger>
+              </TabsList>
             </div>
-            
-            <div className="flex-1 p-5 space-y-8 overflow-y-auto custom-scrollbar">
-              {Array.from(new Set(NODE_LIBRARY.map(n => n.category))).map(category => (
-                <div key={category} className="space-y-4">
-                  <h3 className="text-[10px] font-black text-primary/50 uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-primary/40" />
-                    {category}
+
+            <TabsContent value="nodes" className="flex-1 m-0 overflow-y-auto p-4 space-y-6">
+              {packedNodes.map((group) => (
+                <div key={group.pack} className="space-y-3">
+                  <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                    {group.pack}
                   </h3>
-                  <div className="grid gap-2.5">
-                    {NODE_LIBRARY.filter(n => n.category === category).map((node) => (
-                      <div 
-                        key={node.label}
-                        className="flex items-center gap-3 p-3 rounded-2xl border border-white/[0.03] bg-white/[0.02] hover:bg-white/[0.06] cursor-grab active:cursor-grabbing hover:border-primary/40 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.4),0_0_20px_rgba(124,58,237,0.1)] group active:scale-[0.98]"
+                  <div className="grid gap-2">
+                    {group.items.map((definition) => (
+                      <div
+                        key={definition.type}
                         draggable
-                        onDragStart={(e) => onDragStart(e, node.type)}
+                        onDragStart={(event) => onDragStart(event, definition.type)}
+                        className="rounded-2xl border border-white/5 bg-white/[0.03] p-3 cursor-grab active:cursor-grabbing hover:border-primary/30 transition-all"
                       >
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${node.color} group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner`}>
-                          {node.icon}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-bold text-white/90 group-hover:text-white transition-colors truncate">{node.label}</p>
-                          <p className="text-[9px] text-muted-foreground/40 font-medium leading-tight mt-0.5 group-hover:text-muted-foreground/60 transition-colors truncate">{node.description}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold">{definition.title}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">
+                              {definition.description}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="border-white/10 text-[10px] uppercase">
+                            {definition.category}
+                          </Badge>
                         </div>
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
-              
-              <Separator className="bg-white/[0.05]" />
-              
-              <div className="pt-2 pb-4">
-                <h2 className="text-xs font-black text-muted-foreground/60 uppercase tracking-[0.2em] px-2 mb-4">App Directory</h2>
-                
-                {Array.from(new Set(Object.values(INTEGRATION_REGISTRY).map(a => a.category))).map(category => (
-                  <div key={`app-cat-${category}`} className="space-y-4 mt-6 first:mt-0">
-                    <h3 className="text-[10px] font-black text-indigo-400/50 uppercase tracking-[0.2em] mb-4 px-2 flex items-center gap-2">
-                      <div className="w-1 h-1 rounded-full bg-indigo-400/40" />
-                      {category}
-                    </h3>
-                    <div className="grid gap-2.5">
-                      {Object.values(INTEGRATION_REGISTRY).filter(a => a.category === category).map((app) => {
-                        const Icon = app.icon;
-                        return (
-                          <div 
-                            key={app.id}
-                            className="flex items-center gap-3 p-3 rounded-2xl border border-white/[0.03] bg-white/[0.02] hover:bg-white/[0.06] cursor-grab active:cursor-grabbing hover:border-indigo-500/40 transition-all hover:shadow-[0_8px_30px_rgb(0,0,0,0.4),0_0_20px_rgba(99,102,241,0.15)] group active:scale-[0.98]"
-                            draggable
-                            onDragStart={(e) => onDragStart(e, `integrationNode:${app.id}`)}
-                          >
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 group-hover:rotate-3 transition-all shadow-inner bg-black/40 border border-white/5" style={{ color: app.color }}>
-                              <Icon className="w-4 h-4" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[11px] font-bold text-white/90 group-hover:text-white transition-colors truncate">{app.name}</p>
-                              <p className="text-[9px] text-muted-foreground/40 font-medium leading-tight mt-0.5 group-hover:text-muted-foreground/60 transition-colors truncate">{app.actions.length} action(s)</p>
-                            </div>
-                          </div>
-                        );
-                      })}
+            </TabsContent>
+
+            <TabsContent value="blueprints" className="flex-1 m-0 overflow-y-auto p-4 space-y-4">
+              <div className="space-y-3">
+                <Input
+                  value={blueprintQuery}
+                  onChange={(event) => setBlueprintQuery(event.target.value)}
+                  placeholder="Search enterprise blueprints..."
+                  className="bg-black/20 border-white/10"
+                />
+                <Select value={selectedSector} onValueChange={(value) => setSelectedSector(value || "all")}>
+                  <SelectTrigger className="bg-black/20 border-white/10">
+                    <SelectValue placeholder="Filter by sector" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sectors.map((sector) => (
+                      <SelectItem key={sector} value={sector}>
+                        {sector}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-3">
+                {filteredBlueprints.map((blueprint) => (
+                  <button
+                    key={blueprint.slug}
+                    type="button"
+                    className="w-full rounded-2xl border border-white/5 bg-white/[0.03] p-4 text-left hover:border-primary/30 transition-all"
+                    onClick={() => handleBlueprintApply(blueprint)}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold">{blueprint.name}</p>
+                        <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">
+                          {blueprint.description}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="border-primary/20 text-primary">
+                        {blueprint.sector}
+                      </Badge>
                     </div>
-                  </div>
+                    <div className="flex items-center gap-2 mt-3 flex-wrap">
+                      {(blueprint.tags || []).slice(0, 4).map((tag: string) => (
+                        <span key={tag} className="text-[10px] text-muted-foreground bg-black/20 px-2 py-1 rounded-full">
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </button>
                 ))}
               </div>
-            </div>
-          </aside>
-        )}
+            </TabsContent>
 
-        {/* Center Canvas */}
-        <main className="flex-1 relative overflow-hidden bg-[#0A0A0B]">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--color-primary)_0%,_transparent_70%)] opacity-[0.03] z-0" />
+            <TabsContent value="prompt" className="flex-1 m-0 overflow-y-auto p-4 space-y-4">
+              <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-4 space-y-3">
+                <div className="flex items-center gap-2 text-primary text-sm font-semibold">
+                  <Wand2 className="w-4 h-4" /> Prompt-to-System
+                </div>
+                <p className="text-[12px] text-muted-foreground">
+                  Describe the backend system or AI automation you want. The compiler will return an editable production graph.
+                </p>
+                <Textarea
+                  value={promptInput}
+                  onChange={(event) => setPromptInput(event.target.value)}
+                  placeholder="Build a fintech fraud review system with API gateway, rate limits, case service, queue, MongoDB, LLM review, trace, and fallback handling."
+                  className="min-h-[220px] bg-black/20 border-white/10"
+                />
+                <Button className="w-full rounded-xl" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
+                  {isCompilingPrompt ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <BrainCircuit className="w-4 h-4 mr-2" />
+                  )}
+                  Compile Prompt
+                </Button>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </aside>
+
+        <main className="flex-1 relative overflow-hidden">
           <ReactFlow
-            nodes={nodes.map(n => ({
-              ...n,
-              selected: n.id === activeSimulationNode || n.selected,
+            nodes={nodes.map((node) => ({
+              ...node,
               data: {
-                ...n.data,
-                simulatedOutput: simulationResults[n.id],
-                isSimulating: n.id === activeSimulationNode,
+                ...node.data,
                 onDelete: handleDeleteNode,
-                onEdit: handleEditNode
-              }
+                onEdit: handleEditNode,
+                simulatedOutput: simulationOutputs[node.id],
+                isSimulating: isSimulating || isExecuting,
+              },
             }))}
-            edges={edges.map(e => ({
-              ...e,
-              animated: isSimulating || e.animated,
-              style: (e.source === activeSimulationNode || simulationResults[e.source]) 
-                ? { stroke: "#7C3AED", strokeWidth: 3 } 
-                : e.style
-            }))}
+            edges={edges}
+            nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onInit={setReactFlowInstance}
+            onInit={(instance) => {
+              reactFlowInstanceRef.current = instance;
+            }}
             onDrop={onDrop}
-            onDragOver={onDragOver}
-            nodeTypes={nodeTypes}
-            onSelectionChange={(params) => setSelectedNode(params.nodes[0] || null)}
+            onDragOver={(event) => {
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onSelectionChange={(selection) => setSelectedNode(selection.nodes[0] || null)}
             fitView
-            className="z-10"
+            className="bg-[#0A0A0B]"
           >
-            <Background 
-              color="#7C3AED" 
-              gap={32} 
-              size={1.5} 
-              variant={BackgroundVariant.Cross} 
-              className="opacity-[0.06]" 
-            />
-            <Controls 
-              className="bg-[#161618]/80 backdrop-blur-xl border border-white/[0.08] shadow-[0_10px_40px_rgba(0,0,0,0.5)] rounded-2xl overflow-hidden [&_button]:border-white/[0.05] [&_button:hover]:bg-white/5 transition-all" 
-              showInteractive={false} 
-            />
-            <MiniMap 
-              nodeColor="#2A2A2E" 
-              maskColor="rgba(0, 0, 0, 0.7)"
-              className="!bg-[#161618]/90 backdrop-blur-3xl border border-white/[0.08] shadow-2xl origin-bottom-right" 
-              style={{ height: 120, borderRadius: '1rem', overflow: 'hidden' }}
-            />
-            
-            <Panel position="bottom-center" className="mb-6">
-              <div className="bg-[#161618]/80 backdrop-blur-2xl px-5 py-2.5 rounded-full border border-white/[0.08] text-[11px] font-bold text-muted-foreground flex items-center gap-3 shadow-[0_10px_50px_rgba(0,0,0,0.6)] animate-in fade-in slide-in-from-bottom-2 duration-500">
-                <div className="relative">
-                  <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)] animate-pulse" />
-                  <div className="absolute inset-0 w-2 h-2 rounded-full bg-green-500/40 animate-ping" />
-                </div>
-                <span className="uppercase tracking-[0.1em]">System Status: Ready to execute</span>
+            <Background variant={BackgroundVariant.Cross} gap={32} size={1.5} color="#7C3AED" className="opacity-[0.05]" />
+            <Controls className="bg-[#161618]/80 border border-white/[0.08] rounded-2xl overflow-hidden" showInteractive={false} />
+            <MiniMap nodeColor="#2A2A2E" maskColor="rgba(0,0,0,0.7)" className="!bg-[#161618]/90 border border-white/[0.08]" />
+            <Panel position="bottom-center" className="mb-4">
+              <div className="rounded-full border border-white/10 bg-[#161618]/80 px-4 py-2 text-[11px] uppercase tracking-widest text-muted-foreground flex items-center gap-3">
+                <Workflow className="w-4 h-4 text-primary" />
+                Design / Analysis / Simulation / Live Execution
               </div>
             </Panel>
           </ReactFlow>
         </main>
-        
-        {/* Right Properties Panel */}
-        {viewMode === "build" && (
-          <div className="w-80 border-l border-white/[0.05] bg-card/10 backdrop-blur-3xl p-6 flex flex-col hidden lg:flex animate-in slide-in-from-right duration-500 z-40 relative">
-            <h2 className="text-[10px] font-bold mb-6 uppercase tracking-widest text-muted-foreground/60">Node Configuration</h2>
-            <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
-          </div>
-        )}
 
-      {/* AI Architect Analysis Sidebar */}
-      {isArchitectSidebarOpen && (
-        <aside className="w-80 border-l border-border/40 bg-card/50 backdrop-blur-xl p-5 flex flex-col z-40 shadow-2xl animate-in slide-in-from-right duration-300">
-          <div className="flex items-center justify-between mb-6">
-               <h2 className="text-sm font-bold uppercase tracking-wider text-primary flex items-center gap-2">
-                  <Sparkles className="w-4 h-4" /> Architect Feedback
-               </h2>
-               <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full" onClick={() => setIsArchitectSidebarOpen(false)}>
-                  <ArrowLeft className="w-4 h-4 rotate-180" />
-               </Button>
+        <aside className="w-96 border-l border-white/[0.05] bg-card/20 backdrop-blur-3xl p-5 overflow-y-auto shrink-0 space-y-6">
+          <div className="space-y-2">
+            <Label className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Description
+            </Label>
+            <Textarea
+              value={workflowDescription}
+              onChange={(event) => setWorkflowDescription(event.target.value)}
+              placeholder="What system are you designing and what should it optimize for?"
+              className="min-h-[100px] bg-black/20 border-white/10"
+            />
+          </div>
+
+          <Separator className="bg-white/5" />
+
+          <div className="space-y-4">
+            <h3 className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Scenario Configuration
+            </h3>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Traffic</Label>
+                <Select
+                  value={scenario.trafficProfile}
+                  onValueChange={(value) =>
+                    setScenario((current) => ({
+                      ...current,
+                      trafficProfile: value as ScenarioDefinition["trafficProfile"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="bg-black/20 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="single">Single</SelectItem>
+                    <SelectItem value="steady">Steady</SelectItem>
+                    <SelectItem value="burst">Burst</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Dependency Mode</Label>
+                <Select
+                  value={scenario.dependencyMode}
+                  onValueChange={(value) =>
+                    setScenario((current) => ({
+                      ...current,
+                      dependencyMode: value as ScenarioDefinition["dependencyMode"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="bg-black/20 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="stub">Stub</SelectItem>
+                    <SelectItem value="safe_test">Safe Test</SelectItem>
+                    <SelectItem value="live">Live</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Failure Mode</Label>
+                <Select
+                  value={scenario.failureMode}
+                  onValueChange={(value) =>
+                    setScenario((current) => ({
+                      ...current,
+                      failureMode: value as ScenarioDefinition["failureMode"],
+                    }))
+                  }
+                >
+                  <SelectTrigger className="bg-black/20 border-white/10">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="latency_spike">Latency Spike</SelectItem>
+                    <SelectItem value="partial_outage">Partial Outage</SelectItem>
+                    <SelectItem value="dependency_timeout">Dependency Timeout</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Queue Depth</Label>
+                <Input
+                  type="number"
+                  value={scenario.queueDepth}
+                  onChange={(event) =>
+                    setScenario((current) => ({ ...current, queueDepth: Number(event.target.value) || 0 }))
+                  }
+                  className="bg-black/20 border-white/10"
+                />
+              </div>
             </div>
 
-            {isAnalyzing ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-background/50 rounded-2xl relative overflow-hidden">
-                 <FancyLoader text="Analyzing Architecture..." />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Timeout (ms)</Label>
+                <Input
+                  type="number"
+                  value={scenario.timeoutMs}
+                  onChange={(event) =>
+                    setScenario((current) => ({ ...current, timeoutMs: Number(event.target.value) || 0 }))
+                  }
+                  className="bg-black/20 border-white/10"
+                />
               </div>
-            ) : analysisResult ? (
-              <div className="flex-1 space-y-8 overflow-y-auto pr-2 scrollbar-thin">
-                 {/* Rating */}
-                 <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                       <span className="text-xs font-medium text-muted-foreground uppercase">System Rating</span>
-                       <Badge variant="outline" className="bg-primary/5 text-primary border-primary/20 font-bold text-lg px-3 py-1">
-                          {analysisResult.rating}/10
-                       </Badge>
-                    </div>
-                    {/* Add conditional progress import or use native if available */}
-                    <div className="h-2 w-full bg-surface rounded-full overflow-hidden">
-                       <div 
-                          className="h-full bg-primary transition-all duration-1000" 
-                          style={{ width: `${analysisResult.rating * 10}%` }}
-                       />
-                    </div>
-                 </div>
-
-                 {/* Feedback */}
-                 <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10">
-                       <p className="text-sm leading-relaxed">{analysisResult.feedback}</p>
-                    </div>
-
-                    <div className="space-y-3">
-                       <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Critical Edge Cases</h3>
-                       <div className="space-y-2">
-                          {analysisResult.edgeCases?.map((ec: string, i: number) => (
-                             <div key={i} className="flex gap-3 text-xs p-3 rounded-xl bg-surface/30 border border-border/20">
-                                <div className="w-5 h-5 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">!</div>
-                                <span className="text-muted-foreground">{ec}</span>
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-
-                    <div className="space-y-3">
-                       <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Suggestions</h3>
-                       <div className="space-y-2">
-                          {analysisResult.suggestions?.map((s: string, i: number) => (
-                             <div key={i} className="flex gap-3 text-xs p-3 rounded-xl bg-primary/5 border border-primary/10">
-                                <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
-                                <span className="text-muted-foreground">{s}</span>
-                             </div>
-                          ))}
-                       </div>
-                    </div>
-                 </div>
+              <div className="space-y-1.5">
+                <Label className="text-[11px] uppercase tracking-wider text-muted-foreground">Benchmark Models</Label>
+                <Input
+                  value={benchmarkModels}
+                  onChange={(event) => setBenchmarkModels(event.target.value)}
+                  className="bg-black/20 border-white/10"
+                  placeholder="gpt-4o,gpt-4.1-mini,claude-3-5-sonnet"
+                />
               </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-border/40 rounded-2xl">
-                 <Sparkles className="w-10 h-10 text-muted-foreground mb-4 opacity-50" />
-                 <p className="text-sm text-muted-foreground">Click "Architect AI" to analyze your current system architecture.</p>
-              </div>
-            )}
-          </aside>
-        )}
+            </div>
+          </div>
+
+          <Separator className="bg-white/5" />
+
+          <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
+
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-primary text-sm font-semibold">
+              <ShieldCheck className="w-4 h-4" /> Save and Access Model
+            </div>
+            <p className="text-[12px] text-muted-foreground">
+              Anonymous users get local autosave. GitHub or Google sign-in unlocks cloud save, prompt compile, simulation, execution, benchmarks, credits, and billing.
+            </p>
+          </div>
+        </aside>
       </div>
 
-      <ExecutionPanel open={isExecutionPanelOpen} onOpenChange={setIsExecutionPanelOpen} />
-      <PublishModal 
-        open={isPublishModalOpen} 
-        onOpenChange={setIsPublishModalOpen} 
-        nodes={nodes}
-        edges={edges}
-      />
-      <VersionHistoryPanel 
-        open={isHistoryOpen} 
-        onOpenChange={setIsHistoryOpen} 
-        workflowId={workflowId || undefined} 
-        onRestore={(v) => {
-          setNodes(v.nodes);
-          setEdges(v.edges);
-          setIsHistoryOpen(false);
-        }}
-      />
+      <ExecutionPanel open={isRunPanelOpen} onOpenChange={setIsRunPanelOpen} runData={runData} />
+
+      <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
+        <DialogContent className="sm:max-w-md bg-card/95 border-white/10">
+          <DialogHeader>
+            <DialogTitle>Sign in to save and run</DialogTitle>
+            <DialogDescription>
+              Local autosave is already active. Use GitHub or Google to persist the workflow, consume credits, simulate, execute, and benchmark.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Button
+              variant="outline"
+              className="rounded-xl border-white/10"
+              onClick={() => signIn("github", { callbackUrl: "/builder?resume=1" })}
+            >
+              GitHub
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-xl border-white/10"
+              onClick={() => signIn("google", { callbackUrl: "/builder?resume=1" })}
+            >
+              Google
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 export default function BuilderPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground"><FancyLoader text="Initializing Workspace..." /></div>}>
+    <Suspense fallback={<div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center"><FancyLoader text="Opening builder..." /></div>}>
       <BuilderCanvas />
     </Suspense>
   );

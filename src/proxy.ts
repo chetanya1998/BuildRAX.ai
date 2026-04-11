@@ -4,5 +4,5 @@ export default withAuth;
 export const proxy = withAuth;
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/builder/:path*", "/profile/:path*"],
+  matcher: ["/dashboard/:path*", "/profile/:path*", "/workflows/:path*", "/templates/:path*"],
 };
