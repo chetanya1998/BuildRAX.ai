@@ -50,7 +50,7 @@ export async function PUT(
     const updated = await Template.findOneAndUpdate(
       { _id: id, authorId: (session.user as any).id },
       { $set: body },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!updated) {

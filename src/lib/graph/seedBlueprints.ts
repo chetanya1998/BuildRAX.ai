@@ -11,7 +11,7 @@ export async function ensureBlueprintCatalogSeeded() {
       TemplateBlueprint.findOneAndUpdate(
         { slug: blueprint.slug },
         { $set: blueprint },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
+        { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
       ).catch((err) => console.error(`Seed error for blueprint ${blueprint.slug}:`, err))
     )
   );

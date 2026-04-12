@@ -90,7 +90,7 @@ export async function PUT(
       {
         $set: updatePayload,
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!workflow) {
@@ -130,7 +130,7 @@ export async function DELETE(
           deletedAt: new Date(),
         },
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!deleted) {

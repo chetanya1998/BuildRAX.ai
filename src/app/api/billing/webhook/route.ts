@@ -66,7 +66,7 @@ export async function POST(req: Request) {
           metadata,
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true }
     );
 
     return NextResponse.json({ received: true });
