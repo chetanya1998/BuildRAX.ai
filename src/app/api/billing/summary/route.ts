@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
-import { getUserCreditBalance } from "@/lib/credits";
+import { CREDIT_SYSTEM_ENABLED, getUserCreditBalance } from "@/lib/credits";
 import { SubscriptionPlan } from "@/lib/models/SubscriptionPlan";
 import { BILLING_PLAN_ORDER, BILLING_PLANS, BillingTier } from "@/lib/billing/plans";
 
@@ -44,6 +44,18 @@ export async function GET() {
         recommendedUpgradeTier: "pro_20",
         subscription: null,
         credits: null,
+      });
+    }
+
+    if (!CREDIT_SYSTEM_ENABLED) {
+      const credits = await getUserCreditBalance(userId);
+      return NextResponse.json({
+        authenticated: true,
+        plans,
+        currentPlan: credits.plan,
+        recommendedUpgradeTier: null,
+        subscription: null,
+        credits,
       });
     }
 

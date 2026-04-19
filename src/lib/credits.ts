@@ -3,13 +3,29 @@ import { CreditLedgerEntry } from "@/lib/models/CreditLedgerEntry";
 import { SubscriptionPlan } from "@/lib/models/SubscriptionPlan";
 import dbConnect from "@/lib/mongodb";
 
-export const CREDIT_POLICY: CreditPolicy = {
+const ACTIVE_CREDIT_POLICY: CreditPolicy = {
   promptCompile: 1,
   templateInstantiate: 1,
   simulate: 1,
   execute: 1,
   benchmarkVariant: 1,
 };
+
+const DISABLED_CREDIT_POLICY: CreditPolicy = {
+  promptCompile: 0,
+  templateInstantiate: 0,
+  simulate: 0,
+  execute: 0,
+  benchmarkVariant: 0,
+};
+
+// Credit enforcement is intentionally disabled while BuildRAX is being shaped into
+// a real product. Set ENABLE_CREDIT_SYSTEM=true to restore metering and ledger debits.
+export const CREDIT_SYSTEM_ENABLED = process.env.ENABLE_CREDIT_SYSTEM === "true";
+
+export const CREDIT_POLICY: CreditPolicy = CREDIT_SYSTEM_ENABLED
+  ? ACTIVE_CREDIT_POLICY
+  : DISABLED_CREDIT_POLICY;
 
 export const PLAN_LIMITS = {
   free: { monthly: 25, daily: 5 },
@@ -44,7 +60,22 @@ function getNumberFromAggregate(result: Array<{ total?: number }>) {
   return result[0]?.total || 0;
 }
 
+function getDisabledCreditBalance(): CreditBalance {
+  return {
+    plan: "enterprise",
+    availableCredits: 0,
+    monthlyLimit: 0,
+    monthlyRemaining: 0,
+    disabled: true,
+    label: "Unmetered preview",
+  };
+}
+
 export async function getUserCreditBalance(userId: string): Promise<CreditBalance> {
+  if (!CREDIT_SYSTEM_ENABLED) {
+    return getDisabledCreditBalance();
+  }
+
   await dbConnect();
 
   const ledgerUserIds = getLedgerUserIds(userId);
@@ -133,6 +164,10 @@ export async function consumeCredits(args: {
   referenceId?: string;
   metadata?: Record<string, unknown>;
 }) {
+  if (!CREDIT_SYSTEM_ENABLED) {
+    return getDisabledCreditBalance();
+  }
+
   await dbConnect();
 
   const balance = await getUserCreditBalance(args.userId);

@@ -353,6 +353,7 @@ function BuilderCanvas() {
   );
 
   const hasConfiguredAiProvider = Boolean(serverDefaultProvider || aiProviders.length > 0);
+  const creditsDisabled = Boolean(creditBalance?.disabled);
 
   const simulationOutputs = useMemo(() => {
     const results = runData?.nodeResults || [];
@@ -1263,7 +1264,11 @@ function BuilderCanvas() {
 
         <div className="flex flex-col items-center gap-2 pb-1">
           <div className="text-[9px] text-muted-foreground text-center leading-tight">
-            {session?.user ? `${creditBalance?.availableCredits ?? "--"}` : "local"}
+            {session?.user
+              ? creditsDisabled
+                ? "open"
+                : `${creditBalance?.availableCredits ?? "--"}`
+              : "local"}
           </div>
           <Link href="/profile">
             <Avatar className="h-8 w-8 border border-white/10">
@@ -1554,7 +1559,7 @@ function BuilderCanvas() {
                 />
                 <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt || !hasConfiguredAiProvider}>
                   {isCompilingPrompt ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <BrainCircuit className="mr-1.5 h-3 w-3" />}
-                  {hasConfiguredAiProvider ? "Generate workflow (1 credit)" : "Add provider first"}
+                  {hasConfiguredAiProvider ? (creditsDisabled ? "Generate workflow" : "Generate workflow (1 credit)") : "Add provider first"}
                 </Button>
                 <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5 text-[10px] leading-relaxed text-muted-foreground">
                   Describe {"->"} Generate {"->"} Review {"->"} Configure {"->"} Run Test {"->"} AI Audit {"->"} Scenario Evaluation {"->"} Live Execute {"->"} Report
@@ -1720,7 +1725,7 @@ function BuilderCanvas() {
                           Sign in for cloud saves
                         </div>
                         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                          GitHub / Google sign-in unlocks cloud save, test runs, audits, and credits.
+                          GitHub / Google sign-in unlocks cloud save, provider vaults, test runs, audits, and live execution.
                         </p>
                       </div>
                     )}
@@ -1859,7 +1864,7 @@ function BuilderCanvas() {
           <DialogHeader>
             <DialogTitle>Sign in to save and run</DialogTitle>
             <DialogDescription>
-              Local autosave is active. Sign in to persist workflows, use credits, run test scenarios, perform AI audits, and execute live automations.
+              Local autosave is active. Sign in to persist workflows, configure providers, run test scenarios, perform AI audits, and execute live automations.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 pt-2">

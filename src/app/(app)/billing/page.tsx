@@ -60,7 +60,7 @@ export default function BillingPage() {
 
   const credits = data?.credits || null;
   const monthlyProgress = useMemo(() => {
-    if (!credits?.monthlyLimit) return 0;
+    if (!credits?.monthlyLimit || credits.disabled) return 0;
     const used = Math.max(0, credits.monthlyLimit - credits.monthlyRemaining);
     return Math.min(100, Math.round((used / credits.monthlyLimit) * 100));
   }, [credits]);
@@ -149,7 +149,7 @@ export default function BillingPage() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight">Credits Control Center</h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-lg">
-            Credits gate runtime operations. Static analysis and local/cloud autosave are always free.
+            Credits are currently paused while BuildRAX is in product preview. Runtime operations are unmetered for now.
           </p>
         </div>
       </div>
@@ -172,19 +172,19 @@ export default function BillingPage() {
             </div>
             <div className="rounded-xl border border-white/10 bg-black/15 px-4 py-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Available Credits</p>
-              <p className="text-2xl font-bold mt-1">{credits?.availableCredits ?? "--"}</p>
+              <p className="text-2xl font-bold mt-1">{credits?.disabled ? "Unmetered" : credits?.availableCredits ?? "--"}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/15 px-4 py-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Monthly Remaining</p>
-              <p className="text-2xl font-bold mt-1">{credits?.monthlyRemaining ?? "--"}</p>
+              <p className="text-2xl font-bold mt-1">{credits?.disabled ? "Paused" : credits?.monthlyRemaining ?? "--"}</p>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/15 px-4 py-3">
               <p className="text-xs text-muted-foreground uppercase tracking-wider">Daily Remaining</p>
-              <p className="text-2xl font-bold mt-1">{credits?.dailyRemaining ?? "No cap"}</p>
+              <p className="text-2xl font-bold mt-1">{credits?.disabled ? "Paused" : credits?.dailyRemaining ?? "No cap"}</p>
             </div>
           </div>
 
-          {credits ? (
+          {credits && !credits.disabled ? (
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>Monthly credit usage</span>

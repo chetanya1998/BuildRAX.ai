@@ -225,4 +225,6 @@ export interface CreditBalance {
   monthlyLimit: number;
   dailyRemaining?: number;
   monthlyRemaining: number;
+  disabled?: boolean;
+  label?: string;
 }
