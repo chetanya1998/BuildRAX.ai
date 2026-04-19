@@ -342,7 +342,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "API Gateway" },
       { name: "route", label: "Route", type: "text", defaultValue: "/api/v1/resource" },
-      { name: "authRequired", label: "Auth Required", type: "boolean", defaultValue: true },
+      { name: "authRequired", label: "Require Auth", type: "boolean", defaultValue: false },
     ],
     previewFields: ["route"],
     capabilities: { design: true, analyze: true, simulate: true, execute: true },

@@ -72,6 +72,7 @@ Rules:
 - Generate a real automation graph, not a demo.
 - Every graph must include at least one trigger/ingress node and one outputNode.
 - Use llmNode modelId "${DEFAULT_GEMMA_MODEL}" unless a custom model is clearly needed.
+- For apiGatewayNode, leave authRequired false unless the user explicitly asks for authentication, API keys, OAuth, or authorization checks.
 - Put missing credentials, URLs, queues, buckets, tables, OAuth setup, API tokens, and live/test separation in configurationRequirements and unresolvedDependencies.
 - For external side effects, include nodes but do not put real secrets in node data.
 - Prefer left-to-right positions with 260px spacing.

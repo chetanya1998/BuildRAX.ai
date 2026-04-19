@@ -291,7 +291,7 @@ async function executeNode(args: {
           const payload = inputs.request || inputValue;
           const serialized = serialize(payload);
           if (!serialized.includes("authorization") && !serialized.includes("Authorization")) {
-            block("Live API gateway execution requires an authorization token in the request payload.");
+            warnings.push("API gateway auth is enabled, but no authorization token was present in the run input.");
           }
         }
         outputs.default = inputs.request || inputValue || { route: node.data.route };
