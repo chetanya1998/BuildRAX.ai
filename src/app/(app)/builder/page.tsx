@@ -162,13 +162,13 @@ const workspaceNavItems = [
   { href: "/learn", label: "Learn", icon: GraduationCap },
 ] as const;
 
-const packAccentClasses: Record<string, string> = {
-  ai: "bg-sky-500/14 text-sky-300 border-sky-400/20",
-  backend: "bg-violet-500/14 text-violet-300 border-violet-400/20",
-  data: "bg-emerald-500/14 text-emerald-300 border-emerald-400/20",
-  reliability: "bg-amber-500/14 text-amber-200 border-amber-400/20",
-  security: "bg-rose-500/14 text-rose-200 border-rose-400/20",
-  observability: "bg-cyan-500/14 text-cyan-200 border-cyan-400/20",
+const packAccentClasses: Record<string, string[]> = {
+  ai: ["bg-sky-500/14 text-sky-300 border-sky-400/20", "bg-indigo-500/14 text-indigo-300 border-indigo-400/20", "bg-blue-500/14 text-blue-300 border-blue-400/20", "bg-cyan-500/14 text-cyan-300 border-cyan-400/20"],
+  backend: ["bg-violet-500/14 text-violet-300 border-violet-400/20", "bg-purple-500/14 text-purple-300 border-purple-400/20", "bg-fuchsia-500/14 text-fuchsia-300 border-fuchsia-400/20"],
+  data: ["bg-emerald-500/14 text-emerald-300 border-emerald-400/20", "bg-teal-500/14 text-teal-300 border-teal-400/20", "bg-green-500/14 text-green-300 border-green-400/20"],
+  reliability: ["bg-amber-500/14 text-amber-200 border-amber-400/20", "bg-orange-500/14 text-orange-200 border-orange-400/20", "bg-yellow-500/14 text-yellow-200 border-yellow-400/20"],
+  security: ["bg-rose-500/14 text-rose-200 border-rose-400/20", "bg-red-500/14 text-red-200 border-red-400/20", "bg-pink-500/14 text-pink-200 border-pink-400/20"],
+  observability: ["bg-cyan-500/14 text-cyan-200 border-cyan-400/20", "bg-slate-500/14 text-slate-200 border-slate-400/20"],
 };
 
 const defaultScenario: ScenarioDefinition = {
@@ -1324,31 +1324,34 @@ function BuilderCanvas() {
                   {filteredNodeGroups.map((group) => (
                     <section key={group.pack} className="space-y-1">
                       <div className="flex items-center gap-1.5 px-1">
-                        <div className={cn("h-1.5 w-1.5 rounded-full", packAccentClasses[group.pack])} />
+                        <div className={cn("h-1.5 w-1.5 rounded-full", packAccentClasses[group.pack][0])} />
                         <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">
                           {formatModeLabel(group.pack)}
                         </h3>
                       </div>
                       <div className="space-y-0.5">
-                        {group.items.map((definition) => (
-                          <button
-                            key={definition.type}
-                            type="button"
-                            draggable
-                            onDragStart={(event) => onDragStart(event, definition.type)}
-                            className="group w-full rounded-xl px-2.5 py-2 text-left transition-all duration-150 hover:bg-white/[0.05] hover:border-sky-400/20 border border-transparent"
-                          >
-                            <div className="flex items-center gap-2">
-                              <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[9px] font-bold", packAccentClasses[group.pack])}>
-                                {definition.category.slice(0, 2).toUpperCase()}
+                        {group.items.map((definition, idx) => {
+                          const variantClass = packAccentClasses[group.pack][idx % packAccentClasses[group.pack].length];
+                          return (
+                            <button
+                              key={definition.type}
+                              type="button"
+                              draggable
+                              onDragStart={(event) => onDragStart(event, definition.type)}
+                              className="group w-full rounded-xl px-2.5 py-2 text-left transition-all duration-150 hover:bg-white/[0.05] hover:border-sky-400/20 border border-transparent"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[9px] font-bold", variantClass)}>
+                                  {definition.category.slice(0, 2).toUpperCase()}
+                                </div>
+                                <p className="truncate text-xs font-medium flex-1">{definition.title}</p>
+                                <Badge variant="outline" className="border-white/8 bg-transparent text-[9px] px-1.5 py-0 h-4 hidden group-hover:flex">
+                                  {definition.category}
+                                </Badge>
                               </div>
-                              <p className="truncate text-xs font-medium flex-1">{definition.title}</p>
-                              <Badge variant="outline" className="border-white/8 bg-transparent text-[9px] px-1.5 py-0 h-4 hidden group-hover:flex">
-                                {definition.category}
-                              </Badge>
-                            </div>
-                          </button>
-                        ))}
+                            </button>
+                          );
+                        })}
                       </div>
                     </section>
                   ))}
@@ -1462,65 +1465,7 @@ function BuilderCanvas() {
           </div>
 
           <div className="hidden min-w-0 items-center gap-1.5 2xl:flex">
-            {hasConfiguredAiProvider ? (
-              <Select
-                value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
-                onValueChange={(value) => {
-                  if (!value) return;
-                  if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
-                    setModelProviderId("");
-                    setModelId(serverDefaultProvider?.defaultModelId || modelId);
-                    return;
-                  }
-                  if (value === NO_PROVIDER_VALUE) return;
-
-                  const provider = aiProviders.find((entry) => entry.id === value);
-                  setModelProviderId(value);
-                  setModelId(provider?.defaultModelId || modelId);
-                }}
-              >
-                <SelectTrigger className="h-7 w-[190px] rounded-lg border-white/10 bg-white/[0.03] px-2 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {serverDefaultProvider ? (
-                    <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE}>
-                      Server default: {serverDefaultProvider.name}
-                    </SelectItem>
-                  ) : null}
-                  {aiProviders.map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      {provider.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 rounded-lg border border-amber-400/20 bg-amber-500/8 px-2.5 text-xs text-amber-100"
-                onClick={() => setIsProviderSetupOpen(true)}
-              >
-                <KeyRound className="h-3.5 w-3.5" />
-                <span className="ml-1">AI Provider</span>
-              </Button>
-            )}
-            <Input
-              value={modelId}
-              onChange={(event) => setModelId(event.target.value)}
-              placeholder="google/gemma-4-26b-a4b-it"
-              className="h-7 w-[210px] rounded-lg border-white/10 bg-white/[0.03] text-xs"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 rounded-lg border border-white/10 bg-white/[0.03]"
-              onClick={() => setIsProviderSetupOpen(true)}
-              title="AI provider settings"
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-            </Button>
+            {/* Cluttered AI provider inputs removed by design request */}
           </div>
 
           {/* Right: action buttons */}
