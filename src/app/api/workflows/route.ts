@@ -12,7 +12,7 @@ export async function GET() {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Authentication required to list workflows." }, { status: 401 });
     }
 
     const userId = String((session.user as SessionUser).id || "");
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "Authentication required to save workflows." }, { status: 401 });
     }
 
     const userId = String((session.user as SessionUser).id || "");

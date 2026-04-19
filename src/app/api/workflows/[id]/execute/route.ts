@@ -19,7 +19,7 @@ export async function POST(
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json(
-        { error: "Sign in with GitHub or Google to execute workflows." },
+        { error: "Authentication required to execute workflows. Please sign in again." },
         { status: 401 }
       );
     }

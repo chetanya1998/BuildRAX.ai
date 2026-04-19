@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user) {
-      return NextResponse.json({ error: "Sign in to run AI audits." }, { status: 401 });
+      return NextResponse.json({ error: "Authentication required to run AI audits." }, { status: 401 });
     }
 
     const body = await req.json();
