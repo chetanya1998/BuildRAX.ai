@@ -1189,11 +1189,19 @@ function BuilderCanvas() {
       toast.success("Workflow generated on the canvas");
     } catch (error) {
       console.error(error);
-      handleAiFeatureError(error, "Prompt compile failed");
+      const message = error instanceof Error ? error.message : "Prompt compile failed";
+      toast.error(message);
+      if (
+        message.toLowerCase().includes("configure openrouter") ||
+        message.toLowerCase().includes("selected ai provider") ||
+        message.toLowerCase().includes("provider")
+      ) {
+        setIsProviderSetupOpen(true);
+      }
     } finally {
       setIsCompilingPrompt(false);
     }
-  }, [applyGraph, fetchCreditBalance, handleAiFeatureError, modelId, modelProviderId, promptInput, session?.user]);
+  }, [applyGraph, fetchCreditBalance, modelId, modelProviderId, promptInput, session?.user]);
 
   const handleBlueprintApply = useCallback((blueprint: BlueprintRecord) => {
     applyGraph(blueprint.graph, { sourceBlueprintSlug: blueprint.slug });
@@ -1410,18 +1418,61 @@ function BuilderCanvas() {
 
             {libraryTab === "prompt" ? (
               <div className="space-y-3">
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Describe the automation. BuildRAX will generate the workflow directly on the canvas.
-                </p>
-                <Textarea
-                  value={promptInput}
-                  onChange={(event) => setPromptInput(event.target.value)}
-                  placeholder="Design a fintech fraud review platform with API gateway, MongoDB, risk classifier, LLM reviewer..."
-                  className="min-h-[200px] rounded-2xl border-white/10 bg-black/20 text-xs"
-                />
-                <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt || !hasConfiguredAiProvider}>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">AI Configuration</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select
+                      value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
+                      onValueChange={(value) => {
+                        if (!value) return;
+                        if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
+                          setModelProviderId("");
+                          setModelId(serverDefaultProvider?.defaultModelId || modelId);
+                        } else {
+                          const provider = aiProviders.find((entry) => entry.id === value);
+                          setModelProviderId(value);
+                          setModelId(provider?.defaultModelId || modelId);
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-[10px]">
+                        <SelectValue placeholder="Select Provider" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {serverDefaultProvider && (
+                          <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE} className="text-xs">
+                            Server: {serverDefaultProvider.name}
+                          </SelectItem>
+                        )}
+                        {aiProviders.map((provider) => (
+                          <SelectItem key={provider.id} value={provider.id} className="text-xs">
+                            {provider.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={modelId}
+                      onChange={(event) => setModelId(event.target.value)}
+                      placeholder="Model ID"
+                      className="h-8 rounded-xl border-white/10 bg-black/20 text-[10px]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Automation Request</Label>
+                  <Textarea
+                    value={promptInput}
+                    onChange={(event) => setPromptInput(event.target.value)}
+                    placeholder="Describe the system you want to build..."
+                    className="min-h-[160px] rounded-2xl border-white/10 bg-black/20 text-xs"
+                  />
+                </div>
+
+                <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt || (!serverDefaultProvider && aiProviders.length === 0)}>
                   {isCompilingPrompt ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <BrainCircuit className="mr-1.5 h-3 w-3" />}
-                  {hasConfiguredAiProvider ? (creditsDisabled ? "Generate workflow" : "Generate workflow (1 credit)") : "Add provider first"}
+                  {creditsDisabled ? "Generate workflow" : "Generate workflow (1 credit)"}
                 </Button>
                 <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5 text-[10px] leading-relaxed text-muted-foreground">
                   Describe {"->"} Generate {"->"} Review {"->"} Configure {"->"} Run Test {"->"} AI Audit {"->"} Scenario Evaluation {"->"} Live Execute {"->"} Report
