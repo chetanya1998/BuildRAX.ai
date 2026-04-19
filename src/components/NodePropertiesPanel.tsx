@@ -161,7 +161,7 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
         {[
           definition.capabilities.design && "design",
           definition.capabilities.analyze && "analysis",
-          definition.capabilities.simulate && "simulation",
+          definition.capabilities.simulate && "test",
           definition.capabilities.execute && "execution",
         ]
           .filter(Boolean)

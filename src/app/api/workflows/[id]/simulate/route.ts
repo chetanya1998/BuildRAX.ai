@@ -6,7 +6,7 @@ import { Workflow } from "@/lib/models/Workflow";
 import { SimulationRun } from "@/lib/models/SimulationRun";
 import { TokenUsageRecord } from "@/lib/models/TokenUsageRecord";
 import { consumeCredits, CREDIT_POLICY } from "@/lib/credits";
-import { runGraph } from "@/lib/runtime/engine";
+import { deterministicScenarioFromPrompt, runGraph } from "@/lib/runtime/engine";
 import { buildWorkflowGraph } from "@/lib/graph/persistence";
 
 type SessionUser = { id?: string };
@@ -19,7 +19,7 @@ export async function POST(
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json(
-        { error: "Sign in with GitHub or Google to run simulations." },
+        { error: "Sign in with GitHub or Google to run scenario evaluations." },
         { status: 401 }
       );
     }
@@ -55,17 +55,24 @@ export async function POST(
       description: body.description || workflow.description,
     });
 
+    const scenario = body.scenarioPrompt
+      ? deterministicScenarioFromPrompt(String(body.scenarioPrompt))
+      : body.scenario;
+
     const result = await runGraph({
       graph,
-      mode: "simulation",
-      scenario: body.scenario,
+      mode: "test",
+      scenario,
+      userId,
+      modelProviderId: body.modelProviderId,
+      modelId: body.modelId,
     });
 
     const run = await SimulationRun.create({
       workflowId: workflow._id,
       userId,
       graph,
-      scenario: body.scenario || {},
+      scenario: scenario || {},
       analysis: result.analysis,
       nodeResults: result.nodeResults,
       summary: result.summary,
@@ -75,7 +82,7 @@ export async function POST(
     await TokenUsageRecord.create({
       userId,
       workflowId: String(workflow._id),
-      runType: "simulation",
+      runType: "test",
       runId: String(run._id),
       tokenUsage: result.summary.tokenUsage,
       cost: result.summary.cost,
@@ -101,8 +108,8 @@ export async function POST(
       summary: result.summary,
     });
   } catch (error) {
-    console.error("Simulation error:", error);
-    const message = error instanceof Error ? error.message : "Simulation failed";
+    console.error("Scenario evaluation error:", error);
+    const message = error instanceof Error ? error.message : "Scenario evaluation failed";
     const status = message === "Insufficient credits" ? 402 : 500;
     return NextResponse.json({ error: message }, { status });
   }

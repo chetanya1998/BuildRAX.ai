@@ -41,18 +41,18 @@ export const PRODUCTION_NODE_TYPES = [
   "assertionNode",
   "loadGeneratorNode",
   "faultInjectorNode",
-  "mockServiceNode",
+  "testFixtureNode",
   "outputNode",
 ] as const;
 
 export type ProductionNodeType = (typeof PRODUCTION_NODE_TYPES)[number];
 
 const modelOptions = [
+  { label: "Gemma 4 26B A4B", value: "google/gemma-4-26b-a4b-it" },
+  { label: "Gemma 4 31B", value: "google/gemma-4-31b-it" },
+  { label: "Gemma 4 26B A4B Free", value: "google/gemma-4-26b-a4b-it:free" },
   { label: "GPT-4o", value: "gpt-4o" },
-  { label: "GPT-4.1 Mini", value: "gpt-4.1-mini" },
-  { label: "Claude Sonnet", value: "claude-3-5-sonnet" },
-  { label: "Gemini 1.5 Pro", value: "gemini-1.5-pro" },
-  { label: "Local / LiteLLM", value: "ollama/llama3" },
+  { label: "Custom / Local", value: "custom" },
 ];
 
 export const NODE_DEFINITIONS: NodeDefinition[] = [
@@ -93,11 +93,23 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "LLM" },
       {
-        name: "model",
+        name: "providerId",
+        label: "Provider ID",
+        type: "text",
+        placeholder: "Optional saved provider ID",
+      },
+      {
+        name: "modelId",
         label: "Model",
         type: "select",
-        defaultValue: "gpt-4o",
+        defaultValue: "google/gemma-4-26b-a4b-it",
         options: modelOptions,
+      },
+      {
+        name: "customModelId",
+        label: "Custom Model ID",
+        type: "text",
+        placeholder: "Used when Model is Custom / Local",
       },
       {
         name: "systemPrompt",
@@ -124,7 +136,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
         placeholder: "Optional",
       },
     ],
-    previewFields: ["model", "temperature"],
+    previewFields: ["modelId", "temperature"],
     capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
@@ -333,7 +345,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "authRequired", label: "Auth Required", type: "boolean", defaultValue: true },
     ],
     previewFields: ["route"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "httpRequestNode",
@@ -347,7 +359,8 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Response", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "HTTP Request" },
-      { name: "url", label: "URL", type: "text", defaultValue: "https://example.com" },
+      { name: "testUrl", label: "Test URL", type: "text", placeholder: "https://sandbox.example.com/api" },
+      { name: "url", label: "Live URL", type: "text", defaultValue: "https://example.com" },
       {
         name: "method",
         label: "Method",
@@ -376,7 +389,8 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Response", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Webhook" },
-      { name: "url", label: "URL", type: "text", defaultValue: "https://hooks.example.com" },
+      { name: "testUrl", label: "Test Webhook URL", type: "text", placeholder: "https://sandbox.example.com/webhook" },
+      { name: "url", label: "Live Webhook URL", type: "text", defaultValue: "https://hooks.example.com" },
     ],
     previewFields: ["url"],
     capabilities: { design: true, analyze: true, simulate: true, execute: true },
@@ -394,10 +408,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Service" },
       { name: "serviceName", label: "Service Name", type: "text", defaultValue: "order-service" },
+      { name: "testUrl", label: "Test Endpoint", type: "text", placeholder: "https://sandbox.example.com/service" },
+      { name: "url", label: "Live Endpoint", type: "text", placeholder: "https://api.example.com/service" },
       { name: "latencyMs", label: "Base Latency", type: "number", defaultValue: 120 },
     ],
     previewFields: ["serviceName", "latencyMs"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "functionNode",
@@ -419,7 +435,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["transform"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "schedulerNode",
@@ -436,7 +452,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "cron", label: "Cron", type: "text", defaultValue: "0 * * * *" },
     ],
     previewFields: ["cron"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "postgresNode",
@@ -450,6 +466,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Rows", schema: "array" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Postgres" },
+      { name: "connectionString", label: "Connection String", type: "password", placeholder: "postgres://..." },
       { name: "table", label: "Table", type: "text", defaultValue: "customers" },
       {
         name: "operation",
@@ -464,7 +481,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["table", "operation"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "mongoNode",
@@ -508,6 +525,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Cache Result", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Redis" },
+      { name: "url", label: "Redis URL", type: "password", placeholder: "redis://..." },
       { name: "key", label: "Key", type: "text", defaultValue: "session:customer" },
       {
         name: "operation",
@@ -522,7 +540,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["key", "operation"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "vectorStoreNode",
@@ -536,6 +554,8 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Matches", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Vector Store" },
+      { name: "endpoint", label: "Endpoint", type: "text", placeholder: "https://vector-db.example.com/query" },
+      { name: "apiKey", label: "API Key", type: "password", placeholder: "Optional" },
       { name: "namespace", label: "Namespace", type: "text", defaultValue: "enterprise" },
       {
         name: "operation",
@@ -549,7 +569,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["namespace", "operation"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "queuePublishNode",
@@ -563,10 +583,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Ack", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Queue Publish" },
+      { name: "endpoint", label: "Queue Endpoint", type: "text", placeholder: "https://queue.example.com/messages" },
+      { name: "apiKey", label: "API Key", type: "password", placeholder: "Optional" },
       { name: "queueName", label: "Queue", type: "text", defaultValue: "orders.created" },
     ],
     previewFields: ["queueName"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "queueConsumeNode",
@@ -580,10 +602,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Processed", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Queue Consume" },
+      { name: "endpoint", label: "Queue Endpoint", type: "text", placeholder: "https://queue.example.com/messages" },
+      { name: "apiKey", label: "API Key", type: "password", placeholder: "Optional" },
       { name: "queueName", label: "Queue", type: "text", defaultValue: "orders.created" },
     ],
     previewFields: ["queueName"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "objectStorageNode",
@@ -597,10 +621,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Storage Result", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Object Storage" },
+      { name: "endpoint", label: "Storage Endpoint", type: "text", placeholder: "https://storage.example.com/object" },
+      { name: "apiKey", label: "API Key", type: "password", placeholder: "Optional" },
       { name: "bucket", label: "Bucket", type: "text", defaultValue: "buildrax-artifacts" },
     ],
     previewFields: ["bucket"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "retryNode",
@@ -617,7 +643,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "attempts", label: "Attempts", type: "number", defaultValue: 3 },
     ],
     previewFields: ["attempts"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "timeoutNode",
@@ -634,7 +660,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "timeoutMs", label: "Timeout (ms)", type: "number", defaultValue: 1200 },
     ],
     previewFields: ["timeoutMs"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "circuitBreakerNode",
@@ -654,7 +680,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "failureThreshold", label: "Failure Threshold", type: "number", defaultValue: 5 },
     ],
     previewFields: ["failureThreshold"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "rateLimiterNode",
@@ -671,7 +697,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "requestsPerMinute", label: "Requests / Minute", type: "number", defaultValue: 120 },
     ],
     previewFields: ["requestsPerMinute"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "fallbackNode",
@@ -696,7 +722,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["fallbackMessage"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "idempotencyNode",
@@ -713,7 +739,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "key", label: "Key", type: "text", defaultValue: "{{requestId}}" },
     ],
     previewFields: ["key"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "authNode",
@@ -740,7 +766,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["strategy"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "rbacNode",
@@ -757,7 +783,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "role", label: "Required Role", type: "text", defaultValue: "admin" },
     ],
     previewFields: ["role"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "secretsNode",
@@ -774,7 +800,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "secretName", label: "Secret Name", type: "text", defaultValue: "third-party-api-key" },
     ],
     previewFields: ["secretName"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "piiRedactionNode",
@@ -796,7 +822,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["entities"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "logNode",
@@ -817,7 +843,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       ] },
     ],
     previewFields: ["level"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "metricNode",
@@ -834,7 +860,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "metricName", label: "Metric Name", type: "text", defaultValue: "workflow.success" },
     ],
     previewFields: ["metricName"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "traceNode",
@@ -851,7 +877,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "spanName", label: "Span Name", type: "text", defaultValue: "workflow.branch" },
     ],
     previewFields: ["spanName"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "alertNode",
@@ -865,10 +891,11 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
     outputs: [{ id: "default", label: "Output", schema: "json" }],
     fields: [
       { name: "label", label: "Label", type: "text", defaultValue: "Alert" },
+      { name: "webhookUrl", label: "Alert Webhook", type: "password", placeholder: "Required for live alerts" },
       { name: "channel", label: "Channel", type: "text", defaultValue: "ops-alerts" },
     ],
     previewFields: ["channel"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "assertionNode",
@@ -888,12 +915,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "contains", label: "Contains", type: "text", defaultValue: "success" },
     ],
     previewFields: ["contains"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "loadGeneratorNode",
     title: "Load Generator",
-    description: "Generate synthetic traffic in simulation mode.",
+    description: "Generate test traffic for scenario evaluation.",
     pack: "observability",
     category: "Testing",
     icon: "Rocket",
@@ -905,12 +932,12 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       { name: "requests", label: "Requests", type: "number", defaultValue: 100 },
     ],
     previewFields: ["requests"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "faultInjectorNode",
     title: "Fault Injector",
-    description: "Inject latency or failure conditions into simulation runs.",
+    description: "Inject latency or failure conditions during test-mode scenario evaluation.",
     pack: "observability",
     category: "Testing",
     icon: "Bug",
@@ -932,29 +959,29 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
       },
     ],
     previewFields: ["mode"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
-    type: "mockServiceNode",
-    title: "Mock Service",
-    description: "Provide a deterministic dependency stub for simulations.",
+    type: "testFixtureNode",
+    title: "Test Fixture",
+    description: "Provide user-authored fixture data during test-mode scenario evaluation.",
     pack: "observability",
     category: "Testing",
     icon: "PackageCheck",
     colorClass: "bg-rose-500/10 text-rose-400 border-rose-500/20",
     inputs: [{ id: "default", label: "Request", schema: "json" }],
-    outputs: [{ id: "default", label: "Stub Response", schema: "json" }],
+    outputs: [{ id: "default", label: "Fixture Response", schema: "json" }],
     fields: [
-      { name: "label", label: "Label", type: "text", defaultValue: "Mock Service" },
+      { name: "label", label: "Label", type: "text", defaultValue: "Test Fixture" },
       {
         name: "responseBody",
         label: "Response Body",
         type: "textarea",
-        defaultValue: '{"status":"ok","source":"mock-service"}',
+        defaultValue: '{"status":"ok","source":"test-fixture"}',
       },
     ],
     previewFields: ["responseBody"],
-    capabilities: { design: true, analyze: true, simulate: true, execute: false },
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
   },
   {
     type: "outputNode",

@@ -13,6 +13,7 @@ export interface IUser extends Document {
     openai?: string;
     anthropic?: string;
   };
+  encryptedAiProviders?: unknown[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +32,7 @@ const UserSchema: Schema = new Schema(
       openai: { type: String, default: "" },
       anthropic: { type: String, default: "" },
     },
+    encryptedAiProviders: { type: [Schema.Types.Mixed], default: [] },
   },
   { timestamps: true }
 );

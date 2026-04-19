@@ -5,6 +5,8 @@ import dbConnect from "@/lib/mongodb";
 import { Execution } from "@/lib/models/Execution";
 import { inngest } from "@/inngest/client";
 
+type SessionUser = { id?: string };
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -12,7 +14,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { workflowId, nodes, edges } = await req.json();
+    const { workflowId, nodes, edges, graph, modelProviderId, modelId } = await req.json();
+    const userId = String((session.user as SessionUser).id || "");
 
     if (!nodes || !edges) {
       return NextResponse.json({ error: "Missing nodes or edges" }, { status: 400 });
@@ -23,7 +26,7 @@ export async function POST(req: NextRequest) {
     // Log the execution request
     const executionRec = await Execution.create({
       workflowId: workflowId || null,
-      userId: (session.user as any).id,
+      userId,
       status: "running"
     });
 
@@ -33,8 +36,12 @@ export async function POST(req: NextRequest) {
       data: {
         executionId: executionRec._id.toString(),
         workflowId,
+        userId,
+        graph,
         nodes,
         edges,
+        modelProviderId,
+        modelId,
       },
     });
 
@@ -44,8 +51,9 @@ export async function POST(req: NextRequest) {
       status: "queued"
     });
 
-  } catch (error: any) {
+  } catch (error) {
     console.error("Execution API Error:", error);
-    return NextResponse.json({ error: "Failed to process workflow execution" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to process workflow execution";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

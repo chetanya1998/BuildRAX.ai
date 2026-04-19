@@ -86,7 +86,7 @@ function createScenario(sector: string, useCase: string): ScenarioDefinition {
   return {
     name: `${sector} ${useCase} Baseline`,
     trafficProfile: "steady",
-    dependencyMode: "stub",
+    dependencyMode: "safe_test",
     failureMode: "latency_spike",
     timeoutMs: 1200,
     queueDepth: 25,

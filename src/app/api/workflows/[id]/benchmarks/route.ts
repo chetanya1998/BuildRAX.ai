@@ -9,6 +9,8 @@ import { consumeCredits, CREDIT_POLICY } from "@/lib/credits";
 import { buildWorkflowGraph } from "@/lib/graph/persistence";
 import { BenchmarkVariant, WorkflowGraph } from "@/lib/graph/types";
 import { runGraph } from "@/lib/runtime/engine";
+import { DEFAULT_GEMMA_MODEL } from "@/lib/ai-providers";
+import { generateTextResult } from "@/lib/litellm";
 
 type SessionUser = { id?: string };
 
@@ -21,6 +23,7 @@ function computeAssertionPassRate(nodeResults: Array<{ nodeType: string; status:
 
 function deriveModel(graph: WorkflowGraph) {
   return (
+    graph.nodes.find((node) => node.type === "llmNode")?.data?.modelId ||
     graph.nodes.find((node) => node.type === "llmNode")?.data?.model ||
     "unknown"
   );
@@ -90,8 +93,11 @@ export async function POST(
 
         const result = await runGraph({
           graph,
-          mode: "simulation",
+          mode: "test",
           scenario: body.scenario,
+          userId,
+          modelProviderId: body.modelProviderId,
+          modelId: body.modelId,
         });
 
         return {
@@ -108,16 +114,34 @@ export async function POST(
     const maxTokens = Math.max(...executedVariants.map((entry) => entry.result.summary.tokenUsage), 1);
     const maxCost = Math.max(...executedVariants.map((entry) => entry.result.summary.cost), 1);
 
-    const scores = executedVariants.map((entry) => {
+    const scores = await Promise.all(executedVariants.map(async (entry) => {
       const assertionPassRate = computeAssertionPassRate(entry.result.nodeResults);
       const errorRate = entry.result.summary.status === "failed" ? 1 : 0;
+      const blockedRate = entry.result.summary.status === "blocked" ? 1 : 0;
       const latencyScore = 1 - entry.result.summary.latencyMs / maxLatency;
       const tokenScore = 1 - entry.result.summary.tokenUsage / maxTokens;
       const costScore = 1 - entry.result.summary.cost / maxCost;
-      const qualityScore =
-        body.scoringConfig?.qualityMode === "llm_judge"
-          ? Number((0.75 + assertionPassRate * 0.2).toFixed(2))
-          : undefined;
+      let qualityScore: number | undefined;
+      let qualityNotes = "";
+
+      if (body.scoringConfig?.qualityMode === "llm_judge") {
+        const judge = await generateTextResult(
+          `Score this workflow variant from 0 to 1 for production usefulness. Return JSON: {"score":0-1,"notes":"..."}.\nVariant: ${entry.label}\nModel: ${entry.model}\nRun summary: ${JSON.stringify(entry.result.summary)}\nNode results: ${JSON.stringify(entry.result.nodeResults).slice(0, 8000)}`,
+          "You are a strict workflow evaluation judge. Penalize blocked setup, missing credentials, unsafe side effects, and failed assertions.",
+          {
+            userId,
+            providerId: body.modelProviderId,
+            modelId: body.modelId || DEFAULT_GEMMA_MODEL,
+            temperature: 0,
+            response_format: { type: "json_object" },
+            max_tokens: 600,
+          }
+        );
+        const parsed = JSON.parse(judge.text);
+        qualityScore = Number(parsed.score || 0);
+        qualityNotes = String(parsed.notes || "");
+      }
+
       const totalScore = Number(
         (
           assertionPassRate * 0.4 +
@@ -125,7 +149,8 @@ export async function POST(
           Math.max(0, tokenScore) * 0.1 +
           Math.max(0, costScore) * 0.1 +
           (qualityScore ?? 0.5) * 0.2 -
-          errorRate * 0.3
+          errorRate * 0.3 -
+          blockedRate * 0.4
         ).toFixed(4)
       );
 
@@ -137,12 +162,13 @@ export async function POST(
         tokenUsage: entry.result.summary.tokenUsage,
         cost: entry.result.summary.cost,
         qualityScore,
+        qualityNotes,
         totalScore,
         summary: entry.result.summary,
         analysis: entry.result.analysis,
         model: entry.model,
       };
-    });
+    }));
 
     const rankedScores = [...scores].sort((a, b) => b.totalScore - a.totalScore);
     const winner = rankedScores[0];

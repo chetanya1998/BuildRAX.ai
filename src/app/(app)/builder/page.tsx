@@ -114,6 +114,9 @@ interface LocalDraft {
   scenario?: ScenarioDefinition;
   benchmarkModels?: string;
   promptInput?: string;
+  scenarioPrompt?: string;
+  modelProviderId?: string;
+  modelId?: string;
 }
 
 interface FlowViewportController {
@@ -166,9 +169,9 @@ const packAccentClasses: Record<string, string> = {
 };
 
 const defaultScenario: ScenarioDefinition = {
-  name: "Baseline",
+  name: "Baseline Test",
   trafficProfile: "steady",
-  dependencyMode: "stub",
+  dependencyMode: "safe_test",
   failureMode: "none",
   timeoutMs: 1200,
   queueDepth: 25,
@@ -244,8 +247,11 @@ function BuilderCanvas() {
   const [inspectorTab, setInspectorTab] = useState("workflow");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [scenario, setScenario] = useState(defaultScenario);
+  const [scenarioPrompt, setScenarioPrompt] = useState("");
+  const [modelProviderId, setModelProviderId] = useState("");
+  const [modelId, setModelId] = useState("google/gemma-4-26b-a4b-it");
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
-  const [benchmarkModels, setBenchmarkModels] = useState("gpt-4o,gpt-4.1-mini,claude-3-5-sonnet");
+  const [benchmarkModels, setBenchmarkModels] = useState("google/gemma-4-26b-a4b-it,google/gemma-4-31b-it,gpt-4o");
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const reactFlowInstanceRef = useRef<FlowViewportController | null>(null);
@@ -340,8 +346,11 @@ function BuilderCanvas() {
           sourceBlueprintSlug,
           graph: currentGraph,
           scenario,
+          scenarioPrompt,
           benchmarkModels,
           promptInput,
+          modelProviderId,
+          modelId,
           viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
           updatedAt: new Date().toISOString(),
         })
@@ -350,8 +359,11 @@ function BuilderCanvas() {
     [
       benchmarkModels,
       currentGraph,
+      modelId,
+      modelProviderId,
       promptInput,
       scenario,
+      scenarioPrompt,
       sourceBlueprintSlug,
       workflowDescription,
       workflowId,
@@ -454,8 +466,11 @@ function BuilderCanvas() {
           setWorkflowDescription(parsed.workflowDescription || "");
           setSourceBlueprintSlug(parsed.sourceBlueprintSlug || "");
           setScenario(parsed.scenario || defaultScenario);
+          setScenarioPrompt(parsed.scenarioPrompt || "");
           setBenchmarkModels(parsed.benchmarkModels || benchmarkModels);
           setPromptInput(parsed.promptInput || "");
+          setModelProviderId(parsed.modelProviderId || "");
+          setModelId(parsed.modelId || "google/gemma-4-26b-a4b-it");
           setAutosaveStatus("Recovered local draft");
         } catch (error) {
           console.error("Failed to restore local draft", error);
@@ -668,6 +683,9 @@ function BuilderCanvas() {
           description: workflowDescription,
           graph: currentGraph,
           scenario,
+          scenarioPrompt,
+          modelProviderId: modelProviderId || undefined,
+          modelId,
         }),
       });
 
@@ -679,13 +697,16 @@ function BuilderCanvas() {
       setRunData(data);
       setIsRunPanelOpen(true);
       await fetchCreditBalance();
-      toast.success(action === "simulate" ? "Simulation complete" : "Execution complete");
+      toast.success(action === "simulate" ? "Scenario evaluation complete" : "Live execution complete");
     },
     [
       currentGraph,
       ensureCloudWorkflow,
       fetchCreditBalance,
+      modelId,
+      modelProviderId,
       scenario,
+      scenarioPrompt,
       workflowDescription,
       workflowName,
     ]
@@ -697,7 +718,7 @@ function BuilderCanvas() {
       await runAction("simulate", "simulate", idOverride);
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Simulation failed");
+      toast.error(error instanceof Error ? error.message : "Scenario evaluation failed");
     } finally {
       setIsSimulating(false);
     }
@@ -721,7 +742,11 @@ function BuilderCanvas() {
       const res = await fetch("/api/architect/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ graph: currentGraph }),
+        body: JSON.stringify({
+          graph: currentGraph,
+          modelProviderId: modelProviderId || undefined,
+          modelId,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -746,7 +771,7 @@ function BuilderCanvas() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [currentGraph]);
+  }, [currentGraph, modelId, modelProviderId]);
 
   const handleBenchmark = useCallback(async (idOverride?: string) => {
     const models = benchmarkModels
@@ -792,7 +817,7 @@ function BuilderCanvas() {
                   ...node,
                   data: {
                     ...node.data,
-                    model,
+                    modelId: model,
                   },
                 }
               : node
@@ -807,6 +832,8 @@ function BuilderCanvas() {
           baseGraph: currentGraph,
           variants,
           scenario,
+          modelProviderId: modelProviderId || undefined,
+          modelId,
           scoringConfig: {
             qualityMode: "llm_judge",
           },
@@ -849,6 +876,8 @@ function BuilderCanvas() {
     currentGraph,
     ensureCloudWorkflow,
     fetchCreditBalance,
+    modelId,
+    modelProviderId,
     scenario,
     session?.user,
     workflowName,
@@ -931,7 +960,11 @@ function BuilderCanvas() {
       const res = await fetch("/api/prompt/compile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: promptInput }),
+        body: JSON.stringify({
+          prompt: promptInput,
+          modelProviderId: modelProviderId || undefined,
+          modelId,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -942,14 +975,15 @@ function BuilderCanvas() {
       applyGraph(data.graph);
       setLibraryTab("nodes");
       await fetchCreditBalance();
-      toast.success("Prompt compiled into an editable system graph");
+      setInspectorTab("workflow");
+      toast.success("Workflow generated on the canvas");
     } catch (error) {
       console.error(error);
       toast.error(error instanceof Error ? error.message : "Prompt compile failed");
     } finally {
       setIsCompilingPrompt(false);
     }
-  }, [applyGraph, fetchCreditBalance, promptInput, session?.user]);
+  }, [applyGraph, fetchCreditBalance, modelId, modelProviderId, promptInput, session?.user]);
 
   const handleBlueprintApply = useCallback((blueprint: BlueprintRecord) => {
     applyGraph(blueprint.graph, { sourceBlueprintSlug: blueprint.slug });
@@ -1160,8 +1194,28 @@ function BuilderCanvas() {
             {libraryTab === "prompt" ? (
               <div className="space-y-3">
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Describe your system. We'll compile it into an editable graph.
+                  Describe the automation. BuildRAX will generate the workflow directly on the canvas.
                 </p>
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Provider ID</Label>
+                    <Input
+                      value={modelProviderId}
+                      onChange={(event) => setModelProviderId(event.target.value)}
+                      placeholder="Optional saved provider ID"
+                      className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Generation Model</Label>
+                    <Input
+                      value={modelId}
+                      onChange={(event) => setModelId(event.target.value)}
+                      placeholder="google/gemma-4-26b-a4b-it"
+                      className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                    />
+                  </div>
+                </div>
                 <Textarea
                   value={promptInput}
                   onChange={(event) => setPromptInput(event.target.value)}
@@ -1170,8 +1224,11 @@ function BuilderCanvas() {
                 />
                 <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
                   {isCompilingPrompt ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <BrainCircuit className="mr-1.5 h-3 w-3" />}
-                  Compile (1 credit)
+                  Generate workflow (1 credit)
                 </Button>
+                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5 text-[10px] leading-relaxed text-muted-foreground">
+                  Describe {"->"} Generate {"->"} Review {"->"} Configure {"->"} Run Test {"->"} AI Audit {"->"} Scenario Evaluation {"->"} Live Execute {"->"} Report
+                </div>
               </div>
             ) : null}
           </div>
@@ -1214,15 +1271,15 @@ function BuilderCanvas() {
           <div className="flex items-center gap-1.5 shrink-0">
             <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleAnalyze} disabled={isAnalyzing}>
               {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">Analyze</span>
+              <span className="ml-1 hidden sm:inline">AI Audit</span>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
               {isBenchmarking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">Bench</span>
+              <span className="ml-1 hidden sm:inline">Evaluate</span>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={() => handleSimulation()} disabled={isSimulating}>
               {isSimulating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">Simulate</span>
+              <span className="ml-1 hidden sm:inline">Run Test</span>
             </Button>
             <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleSave} disabled={isSaving}>
               {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -1230,7 +1287,7 @@ function BuilderCanvas() {
             </Button>
             <Button size="sm" className="h-7 rounded-lg bg-sky-500 text-slate-950 hover:bg-sky-400 px-3 text-xs" onClick={() => handleExecution()} disabled={isExecuting}>
               {isExecuting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-              <span className="ml-1">Execute</span>
+              <span className="ml-1">Live Execute</span>
             </Button>
             {workflowId ? (
               <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-300" onClick={handleDeleteWorkflow}>
@@ -1333,13 +1390,23 @@ function BuilderCanvas() {
                           Sign in for cloud saves
                         </div>
                         <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                          GitHub / Google sign-in unlocks cloud save, simulations, and credits.
+                          GitHub / Google sign-in unlocks cloud save, test runs, audits, and credits.
                         </p>
                       </div>
                     )}
                   </TabsContent>
 
                   <TabsContent value="scenario" className="m-0 space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Situation to test</Label>
+                      <Textarea
+                        value={scenarioPrompt}
+                        onChange={(event) => setScenarioPrompt(event.target.value)}
+                        placeholder="Example: Slack is down, database is slow, or the customer message contains PII."
+                        className="min-h-[92px] rounded-2xl border-white/10 bg-black/20 text-xs"
+                      />
+                    </div>
+
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Traffic</Label>
@@ -1378,7 +1445,7 @@ function BuilderCanvas() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="stub">Stub</SelectItem>
+                            <SelectItem value="fixture">Fixture</SelectItem>
                             <SelectItem value="safe_test">Safe Test</SelectItem>
                             <SelectItem value="live">Live</SelectItem>
                           </SelectContent>
@@ -1462,7 +1529,7 @@ function BuilderCanvas() {
           <DialogHeader>
             <DialogTitle>Sign in to save and run</DialogTitle>
             <DialogDescription>
-              Local autosave is already active. Use GitHub or Google to persist the workflow, consume credits, simulate, execute, and benchmark.
+              Local autosave is active. Sign in to persist workflows, use credits, run test scenarios, perform AI audits, and execute live automations.
             </DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3 pt-2">

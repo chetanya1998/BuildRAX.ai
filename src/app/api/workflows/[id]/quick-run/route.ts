@@ -6,6 +6,8 @@ import { Workflow } from "@/lib/models/Workflow";
 import { Execution } from "@/lib/models/Execution";
 import { inngest } from "@/inngest/client";
 
+type SessionUser = { id?: string };
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,13 +18,14 @@ export async function POST(
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    const userId = String((session.user as SessionUser).id || "");
 
     await dbConnect();
     
     // Validate workflow ownership
     const workflow = await Workflow.findOne({
       _id: id,
-      creatorId: (session.user as any).id,
+      creatorId: userId,
     });
 
     if (!workflow) {
@@ -32,7 +35,7 @@ export async function POST(
     // Create execution record
     const executionRec = await Execution.create({
       workflowId: workflow._id,
-      userId: (session.user as any).id,
+      userId,
       status: "running"
     });
 
@@ -42,6 +45,8 @@ export async function POST(
       data: {
         executionId: executionRec._id.toString(),
         workflowId: workflow._id.toString(),
+        userId,
+        graph: workflow.graph,
         nodes: workflow.nodes,
         edges: workflow.edges,
       },

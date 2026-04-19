@@ -78,9 +78,9 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                   {isBenchmark ? "Benchmark Results" : "Runtime Trace"}
                 </SheetTitle>
                 <SheetDescription className="mt-1 max-w-md text-sm leading-relaxed text-muted-foreground">
-                  {runData?.mode === "simulation"
-                    ? "Inspect the sandboxed simulation output."
-                    : runData?.mode === "execution"
+                  {runData?.mode === "test"
+                    ? "Inspect the test-mode scenario output."
+                    : runData?.mode === "live"
                       ? "Inspect the live execution output."
                       : "Compare workflow variants and identify the winner."}
                 </SheetDescription>

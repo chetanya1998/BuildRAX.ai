@@ -1,4 +1,7 @@
-export type BuilderMode = "design" | "analysis" | "simulation" | "live";
+export type BuilderMode = "design" | "analysis" | "test" | "live";
+
+export type RunMode = "test" | "live";
+export type RunStatus = "completed" | "failed" | "blocked" | "skipped";
 
 export type WorkflowLifecycle =
   | "draft"
@@ -81,7 +84,12 @@ export interface WorkflowNode {
   id: string;
   type: string;
   position: WorkflowNodePosition;
-  data: Record<string, unknown>;
+  data: Record<string, unknown> & {
+    providerId?: string;
+    modelId?: string;
+    model?: string;
+    modelSettings?: Record<string, unknown>;
+  };
 }
 
 export interface WorkflowEdge {
@@ -122,11 +130,13 @@ export interface AssertionRule {
 export interface ScenarioDefinition {
   name: string;
   trafficProfile: "single" | "burst" | "steady";
-  dependencyMode: "stub" | "safe_test" | "live";
+  dependencyMode: "fixture" | "safe_test" | "live";
   failureMode: "none" | "latency_spike" | "partial_outage" | "dependency_timeout";
   timeoutMs: number;
   queueDepth: number;
   assertionRules: AssertionRule[];
+  prompt?: string;
+  expectedBehavior?: string;
 }
 
 export interface NodeExecutionMetrics {
@@ -134,14 +144,20 @@ export interface NodeExecutionMetrics {
   tokenUsage: number;
   cost: number;
   warnings: string[];
+  providerId?: string;
+  model?: string;
 }
 
 export interface NodeExecutionResult {
   nodeId: string;
   nodeType: string;
-  status: "completed" | "failed" | "skipped";
+  status: RunStatus;
   outputs: Record<string, unknown>;
   error?: string;
+  blockedReason?: string;
+  startedAt?: string;
+  completedAt?: string;
+  inputs?: Record<string, unknown>;
   metrics: NodeExecutionMetrics;
 }
 

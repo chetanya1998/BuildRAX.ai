@@ -57,7 +57,7 @@ export async function GET(req: NextRequest) {
             results: execution.results,
           });
 
-          if (execution.status === "completed" || execution.status === "failed") {
+          if (execution.status === "completed" || execution.status === "failed" || execution.status === "blocked") {
             isClosed = true;
             clearInterval(interval);
             controller.close();

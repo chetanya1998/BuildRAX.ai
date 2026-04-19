@@ -15,7 +15,7 @@ export function analyzeGraph(graph: WorkflowGraph): GraphAnalysis {
       continue;
     }
     if (!definition.capabilities.simulate) {
-      warnings.push(`${definition.title} is not simulation-ready.`);
+      warnings.push(`${definition.title} is not test-run ready.`);
     }
   }
 
@@ -68,7 +68,7 @@ export function analyzeGraph(graph: WorkflowGraph): GraphAnalysis {
     feedback:
       flaws.length === 0
         ? "The graph has a strong production shape. Focus next on scenario depth and runtime policy tuning."
-        : "The graph needs structural cleanup before it is safe for production-style simulations.",
+        : "The graph needs structural cleanup before it is safe for production-style test runs.",
     warnings,
     flaws,
     suggestedScenarios: [

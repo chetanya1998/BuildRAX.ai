@@ -57,8 +57,11 @@ export async function POST(
 
     const result = await runGraph({
       graph,
-      mode: "execution",
+      mode: "live",
       scenario: body.scenario,
+      userId,
+      modelProviderId: body.modelProviderId,
+      modelId: body.modelId,
     });
 
     const run = await ExecutionRun.create({

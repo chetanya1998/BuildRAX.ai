@@ -96,7 +96,7 @@ export function BaseNode({
               : "border-white/10 bg-black/20 text-muted-foreground"
           )}>
             <div className="mb-1 flex items-center justify-between opacity-60">
-               <span className="uppercase tracking-[0.2em]">Simulated Output</span>
+               <span className="uppercase tracking-[0.2em]">Run Output</span>
                {isSimulating && <div className="h-1.5 w-1.5 animate-ping rounded-full bg-sky-300" />}
             </div>
             <div className="line-clamp-3">

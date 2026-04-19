@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const { prompt } = await req.json();
+    const { prompt, modelProviderId, modelId } = await req.json();
 
     if (!prompt || !String(prompt).trim()) {
       return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
@@ -34,17 +34,33 @@ export async function POST(req: Request) {
       metadata: { promptLength: String(prompt).length },
     });
 
-    const result = await compilePromptToGraph(String(prompt));
+    const result = await compilePromptToGraph(String(prompt), {
+      userId,
+      modelProviderId,
+      modelId,
+    });
+
+    const usage = (result as {
+      usage?: { totalTokens?: number; estimatedCost?: number };
+    }).usage;
 
     await dbConnect();
     await TokenUsageRecord.create({
       userId,
       runType: "prompt_compile",
-      tokenUsage: Math.max(16, Math.ceil(String(prompt).length / 4)),
-      cost: 0,
+      tokenUsage:
+        typeof usage?.totalTokens === "number"
+          ? usage.totalTokens
+          : Math.max(16, Math.ceil(String(prompt).length / 4)),
+      cost:
+        typeof usage?.estimatedCost === "number"
+          ? usage.estimatedCost
+          : 0,
       metadata: {
         promptPreview: String(prompt).slice(0, 160),
         suggestedScenarios: result.suggestedScenarios,
+        modelProviderId,
+        modelId,
       },
     });
 

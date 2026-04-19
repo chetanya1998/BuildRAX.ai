@@ -36,7 +36,7 @@ export async function GET(
     }
 
     const run =
-      type === "simulation"
+      type === "simulation" || type === "test"
         ? await SimulationRun.findById(runId).lean()
         : type === "benchmark"
           ? await BenchmarkRun.findById(runId).lean()

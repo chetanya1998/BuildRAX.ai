@@ -8,7 +8,7 @@ export interface ISimulationRun extends Document {
   analysis: unknown;
   nodeResults: unknown[];
   summary: unknown;
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "blocked";
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,7 +22,7 @@ const SimulationRunSchema = new Schema(
     analysis: { type: Schema.Types.Mixed, default: {} },
     nodeResults: { type: [Schema.Types.Mixed], default: [] },
     summary: { type: Schema.Types.Mixed, default: {} },
-    status: { type: String, enum: ["completed", "failed"], default: "completed" },
+    status: { type: String, enum: ["completed", "failed", "blocked"], default: "completed" },
   },
   { timestamps: true }
 );

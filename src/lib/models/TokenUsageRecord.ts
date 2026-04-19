@@ -3,7 +3,7 @@ import mongoose, { Document, Model, Schema } from "mongoose";
 export interface ITokenUsageRecord extends Document {
   userId: string;
   workflowId?: string;
-  runType: "simulation" | "execution" | "benchmark" | "prompt_compile";
+  runType: "test" | "execution" | "benchmark" | "prompt_compile" | "audit";
   runId?: string;
   providerModel?: string;
   tokenUsage: number;
@@ -19,7 +19,7 @@ const TokenUsageRecordSchema = new Schema(
     workflowId: { type: String, default: "" },
     runType: {
       type: String,
-      enum: ["simulation", "execution", "benchmark", "prompt_compile"],
+      enum: ["test", "execution", "benchmark", "prompt_compile", "audit"],
       required: true,
     },
     runId: { type: String, default: "" },
