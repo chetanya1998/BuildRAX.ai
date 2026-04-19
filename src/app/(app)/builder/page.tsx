@@ -22,6 +22,7 @@ import {
   ArrowLeft,
   BrainCircuit,
   CreditCard,
+  FilePlus2,
   GitBranch,
   GraduationCap,
   KeyRound,
@@ -152,32 +153,6 @@ interface FlowViewportController {
 const SERVER_DEFAULT_PROVIDER_VALUE = "__server_default__";
 const NO_PROVIDER_VALUE = "__no_provider__";
 
-const blankNodes: FlowNode[] = [
-  {
-    id: "gateway",
-    type: "apiGatewayNode",
-    position: { x: 80, y: 180 },
-    data: { ...getDefaultNodeData("apiGatewayNode"), route: "/api/workflow" },
-  },
-  {
-    id: "service",
-    type: "serviceNode",
-    position: { x: 340, y: 180 },
-    data: { ...getDefaultNodeData("serviceNode"), serviceName: "orchestrator-service" },
-  },
-  {
-    id: "output",
-    type: "outputNode",
-    position: { x: 620, y: 180 },
-    data: { ...getDefaultNodeData("outputNode"), label: "Output" },
-  },
-];
-
-const blankEdges: FlowEdge[] = [
-  { id: "gateway-service", source: "gateway", target: "service", animated: true },
-  { id: "service-output", source: "service", target: "output", animated: true },
-];
-
 const workspaceNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/workflows", label: "Workflows", icon: Layers },
@@ -249,8 +224,8 @@ function BuilderCanvas() {
   const queryWorkflowId = searchParams?.get("id") || "";
   const resumeAfterLogin = searchParams?.get("resume") === "1";
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(blankNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(blankEdges);
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
   const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
   const [workflowId, setWorkflowId] = useState<string>(queryWorkflowId);
   const [workflowName, setWorkflowName] = useState("Untitled Workflow");
@@ -296,6 +271,7 @@ function BuilderCanvas() {
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const reactFlowInstanceRef = useRef<FlowViewportController | null>(null);
   const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const skipNextAutosaveRef = useRef(false);
   const deferredNodeQuery = useDeferredValue(nodeQuery);
 
   const packedNodes = useMemo(
@@ -489,6 +465,36 @@ function BuilderCanvas() {
     setAutosaveStatus("Local draft updated");
   }, [setEdges, setNodes]);
 
+  const handleNewWorkflow = useCallback(() => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+
+    skipNextAutosaveRef.current = true;
+    setWorkflowId("");
+    setWorkflowName("Untitled Workflow");
+    setWorkflowDescription("");
+    setSourceBlueprintSlug("");
+    setNodes([]);
+    setEdges([]);
+    setSelectedNode(null);
+    setRunData(null);
+    setPromptInput("");
+    setScenario(defaultScenario);
+    setScenarioPrompt("");
+    setInspectorTab("workflow");
+    setLibraryTab("nodes");
+    setAutosaveStatus("New blank workflow");
+
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(LOCAL_DRAFT_KEY);
+      window.history.replaceState(null, "", "/builder");
+    }
+
+    toast.success("Started a blank workflow");
+  }, [setEdges, setNodes]);
+
   const loadWorkflow = useCallback(
     async (id: string) => {
       try {
@@ -649,6 +655,11 @@ function BuilderCanvas() {
 
   useEffect(() => {
     if (!isHydrated) return;
+
+    if (skipNextAutosaveRef.current) {
+      skipNextAutosaveRef.current = false;
+      return;
+    }
 
     saveLocalDraft();
     setAutosaveStatus(session?.user && workflowId ? "Queued cloud autosave" : "Local draft autosaved");
@@ -1033,8 +1044,8 @@ function BuilderCanvas() {
       setWorkflowName("Untitled Workflow");
       setWorkflowDescription("");
       setSourceBlueprintSlug("");
-      setNodes(blankNodes);
-      setEdges(blankEdges);
+      setNodes([]);
+      setEdges([]);
       setSelectedNode(null);
       setRunData(null);
       if (typeof window !== "undefined") {
@@ -1399,158 +1410,6 @@ function BuilderCanvas() {
                 <p className="text-[11px] leading-relaxed text-muted-foreground">
                   Describe the automation. BuildRAX will generate the workflow directly on the canvas.
                 </p>
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">AI Provider</Label>
-                      <button
-                        type="button"
-                        onClick={() => setIsProviderSetupOpen((current) => !current)}
-                        className="text-[10px] font-semibold text-sky-300 hover:text-sky-200"
-                      >
-                        {isProviderSetupOpen ? "Close setup" : "Add provider"}
-                      </button>
-                    </div>
-                    {hasConfiguredAiProvider ? (
-                      <Select
-                        value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
-                        onValueChange={(value) => {
-                          if (!value) return;
-                          if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
-                            setModelProviderId("");
-                            setModelId(serverDefaultProvider?.defaultModelId || modelId);
-                            return;
-                          }
-                          if (value === NO_PROVIDER_VALUE) return;
-
-                          const provider = aiProviders.find((entry) => entry.id === value);
-                          setModelProviderId(value);
-                          setModelId(provider?.defaultModelId || modelId);
-                        }}
-                      >
-                        <SelectTrigger className="h-8 w-full rounded-xl border-white/10 bg-black/20 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {serverDefaultProvider ? (
-                            <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE}>
-                              Server default: {serverDefaultProvider.name}
-                            </SelectItem>
-                          ) : null}
-                          {aiProviders.map((provider) => (
-                            <SelectItem key={provider.id} value={provider.id}>
-                              {provider.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : (
-                      <div className="rounded-xl border border-amber-400/20 bg-amber-500/8 p-2 text-[11px] leading-relaxed text-amber-50/90">
-                        Add an OpenRouter, Unsloth, or custom OpenAI-compatible provider before using AI generation.
-                      </div>
-                    )}
-                  </div>
-
-                  {(selectedAiProvider || serverDefaultProvider) && hasConfiguredAiProvider ? (
-                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2 text-[10px] leading-relaxed text-muted-foreground">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="truncate">
-                          {(selectedAiProvider || serverDefaultProvider)?.type} · {(selectedAiProvider || serverDefaultProvider)?.defaultModelId}
-                        </span>
-                        {selectedAiProvider ? (
-                          <button
-                            type="button"
-                            onClick={handleTestSelectedProvider}
-                            disabled={isTestingProvider}
-                            className="shrink-0 font-semibold text-sky-300 hover:text-sky-200 disabled:opacity-50"
-                          >
-                            {isTestingProvider ? "Testing..." : "Test"}
-                          </button>
-                        ) : null}
-                      </div>
-                      {selectedAiProvider?.lastTestMessage ? (
-                        <p className="mt-1 line-clamp-2">{selectedAiProvider.lastTestMessage}</p>
-                      ) : null}
-                    </div>
-                  ) : null}
-
-                  {isProviderSetupOpen ? (
-                    <div className="space-y-2 rounded-2xl border border-sky-400/20 bg-sky-500/8 p-3">
-                      <div className="flex items-center gap-2 text-xs font-semibold text-sky-100">
-                        <KeyRound className="h-3.5 w-3.5 text-sky-300" />
-                        Provider setup
-                      </div>
-                      <Select value={providerForm.type} onValueChange={(value) => handleProviderTypeChange(value as AIProviderType)}>
-                        <SelectTrigger className="h-8 w-full rounded-xl border-white/10 bg-black/20 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="openrouter">OpenRouter</SelectItem>
-                          <SelectItem value="unsloth">Unsloth / llama-server</SelectItem>
-                          <SelectItem value="custom_openai">Custom OpenAI-compatible</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        value={providerForm.name}
-                        onChange={(event) => setProviderForm((current) => ({ ...current, name: event.target.value }))}
-                        placeholder="Provider name"
-                        className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                      />
-                      {providerForm.type !== "openrouter" ? (
-                        <Input
-                          value={providerForm.baseUrl}
-                          onChange={(event) => setProviderForm((current) => ({ ...current, baseUrl: event.target.value }))}
-                          placeholder="https://your-endpoint.example.com/v1"
-                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                        />
-                      ) : null}
-                      <Input
-                        type="password"
-                        value={providerForm.apiKey}
-                        onChange={(event) => setProviderForm((current) => ({ ...current, apiKey: event.target.value }))}
-                        placeholder={providerForm.type === "unsloth" ? "API key if required" : "API key"}
-                        className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                      />
-                      <Input
-                        value={providerForm.defaultModelId}
-                        onChange={(event) => setProviderForm((current) => ({ ...current, defaultModelId: event.target.value }))}
-                        placeholder="google/gemma-4-26b-a4b-it"
-                        className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          className="h-8 rounded-xl border border-white/10 bg-white/[0.03] text-xs"
-                          onClick={() => handleCreateProvider(false)}
-                          disabled={isSavingProvider || isTestingProvider}
-                        >
-                          {isSavingProvider && !isTestingProvider ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-                          Save
-                        </Button>
-                        <Button
-                          type="button"
-                          className="h-8 rounded-xl text-xs"
-                          onClick={() => handleCreateProvider(true)}
-                          disabled={isSavingProvider || isTestingProvider}
-                        >
-                          {isSavingProvider || isTestingProvider ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
-                          Save + test
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
-
-                  <div className="space-y-1">
-                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Generation Model</Label>
-                    <Input
-                      value={modelId}
-                      onChange={(event) => setModelId(event.target.value)}
-                      placeholder="google/gemma-4-26b-a4b-it"
-                      className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                    />
-                  </div>
-                </div>
                 <Textarea
                   value={promptInput}
                   onChange={(event) => setPromptInput(event.target.value)}
@@ -1602,8 +1461,88 @@ function BuilderCanvas() {
             </p>
           </div>
 
+          <div className="hidden min-w-0 items-center gap-1.5 2xl:flex">
+            {hasConfiguredAiProvider ? (
+              <Select
+                value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
+                onValueChange={(value) => {
+                  if (!value) return;
+                  if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
+                    setModelProviderId("");
+                    setModelId(serverDefaultProvider?.defaultModelId || modelId);
+                    return;
+                  }
+                  if (value === NO_PROVIDER_VALUE) return;
+
+                  const provider = aiProviders.find((entry) => entry.id === value);
+                  setModelProviderId(value);
+                  setModelId(provider?.defaultModelId || modelId);
+                }}
+              >
+                <SelectTrigger className="h-7 w-[190px] rounded-lg border-white/10 bg-white/[0.03] px-2 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {serverDefaultProvider ? (
+                    <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE}>
+                      Server default: {serverDefaultProvider.name}
+                    </SelectItem>
+                  ) : null}
+                  {aiProviders.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 rounded-lg border border-amber-400/20 bg-amber-500/8 px-2.5 text-xs text-amber-100"
+                onClick={() => setIsProviderSetupOpen(true)}
+              >
+                <KeyRound className="h-3.5 w-3.5" />
+                <span className="ml-1">AI Provider</span>
+              </Button>
+            )}
+            <Input
+              value={modelId}
+              onChange={(event) => setModelId(event.target.value)}
+              placeholder="google/gemma-4-26b-a4b-it"
+              className="h-7 w-[210px] rounded-lg border-white/10 bg-white/[0.03] text-xs"
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-lg border border-white/10 bg-white/[0.03]"
+              onClick={() => setIsProviderSetupOpen(true)}
+              title="AI provider settings"
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+
           {/* Right: action buttons */}
           <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-7 rounded-lg border px-2.5 text-xs",
+                hasConfiguredAiProvider
+                  ? "border-white/10 bg-white/[0.03]"
+                  : "border-amber-400/20 bg-amber-500/8 text-amber-100"
+              )}
+              onClick={() => setIsProviderSetupOpen(true)}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              <span className="ml-1 hidden sm:inline">AI Provider</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleNewWorkflow}>
+              <FilePlus2 className="h-3.5 w-3.5" />
+              <span className="ml-1 hidden sm:inline">New</span>
+            </Button>
             <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleAnalyze} disabled={isAnalyzing}>
               {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
               <span className="ml-1 hidden sm:inline">AI Audit</span>
@@ -1858,6 +1797,157 @@ function BuilderCanvas() {
       </section>
 
       <ExecutionPanel open={isRunPanelOpen} onOpenChange={setIsRunPanelOpen} runData={runData} />
+
+      <Dialog open={isProviderSetupOpen} onOpenChange={setIsProviderSetupOpen}>
+        <DialogContent className="sm:max-w-lg bg-card/95 border-white/10">
+          <DialogHeader>
+            <DialogTitle>AI Provider</DialogTitle>
+            <DialogDescription>
+              Configure OpenRouter, Unsloth, or a custom OpenAI-compatible endpoint for generation, audit, and evaluation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {hasConfiguredAiProvider ? (
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Select
+                  value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
+                  onValueChange={(value) => {
+                    if (!value) return;
+                    if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
+                      setModelProviderId("");
+                      setModelId(serverDefaultProvider?.defaultModelId || modelId);
+                      return;
+                    }
+
+                    const provider = aiProviders.find((entry) => entry.id === value);
+                    setModelProviderId(value);
+                    setModelId(provider?.defaultModelId || modelId);
+                  }}
+                >
+                  <SelectTrigger className="h-9 w-full rounded-xl border-white/10 bg-black/20 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {serverDefaultProvider ? (
+                      <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE}>
+                        Server default: {serverDefaultProvider.name}
+                      </SelectItem>
+                    ) : null}
+                    {aiProviders.map((provider) => (
+                      <SelectItem key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-9 rounded-xl border border-white/10 bg-white/[0.03] text-xs"
+                  onClick={handleTestSelectedProvider}
+                  disabled={!modelProviderId || isTestingProvider}
+                >
+                  {isTestingProvider ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                  Test
+                </Button>
+              </div>
+            ) : null}
+
+            {(selectedAiProvider || serverDefaultProvider) && hasConfiguredAiProvider ? (
+              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-xs leading-relaxed text-muted-foreground">
+                <p className="truncate text-white/90">
+                  {(selectedAiProvider || serverDefaultProvider)?.type} · {(selectedAiProvider || serverDefaultProvider)?.defaultModelId}
+                </p>
+                {selectedAiProvider?.lastTestMessage ? (
+                  <p className="mt-1 line-clamp-2">{selectedAiProvider.lastTestMessage}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Provider Type</Label>
+                  <Select value={providerForm.type} onValueChange={(value) => handleProviderTypeChange(value as AIProviderType)}>
+                    <SelectTrigger className="h-9 w-full rounded-xl border-white/10 bg-black/20 text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="openrouter">OpenRouter</SelectItem>
+                      <SelectItem value="unsloth">Unsloth / llama-server</SelectItem>
+                      <SelectItem value="custom_openai">Custom OpenAI-compatible</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Display Name</Label>
+                  <Input
+                    value={providerForm.name}
+                    onChange={(event) => setProviderForm((current) => ({ ...current, name: event.target.value }))}
+                    placeholder="OpenRouter"
+                    className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
+                  />
+                </div>
+              </div>
+
+              {providerForm.type !== "openrouter" ? (
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Base URL</Label>
+                  <Input
+                    value={providerForm.baseUrl}
+                    onChange={(event) => setProviderForm((current) => ({ ...current, baseUrl: event.target.value }))}
+                    placeholder="https://your-endpoint.example.com/v1"
+                    className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
+                  />
+                </div>
+              ) : null}
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">API Key</Label>
+                <Input
+                  type="password"
+                  value={providerForm.apiKey}
+                  onChange={(event) => setProviderForm((current) => ({ ...current, apiKey: event.target.value }))}
+                  placeholder={providerForm.type === "unsloth" ? "API key if required" : "API key"}
+                  className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Default Model</Label>
+                <Input
+                  value={providerForm.defaultModelId}
+                  onChange={(event) => setProviderForm((current) => ({ ...current, defaultModelId: event.target.value }))}
+                  placeholder="google/gemma-4-26b-a4b-it"
+                  className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 rounded-xl border border-white/10 bg-white/[0.03] text-xs"
+                onClick={() => handleCreateProvider(false)}
+                disabled={isSavingProvider || isTestingProvider}
+              >
+                {isSavingProvider && !isTestingProvider ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                Save
+              </Button>
+              <Button
+                type="button"
+                className="h-9 rounded-xl text-xs"
+                onClick={() => handleCreateProvider(true)}
+                disabled={isSavingProvider || isTestingProvider}
+              >
+                {isSavingProvider || isTestingProvider ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
+                Save + test
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
         <DialogContent className="sm:max-w-md bg-card/95 border-white/10">
