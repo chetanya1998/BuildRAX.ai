@@ -559,6 +559,8 @@ async function executeNode(args: {
     if (caughtError instanceof BlockedNodeError) {
       status = "blocked";
       blockedReason = caughtError.message;
+      // Passthrough: allow the flow to continue by forwarding the input
+      outputs.default = outputs.default || inputValue || inputs;
     } else {
       status = "failed";
       error = caughtError instanceof Error ? caughtError.message : "Unknown execution failure";
@@ -709,7 +711,7 @@ export async function runGraph(args: {
     totalCost += result.metrics.cost;
     runWarnings.push(...result.metrics.warnings);
 
-    if (result.status !== "completed") {
+    if (result.status === "failed" || result.status === "skipped") {
       continue;
     }
 
