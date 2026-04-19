@@ -29,6 +29,7 @@ interface ExecutionPanelData {
     tokenUsage?: number;
     cost?: number;
     warnings?: string[];
+    blockedCount?: number;
   };
   analysis?: {
     score?: number;
@@ -63,6 +64,7 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
   const nodeResults = runData?.nodeResults || [];
   const scores = runData?.scores || [];
   const isBenchmark = scores.length > 0;
+  const blockedResults = nodeResults.filter((result) => result.status === "blocked");
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -140,6 +142,20 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                   ))}
                 </div>
               ) : null}
+
+              {blockedResults.length > 0 ? (
+                <div className="space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-red-400" /> Missing Setup
+                  </h4>
+                  {blockedResults.map((result) => (
+                    <div key={`blocked-${result.nodeId}`} className="rounded-2xl border border-red-500/20 bg-red-500/8 p-4 text-sm leading-relaxed text-red-50/90">
+                      <p className="font-semibold text-red-100">{result.nodeType}</p>
+                      <p className="mt-1 text-xs text-red-50/80">{result.blockedReason || result.error || "This node needs configuration before it can run."}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
             </TabsContent>
 
             <TabsContent value="flow" className="m-0 space-y-4">
@@ -156,7 +172,7 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                         <p className="text-[11px] text-muted-foreground">{result.nodeId}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Badge variant={result.status === "failed" ? "destructive" : "secondary"}>
+                        <Badge variant={result.status === "failed" || result.status === "blocked" ? "destructive" : "secondary"}>
                           {result.status}
                         </Badge>
                         <Badge variant="outline">{result.metrics?.latencyMs || 0}ms</Badge>
@@ -167,6 +183,11 @@ export function ExecutionPanel({ open, onOpenChange, runData }: ExecutionPanelPr
                     </pre>
                     {result.error ? (
                       <div className="text-xs text-red-400">{result.error}</div>
+                    ) : null}
+                    {result.blockedReason ? (
+                      <div className="rounded-2xl border border-red-500/20 bg-red-500/8 p-3 text-xs leading-relaxed text-red-100">
+                        {result.blockedReason}
+                      </div>
                     ) : null}
                   </div>
                 ))

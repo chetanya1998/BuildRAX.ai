@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import {
   AIProviderType,
   buildStoredProvider,
+  getDefaultProviderConfig,
   listUserProviders,
   saveUserProvider,
   toPublicProvider,
@@ -22,7 +23,29 @@ export async function GET() {
 
     const userId = String((session.user as SessionUser).id || "");
     const providers = await listUserProviders(userId);
-    return NextResponse.json({ providers: providers.map(toPublicProvider) });
+    let serverDefaultProvider = null;
+    try {
+      const provider = getDefaultProviderConfig();
+      serverDefaultProvider = {
+        id: provider.id,
+        name: provider.name,
+        type: provider.type,
+        baseUrl: provider.baseUrl,
+        defaultModelId: provider.defaultModelId,
+        allowedModelIds: provider.allowedModelIds,
+        capabilities: provider.capabilities,
+        testReady: true,
+        liveReady: true,
+        hasApiKey: true,
+      };
+    } catch {
+      serverDefaultProvider = null;
+    }
+
+    return NextResponse.json({
+      providers: providers.map(toPublicProvider),
+      serverDefaultProvider,
+    });
   } catch (error) {
     console.error("AI provider list error:", error);
     const message = error instanceof Error ? error.message : "Failed to list providers";

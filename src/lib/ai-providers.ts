@@ -252,6 +252,32 @@ export function buildStoredProvider(input: {
   };
 }
 
+function isGuestLikeUserId(userId: string) {
+  return /^[a-f0-9]{24}$/i.test(userId);
+}
+
+async function ensureProviderVaultUser(userId: string) {
+  const existing = await User.findById(userId);
+  if (existing) return existing;
+
+  if (!isGuestLikeUserId(userId)) {
+    throw new Error("User not found.");
+  }
+
+  return User.create({
+    _id: userId,
+    name: "Guest User",
+    email: `guest-${userId.slice(0, 6).toLowerCase()}@buildrax.sandbox`,
+    image: "",
+    xp: 0,
+    level: 1,
+    badges: [],
+    streak: 0,
+    lastActive: new Date(),
+    encryptedAiProviders: [],
+  });
+}
+
 export async function listUserProviders(userId: string): Promise<StoredAIProvider[]> {
   await dbConnect();
   const user = await User.findById(userId).lean<{ encryptedAiProviders?: StoredAIProvider[] }>();
@@ -292,9 +318,9 @@ export async function resolveUserProvider(userId?: string, providerId?: string):
 
 export async function saveUserProvider(userId: string, provider: StoredAIProvider) {
   await dbConnect();
-  await User.findByIdAndUpdate(userId, {
-    $push: { encryptedAiProviders: provider },
-  });
+  const user = await ensureProviderVaultUser(userId);
+  user.encryptedAiProviders = [...((user.encryptedAiProviders || []) as StoredAIProvider[]), provider];
+  await user.save();
 }
 
 export async function updateUserProvider(
@@ -303,8 +329,7 @@ export async function updateUserProvider(
   patch: Partial<StoredAIProvider> & { apiKey?: string }
 ) {
   await dbConnect();
-  const user = (await User.findById(userId)) as unknown as UserWithProviders | null;
-  if (!user) throw new Error("User not found.");
+  const user = (await ensureProviderVaultUser(userId)) as unknown as UserWithProviders;
 
   const providers = (user.encryptedAiProviders || []).map((provider) => {
     if (provider.id !== providerId) return provider;

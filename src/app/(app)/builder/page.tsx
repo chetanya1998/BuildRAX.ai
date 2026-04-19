@@ -24,6 +24,7 @@ import {
   CreditCard,
   GitBranch,
   GraduationCap,
+  KeyRound,
   LayoutDashboard,
   Layers,
   Library,
@@ -97,6 +98,7 @@ interface RunPanelData {
     tokenUsage: number;
     cost: number;
     warnings: string[];
+    blockedCount?: number;
   };
   analysis?: Record<string, unknown>;
   nodeResults?: NodeExecutionResult[];
@@ -119,10 +121,36 @@ interface LocalDraft {
   modelId?: string;
 }
 
+type AIProviderType = "openrouter" | "unsloth" | "custom_openai";
+
+interface PublicAIProvider {
+  id: string;
+  name: string;
+  type: AIProviderType;
+  baseUrl: string;
+  defaultModelId: string;
+  testReady: boolean;
+  liveReady: boolean;
+  hasApiKey: boolean;
+  lastTestStatus?: "passed" | "failed";
+  lastTestMessage?: string;
+}
+
+interface ProviderFormState {
+  type: AIProviderType;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  defaultModelId: string;
+}
+
 interface FlowViewportController {
   getViewport: () => { x: number; y: number; zoom: number };
   screenToFlowPosition: (position: { x: number; y: number }) => { x: number; y: number };
 }
+
+const SERVER_DEFAULT_PROVIDER_VALUE = "__server_default__";
+const NO_PROVIDER_VALUE = "__no_provider__";
 
 const blankNodes: FlowNode[] = [
   {
@@ -250,6 +278,18 @@ function BuilderCanvas() {
   const [scenarioPrompt, setScenarioPrompt] = useState("");
   const [modelProviderId, setModelProviderId] = useState("");
   const [modelId, setModelId] = useState("google/gemma-4-26b-a4b-it");
+  const [aiProviders, setAiProviders] = useState<PublicAIProvider[]>([]);
+  const [serverDefaultProvider, setServerDefaultProvider] = useState<PublicAIProvider | null>(null);
+  const [isProviderSetupOpen, setIsProviderSetupOpen] = useState(false);
+  const [isSavingProvider, setIsSavingProvider] = useState(false);
+  const [isTestingProvider, setIsTestingProvider] = useState(false);
+  const [providerForm, setProviderForm] = useState<ProviderFormState>({
+    type: "openrouter",
+    name: "OpenRouter",
+    baseUrl: "",
+    apiKey: "",
+    defaultModelId: "google/gemma-4-26b-a4b-it",
+  });
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [benchmarkModels, setBenchmarkModels] = useState("google/gemma-4-26b-a4b-it,google/gemma-4-31b-it,gpt-4o");
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
@@ -306,6 +346,13 @@ function BuilderCanvas() {
       return matchesSector && matchesQuery;
     });
   }, [blueprints, blueprintQuery, selectedSector]);
+
+  const selectedAiProvider = useMemo(
+    () => aiProviders.find((provider) => provider.id === modelProviderId) || null,
+    [aiProviders, modelProviderId]
+  );
+
+  const hasConfiguredAiProvider = Boolean(serverDefaultProvider || aiProviders.length > 0);
 
   const simulationOutputs = useMemo(() => {
     const results = runData?.nodeResults || [];
@@ -383,6 +430,37 @@ function BuilderCanvas() {
     }
   }, [session?.user]);
 
+  const loadAiProviders = useCallback(async () => {
+    if (!session?.user) {
+      setAiProviders([]);
+      setServerDefaultProvider(null);
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/ai/providers");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to load AI providers");
+      }
+
+      const providers = (data.providers || []) as PublicAIProvider[];
+      setAiProviders(providers);
+      setServerDefaultProvider(data.serverDefaultProvider || null);
+
+      if (!data.serverDefaultProvider && !modelProviderId && providers[0]) {
+        setModelProviderId(providers[0].id);
+        setModelId(providers[0].defaultModelId || "google/gemma-4-26b-a4b-it");
+      }
+
+      if (!data.serverDefaultProvider && providers.length === 0) {
+        setIsProviderSetupOpen(true);
+      }
+    } catch (error) {
+      console.error("Failed to load AI providers", error);
+    }
+  }, [modelProviderId, session?.user]);
+
   const loadBlueprintCatalog = useCallback(async () => {
     try {
       const query = new URLSearchParams();
@@ -446,6 +524,10 @@ function BuilderCanvas() {
   useEffect(() => {
     fetchCreditBalance();
   }, [fetchCreditBalance]);
+
+  useEffect(() => {
+    loadAiProviders();
+  }, [loadAiProviders]);
 
   useEffect(() => {
     if (queryWorkflowId) {
@@ -670,6 +752,19 @@ function BuilderCanvas() {
     toast.success("Workflow saved");
   }, [ensureCloudWorkflow, persistCloudWorkflow, session?.user]);
 
+  const handleAiFeatureError = useCallback((error: unknown, fallback: string) => {
+    const message = error instanceof Error ? error.message : fallback;
+    if (
+      message.toLowerCase().includes("configure openrouter") ||
+      message.toLowerCase().includes("selected ai provider") ||
+      message.toLowerCase().includes("provider")
+    ) {
+      setLibraryTab("prompt");
+      setIsProviderSetupOpen(true);
+    }
+    toast.error(message);
+  }, []);
+
   const runAction = useCallback(
     async (path: string, action: "simulate" | "execute", idOverride?: string) => {
       const targetWorkflowId = idOverride || (await ensureCloudWorkflow());
@@ -697,7 +792,13 @@ function BuilderCanvas() {
       setRunData(data);
       setIsRunPanelOpen(true);
       await fetchCreditBalance();
-      toast.success(action === "simulate" ? "Scenario evaluation complete" : "Live execution complete");
+      if (data.summary?.status === "blocked") {
+        toast.warning("Run blocked by missing setup. Open the trace for details.");
+      } else if (data.summary?.status === "failed") {
+        toast.error(action === "simulate" ? "Scenario evaluation failed" : "Live execution failed");
+      } else {
+        toast.success(action === "simulate" ? "Scenario evaluation complete" : "Live execution complete");
+      }
     },
     [
       currentGraph,
@@ -718,11 +819,11 @@ function BuilderCanvas() {
       await runAction("simulate", "simulate", idOverride);
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Scenario evaluation failed");
+      handleAiFeatureError(error, "Scenario evaluation failed");
     } finally {
       setIsSimulating(false);
     }
-  }, [runAction]);
+  }, [handleAiFeatureError, runAction]);
 
   const handleExecution = useCallback(async (idOverride?: string) => {
     try {
@@ -730,11 +831,11 @@ function BuilderCanvas() {
       await runAction("execute", "execute", idOverride);
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Execution failed");
+      handleAiFeatureError(error, "Execution failed");
     } finally {
       setIsExecuting(false);
     }
-  }, [runAction]);
+  }, [handleAiFeatureError, runAction]);
 
   const handleAnalyze = useCallback(async () => {
     try {
@@ -767,11 +868,11 @@ function BuilderCanvas() {
       setIsRunPanelOpen(true);
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Analysis failed");
+      handleAiFeatureError(error, "Analysis failed");
     } finally {
       setIsAnalyzing(false);
     }
-  }, [currentGraph, modelId, modelProviderId]);
+  }, [currentGraph, handleAiFeatureError, modelId, modelProviderId]);
 
   const handleBenchmark = useCallback(async (idOverride?: string) => {
     const models = benchmarkModels
@@ -867,7 +968,7 @@ function BuilderCanvas() {
       toast.success("Benchmark completed");
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Benchmark failed");
+      handleAiFeatureError(error, "Benchmark failed");
     } finally {
       setIsBenchmarking(false);
     }
@@ -876,6 +977,7 @@ function BuilderCanvas() {
     currentGraph,
     ensureCloudWorkflow,
     fetchCreditBalance,
+    handleAiFeatureError,
     modelId,
     modelProviderId,
     scenario,
@@ -944,6 +1046,102 @@ function BuilderCanvas() {
     }
   }, [session?.user, workflowId, setEdges, setNodes]);
 
+  const handleProviderTypeChange = useCallback((type: AIProviderType) => {
+    setProviderForm((current) => ({
+      ...current,
+      type,
+      name:
+        type === "openrouter"
+          ? "OpenRouter"
+          : type === "unsloth"
+            ? "Unsloth Endpoint"
+            : "Custom OpenAI Provider",
+      baseUrl: type === "openrouter" ? "" : current.baseUrl,
+      defaultModelId:
+        type === "openrouter"
+          ? "google/gemma-4-26b-a4b-it"
+          : current.defaultModelId || "google/gemma-4-26b-a4b-it",
+    }));
+  }, []);
+
+  const handleCreateProvider = useCallback(async (testAfterCreate = false) => {
+    if (!session?.user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+
+    try {
+      if (providerForm.type !== "unsloth" && !providerForm.apiKey.trim()) {
+        throw new Error("API key is required for this provider.");
+      }
+
+      if (providerForm.type !== "openrouter" && !providerForm.baseUrl.trim()) {
+        throw new Error("Base URL is required for this provider.");
+      }
+
+      setIsSavingProvider(true);
+      const res = await fetch("/api/ai/providers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(providerForm),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save AI provider");
+      }
+
+      const provider = data.provider as PublicAIProvider;
+      setAiProviders((current) => [provider, ...current.filter((entry) => entry.id !== provider.id)]);
+      setModelProviderId(provider.id);
+      setModelId(provider.defaultModelId || providerForm.defaultModelId);
+      setProviderForm((current) => ({ ...current, apiKey: "" }));
+      setIsProviderSetupOpen(false);
+      toast.success("AI provider saved");
+
+      if (testAfterCreate) {
+        setIsTestingProvider(true);
+        const testRes = await fetch(`/api/ai/providers/${provider.id}/test`, { method: "POST" });
+        const testData = await testRes.json().catch(() => ({}));
+        if (!testRes.ok) {
+          throw new Error(testData.error || "Provider test failed");
+        }
+        await loadAiProviders();
+        toast.success("Provider test passed");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Failed to save AI provider");
+      setIsProviderSetupOpen(true);
+    } finally {
+      setIsSavingProvider(false);
+      setIsTestingProvider(false);
+    }
+  }, [loadAiProviders, providerForm, session?.user]);
+
+  const handleTestSelectedProvider = useCallback(async () => {
+    if (!modelProviderId) {
+      toast.error("Select a saved provider to test");
+      return;
+    }
+
+    try {
+      setIsTestingProvider(true);
+      const res = await fetch(`/api/ai/providers/${modelProviderId}/test`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Provider test failed");
+      }
+      await loadAiProviders();
+      toast.success("Provider test passed");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "Provider test failed");
+    } finally {
+      setIsTestingProvider(false);
+    }
+  }, [loadAiProviders, modelProviderId]);
+
   const handleCompilePrompt = useCallback(async () => {
     if (!promptInput.trim()) {
       toast.error("Describe the system you want to build");
@@ -979,11 +1177,11 @@ function BuilderCanvas() {
       toast.success("Workflow generated on the canvas");
     } catch (error) {
       console.error(error);
-      toast.error(error instanceof Error ? error.message : "Prompt compile failed");
+      handleAiFeatureError(error, "Prompt compile failed");
     } finally {
       setIsCompilingPrompt(false);
     }
-  }, [applyGraph, fetchCreditBalance, modelId, modelProviderId, promptInput, session?.user]);
+  }, [applyGraph, fetchCreditBalance, handleAiFeatureError, modelId, modelProviderId, promptInput, session?.user]);
 
   const handleBlueprintApply = useCallback((blueprint: BlueprintRecord) => {
     applyGraph(blueprint.graph, { sourceBlueprintSlug: blueprint.slug });
@@ -1198,14 +1396,146 @@ function BuilderCanvas() {
                 </p>
                 <div className="grid grid-cols-1 gap-2">
                   <div className="space-y-1">
-                    <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Provider ID</Label>
-                    <Input
-                      value={modelProviderId}
-                      onChange={(event) => setModelProviderId(event.target.value)}
-                      placeholder="Optional saved provider ID"
-                      className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                    />
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">AI Provider</Label>
+                      <button
+                        type="button"
+                        onClick={() => setIsProviderSetupOpen((current) => !current)}
+                        className="text-[10px] font-semibold text-sky-300 hover:text-sky-200"
+                      >
+                        {isProviderSetupOpen ? "Close setup" : "Add provider"}
+                      </button>
+                    </div>
+                    {hasConfiguredAiProvider ? (
+                      <Select
+                        value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
+                        onValueChange={(value) => {
+                          if (!value) return;
+                          if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
+                            setModelProviderId("");
+                            setModelId(serverDefaultProvider?.defaultModelId || modelId);
+                            return;
+                          }
+                          if (value === NO_PROVIDER_VALUE) return;
+
+                          const provider = aiProviders.find((entry) => entry.id === value);
+                          setModelProviderId(value);
+                          setModelId(provider?.defaultModelId || modelId);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 w-full rounded-xl border-white/10 bg-black/20 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {serverDefaultProvider ? (
+                            <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE}>
+                              Server default: {serverDefaultProvider.name}
+                            </SelectItem>
+                          ) : null}
+                          {aiProviders.map((provider) => (
+                            <SelectItem key={provider.id} value={provider.id}>
+                              {provider.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="rounded-xl border border-amber-400/20 bg-amber-500/8 p-2 text-[11px] leading-relaxed text-amber-50/90">
+                        Add an OpenRouter, Unsloth, or custom OpenAI-compatible provider before using AI generation.
+                      </div>
+                    )}
                   </div>
+
+                  {(selectedAiProvider || serverDefaultProvider) && hasConfiguredAiProvider ? (
+                    <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2 text-[10px] leading-relaxed text-muted-foreground">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate">
+                          {(selectedAiProvider || serverDefaultProvider)?.type} · {(selectedAiProvider || serverDefaultProvider)?.defaultModelId}
+                        </span>
+                        {selectedAiProvider ? (
+                          <button
+                            type="button"
+                            onClick={handleTestSelectedProvider}
+                            disabled={isTestingProvider}
+                            className="shrink-0 font-semibold text-sky-300 hover:text-sky-200 disabled:opacity-50"
+                          >
+                            {isTestingProvider ? "Testing..." : "Test"}
+                          </button>
+                        ) : null}
+                      </div>
+                      {selectedAiProvider?.lastTestMessage ? (
+                        <p className="mt-1 line-clamp-2">{selectedAiProvider.lastTestMessage}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {isProviderSetupOpen ? (
+                    <div className="space-y-2 rounded-2xl border border-sky-400/20 bg-sky-500/8 p-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-sky-100">
+                        <KeyRound className="h-3.5 w-3.5 text-sky-300" />
+                        Provider setup
+                      </div>
+                      <Select value={providerForm.type} onValueChange={(value) => handleProviderTypeChange(value as AIProviderType)}>
+                        <SelectTrigger className="h-8 w-full rounded-xl border-white/10 bg-black/20 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="openrouter">OpenRouter</SelectItem>
+                          <SelectItem value="unsloth">Unsloth / llama-server</SelectItem>
+                          <SelectItem value="custom_openai">Custom OpenAI-compatible</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={providerForm.name}
+                        onChange={(event) => setProviderForm((current) => ({ ...current, name: event.target.value }))}
+                        placeholder="Provider name"
+                        className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                      />
+                      {providerForm.type !== "openrouter" ? (
+                        <Input
+                          value={providerForm.baseUrl}
+                          onChange={(event) => setProviderForm((current) => ({ ...current, baseUrl: event.target.value }))}
+                          placeholder="https://your-endpoint.example.com/v1"
+                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                        />
+                      ) : null}
+                      <Input
+                        type="password"
+                        value={providerForm.apiKey}
+                        onChange={(event) => setProviderForm((current) => ({ ...current, apiKey: event.target.value }))}
+                        placeholder={providerForm.type === "unsloth" ? "API key if required" : "API key"}
+                        className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                      />
+                      <Input
+                        value={providerForm.defaultModelId}
+                        onChange={(event) => setProviderForm((current) => ({ ...current, defaultModelId: event.target.value }))}
+                        placeholder="google/gemma-4-26b-a4b-it"
+                        className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-8 rounded-xl border border-white/10 bg-white/[0.03] text-xs"
+                          onClick={() => handleCreateProvider(false)}
+                          disabled={isSavingProvider || isTestingProvider}
+                        >
+                          {isSavingProvider && !isTestingProvider ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+                          Save
+                        </Button>
+                        <Button
+                          type="button"
+                          className="h-8 rounded-xl text-xs"
+                          onClick={() => handleCreateProvider(true)}
+                          disabled={isSavingProvider || isTestingProvider}
+                        >
+                          {isSavingProvider || isTestingProvider ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : null}
+                          Save + test
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+
                   <div className="space-y-1">
                     <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Generation Model</Label>
                     <Input
@@ -1222,9 +1552,9 @@ function BuilderCanvas() {
                   placeholder="Design a fintech fraud review platform with API gateway, MongoDB, risk classifier, LLM reviewer..."
                   className="min-h-[200px] rounded-2xl border-white/10 bg-black/20 text-xs"
                 />
-                <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt}>
+                <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt || !hasConfiguredAiProvider}>
                   {isCompilingPrompt ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <BrainCircuit className="mr-1.5 h-3 w-3" />}
-                  Generate workflow (1 credit)
+                  {hasConfiguredAiProvider ? "Generate workflow (1 credit)" : "Add provider first"}
                 </Button>
                 <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5 text-[10px] leading-relaxed text-muted-foreground">
                   Describe {"->"} Generate {"->"} Review {"->"} Configure {"->"} Run Test {"->"} AI Audit {"->"} Scenario Evaluation {"->"} Live Execute {"->"} Report
