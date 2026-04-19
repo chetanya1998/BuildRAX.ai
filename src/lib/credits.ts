@@ -26,9 +26,28 @@ function startOfUtcMonth(date = new Date()) {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
+function getLedgerUserIds(userId: string) {
+  const ids = new Set([userId]);
+
+  if (/^[a-f0-9]{6,}$/i.test(userId)) {
+    ids.add(`guest-${userId.slice(0, 6).toLowerCase()}@buildrax.sandbox`);
+  }
+
+  if (/^guest-[a-f0-9]{6}@buildrax\.sandbox$/i.test(userId)) {
+    ids.add(userId.toLowerCase());
+  }
+
+  return Array.from(ids);
+}
+
+function getNumberFromAggregate(result: Array<{ total?: number }>) {
+  return result[0]?.total || 0;
+}
+
 export async function getUserCreditBalance(userId: string): Promise<CreditBalance> {
   await dbConnect();
 
+  const ledgerUserIds = getLedgerUserIds(userId);
   const subscription = await SubscriptionPlan.findOne({
     userId,
     status: "active",
@@ -42,11 +61,11 @@ export async function getUserCreditBalance(userId: string): Promise<CreditBalanc
   const monthStart = startOfUtcMonth();
   const dayStart = startOfUtcDay();
 
-  const [monthlyDebits, dailyDebits] = await Promise.all([
+  const [monthlyDebits, dailyDebits, monthlyCredits] = await Promise.all([
     CreditLedgerEntry.aggregate([
       {
         $match: {
-          userId,
+          userId: { $in: ledgerUserIds },
           direction: "debit",
           createdAt: { $gte: monthStart },
         },
@@ -56,32 +75,47 @@ export async function getUserCreditBalance(userId: string): Promise<CreditBalanc
     CreditLedgerEntry.aggregate([
       {
         $match: {
-          userId,
+          userId: { $in: ledgerUserIds },
           direction: "debit",
           createdAt: { $gte: dayStart },
         },
       },
       { $group: { _id: null, total: { $sum: "$amount" } } },
     ]),
+    CreditLedgerEntry.aggregate([
+      {
+        $match: {
+          userId: { $in: ledgerUserIds },
+          direction: "credit",
+          createdAt: { $gte: monthStart },
+        },
+      },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
+    ]),
   ]);
 
-  const monthUsed = monthlyDebits[0]?.total || 0;
-  const dayUsed = dailyDebits[0]?.total || 0;
+  const monthUsed = getNumberFromAggregate(monthlyDebits);
+  const dayUsed = getNumberFromAggregate(dailyDebits);
+  const monthGranted = getNumberFromAggregate(monthlyCredits);
 
   if (plan === "free") {
-    const monthlyRemaining = Math.max(0, PLAN_LIMITS.free.monthly - monthUsed);
+    const monthlyLimit = PLAN_LIMITS.free.monthly + monthGranted;
+    const planMonthlyRemaining = Math.max(0, PLAN_LIMITS.free.monthly - monthUsed);
+    const debitsBeyondPlan = Math.max(0, monthUsed - PLAN_LIMITS.free.monthly);
+    const grantedRemaining = Math.max(0, monthGranted - debitsBeyondPlan);
+    const monthlyRemaining = Math.max(0, monthlyLimit - monthUsed);
     const dailyRemaining = Math.max(0, PLAN_LIMITS.free.daily - dayUsed);
     return {
       plan,
-      availableCredits: Math.min(monthlyRemaining, dailyRemaining),
-      monthlyLimit: PLAN_LIMITS.free.monthly,
+      availableCredits: Math.min(planMonthlyRemaining, dailyRemaining) + grantedRemaining,
+      monthlyLimit,
       monthlyRemaining,
       dailyRemaining,
     };
   }
 
   const monthlyLimit =
-    subscription?.monthlyCredits || PLAN_LIMITS[plan].monthly;
+    (subscription?.monthlyCredits || PLAN_LIMITS[plan].monthly) + monthGranted;
   const monthlyRemaining = Math.max(0, monthlyLimit - monthUsed);
   return {
     plan,
