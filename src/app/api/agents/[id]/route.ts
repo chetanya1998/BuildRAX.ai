@@ -5,19 +5,20 @@ import connectDB from "@/lib/mongodb";
 import { Agent } from "@/lib/models/Agent";
 import mongoose from "mongoose";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json({ error: "Invalid Agent ID" }, { status: 400 });
     }
 
     await connectDB();
-    const agent = await Agent.findOne({ _id: params.id, creatorId: session.user.id });
+    const agent = await Agent.findOne({ _id: id, creatorId: session.user.id });
 
     if (!agent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
@@ -30,8 +31,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -41,7 +43,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
 
     await connectDB();
     const updatedAgent = await Agent.findOneAndUpdate(
-      { _id: params.id, creatorId: session.user.id },
+      { _id: id, creatorId: session.user.id },
       { $set: data },
       { new: true, returnDocument: 'after' }
     );
@@ -57,15 +59,16 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   }
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await connectDB();
-    const deletedAgent = await Agent.findOneAndDelete({ _id: params.id, creatorId: session.user.id });
+    const deletedAgent = await Agent.findOneAndDelete({ _id: id, creatorId: session.user.id });
 
     if (!deletedAgent) {
       return NextResponse.json({ error: "Agent not found" }, { status: 404 });
