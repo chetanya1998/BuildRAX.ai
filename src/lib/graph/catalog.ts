@@ -3,6 +3,7 @@ import { NodeDefinition } from "./types";
 export const PRODUCTION_NODE_TYPES = [
   "promptNode",
   "llmNode",
+  "agentNode",
   "embedNode",
   "rerankNode",
   "extractNode",
@@ -56,6 +57,25 @@ const modelOptions = [
 ];
 
 export const NODE_DEFINITIONS: NodeDefinition[] = [
+  {
+    type: "agentNode",
+    title: "AI Agent",
+    description: "An autonomous agent powered by Gemma 4 with tool-calling capabilities.",
+    pack: "ai",
+    category: "AI",
+    icon: "SquareUser",
+    colorClass: "bg-sky-500/10 text-sky-400 border-sky-500/30 shadow-[0_0_12px_rgba(14,165,233,0.2)]",
+    inputs: [{ id: "context", label: "Context", schema: "json" }],
+    outputs: [{ id: "default", label: "Response", schema: "text" }],
+    fields: [
+      { name: "label", label: "Label", type: "text", defaultValue: "AI Agent" },
+      { name: "agentId", label: "Agent Config ID", type: "text", placeholder: "Select or Create an Agent" },
+      { name: "systemPrompt", label: "System Prompt", type: "textarea", defaultValue: "You are a helpful workflow agent. Use tools when necessary." },
+      { name: "maxIter", label: "Max Iterations", type: "number", defaultValue: 5 }
+    ],
+    previewFields: ["agentId", "maxIter"],
+    capabilities: { design: true, analyze: true, simulate: true, execute: true },
+  },
   {
     type: "promptNode",
     title: "Prompt",

@@ -11,6 +11,7 @@ import {
   CreditCard,
   LogOut,
   BrainCircuit,
+  Bot,
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
@@ -27,6 +28,7 @@ const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "My Workflows", href: "/workflows", icon: Layers },
   { name: "AI Architect", href: "/builder", icon: BrainCircuit },
+  { name: "Agents", href: "/agents", icon: Bot },
   { name: "Templates", href: "/templates", icon: Library },
   { name: "Billing", href: "/billing", icon: CreditCard },
   { name: "Learn", href: "/learn", icon: GraduationCap },

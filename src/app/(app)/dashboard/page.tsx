@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, BrainCircuit, Activity, Archive, PauseCircle, ArrowRight } from "lucide-react";
+import { Sparkles, BrainCircuit, Activity, Archive, PauseCircle, ArrowRight, Layers, Plus } from "lucide-react";
 
 export default function DashboardPage() {
   const { data, error, isLoading } = useSWR("/api/dashboard/summary", fetcher);
@@ -84,6 +84,43 @@ export default function DashboardPage() {
           <p className="text-3xl font-bold">{archiveCount}</p>
           <p className="text-xs text-muted-foreground mt-1">Cold storage</p>
         </div>
+      </div>
+
+      <div className="flex items-center gap-2 mt-4 ml-1">
+        <Sparkles className="w-4 h-4 text-sky-400" />
+        <h2 className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">Quick Start</h2>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-5 mb-4">
+        <Link href="/builder" className="block outline-none group focus-visible:ring-2 focus-visible:ring-sky-500 rounded-xl">
+          <div className="h-full rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/10 to-transparent p-5 hover:border-sky-500/40 hover:bg-sky-500/15 transition-all">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-sky-500/20 rounded-lg text-sky-400">
+                <Plus className="w-5 h-5" />
+              </div>
+              <h3 className="font-semibold text-lg text-white">Create Blank Workflow</h3>
+            </div>
+            <p className="text-sm text-slate-300 mb-6">Start from scratch with the visual AI architect canvas. Build custom automation logic exactly how you need it.</p>
+            <div className="flex items-center text-sm font-semibold text-sky-400 group-hover:text-sky-300">
+              Open Canvas <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        </Link>
+
+        <Link href="/templates" className="block outline-none group focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl">
+          <div className="h-full rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-5 hover:border-emerald-500/40 hover:bg-emerald-500/15 transition-all">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="p-2.5 bg-emerald-500/20 rounded-lg text-emerald-400">
+                <Layers className="w-5 h-5" />
+              </div>
+              <h3 className="font-semibold text-lg text-white">Start from Template</h3>
+            </div>
+            <p className="text-sm text-slate-300 mb-6">Deploy production-ready setups instantly. Choose from 50+ pre-built marketing, sales, scraping, and analytics pipelines.</p>
+            <div className="flex items-center text-sm font-semibold text-emerald-400 group-hover:text-emerald-300">
+              Browse Templates <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        </Link>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-4">

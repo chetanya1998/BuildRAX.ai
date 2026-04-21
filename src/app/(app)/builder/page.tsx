@@ -21,6 +21,7 @@ import "@xyflow/react/dist/style.css";
 import {
   ArrowLeft,
   BrainCircuit,
+  Bot,
   CreditCard,
   FilePlus2,
   GitBranch,
@@ -55,6 +56,7 @@ import { Label } from "@/components/ui/label";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
 import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import * as LucideIcons from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -157,6 +159,7 @@ const workspaceNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/workflows", label: "Workflows", icon: Layers },
   { href: "/builder", label: "AI Architect", icon: BrainCircuit },
+  { href: "/agents", label: "Agents", icon: Bot },
   { href: "/templates", label: "Templates", icon: Library },
   { href: "/billing", label: "Billing", icon: CreditCard },
   { href: "/learn", label: "Learn", icon: GraduationCap },
@@ -249,6 +252,8 @@ function BuilderCanvas() {
   const [libraryTab, setLibraryTab] = useState("nodes");
   const [inspectorTab, setInspectorTab] = useState("workflow");
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [showEngineOnboarding, setShowEngineOnboarding] = useState(false);
+  const [hasSeenEnginePrompt, setHasSeenEnginePrompt] = useState(false);
   const [scenario, setScenario] = useState(defaultScenario);
   const [scenarioPrompt, setScenarioPrompt] = useState("");
   const [modelProviderId, setModelProviderId] = useState("");
@@ -406,6 +411,13 @@ function BuilderCanvas() {
       console.error("Failed to load credit balance", error);
     }
   }, [session?.user]);
+
+  useEffect(() => {
+    if (!queryWorkflowId && isHydrated && !hasSeenEnginePrompt) {
+      setHasSeenEnginePrompt(true);
+      setShowEngineOnboarding(true);
+    }
+  }, [queryWorkflowId, isHydrated, hasSeenEnginePrompt]);
 
   const loadAiProviders = useCallback(async () => {
     if (!session?.user) {
@@ -779,6 +791,32 @@ function BuilderCanvas() {
 
   const runAction = useCallback(
     async (path: string, action: "simulate" | "execute", idOverride?: string) => {
+      // 1. Graph Validation
+      if (currentGraph.nodes.length === 0) {
+        toast.error("Cannot execute an empty workflow.");
+        return;
+      }
+
+      const nodeIdsWithEdges = new Set([
+        ...currentGraph.edges.map(e => e.source),
+        ...currentGraph.edges.map(e => e.target)
+      ]);
+
+      const isolatedNodes = currentGraph.nodes.filter(n => !nodeIdsWithEdges.has(n.id) && currentGraph.nodes.length > 1);
+      
+      if (isolatedNodes.length > 0) {
+        toast.error(`Workflow blocked: Detected ${isolatedNodes.length} isolated nodes. Connect all nodes before ${action}.`);
+        return;
+      }
+
+      const targetIds = new Set(currentGraph.edges.map(e => e.target));
+      const ingressNodes = currentGraph.nodes.filter(n => !targetIds.has(n.id));
+      
+      if (currentGraph.nodes.length > 1 && ingressNodes.length === 0) {
+        toast.error(`Workflow blocked: No entry point found. Please fix circular dependencies before ${action}.`);
+        return;
+      }
+
       const targetWorkflowId = idOverride || (await ensureCloudWorkflow());
       if (!targetWorkflowId) return;
 
@@ -1328,7 +1366,7 @@ function BuilderCanvas() {
                   />
                 </div>
 
-                <div className="space-y-3">
+                <div className="space-y-3 overflow-y-auto">
                   {filteredNodeGroups.map((group) => (
                     <section key={group.pack} className="space-y-1">
                       <div className="flex items-center gap-1.5 px-1">
@@ -1340,6 +1378,7 @@ function BuilderCanvas() {
                       <div className="space-y-0.5">
                         {group.items.map((definition, idx) => {
                           const variantClass = packAccentClasses[group.pack][idx % packAccentClasses[group.pack].length];
+                          const IconComponent = (LucideIcons as any)[definition.icon] || LucideIcons.Box;
                           return (
                             <button
                               key={definition.type}
@@ -1349,8 +1388,8 @@ function BuilderCanvas() {
                               className="group w-full rounded-xl px-2.5 py-2 text-left transition-all duration-150 hover:bg-white/[0.05] hover:border-sky-400/20 border border-transparent"
                             >
                               <div className="flex items-center gap-2">
-                                <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border text-[9px] font-bold", variantClass)}>
-                                  {definition.category.slice(0, 2).toUpperCase()}
+                                <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border", variantClass)}>
+                                  <IconComponent className="w-3.5 h-3.5" />
                                 </div>
                                 <p className="truncate text-xs font-medium flex-1">{definition.title}</p>
                                 <Badge variant="outline" className="border-white/8 bg-transparent text-[9px] px-1.5 py-0 h-4 hidden group-hover:flex">
@@ -1605,6 +1644,7 @@ function BuilderCanvas() {
                 setSelectedNode(nextNode);
                 if (nextNode) {
                   setInspectorTab("node");
+                  setInspectorCollapsed(false);
                 }
               }}
               fitView
@@ -1941,6 +1981,50 @@ function BuilderCanvas() {
                 Save + test
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showEngineOnboarding} onOpenChange={setShowEngineOnboarding}>
+        <DialogContent className="sm:max-w-md bg-card/95 border-white/10">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BrainCircuit className="w-5 h-5 text-sky-400" />
+              Choose AI Engine
+            </DialogTitle>
+            <DialogDescription>
+              Select an AI model to power your new workflow. Gemma 4 provides leading reasoning capabilities out-of-the-box.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-3 pt-2">
+            <button
+              type="button"
+              className="flex flex-col text-left items-start gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 transition-all hover:bg-sky-500/20 outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              onClick={() => {
+                setModelProviderId("");
+                setModelId("google/gemma-4-26b-a4b-it");
+                setShowEngineOnboarding(false);
+                toast.success("Gemma 4 selected as the execution engine.");
+              }}
+            >
+              <span className="font-semibold text-sky-100 flex items-center gap-2">
+                Use Default Gemma 4
+                <Badge variant="outline" className="border-sky-400/30 bg-sky-500/20 text-sky-200 uppercase text-[9px] px-1.5 py-0 h-4">Recommended</Badge>
+              </span>
+              <span className="text-xs text-sky-200/70">Start building immediately with the default optimized reasoning model.</span>
+            </button>
+            <button
+              type="button"
+              className="flex flex-col text-left items-start gap-1 rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+              onClick={() => {
+                setShowEngineOnboarding(false);
+                setLibraryTab("prompt");
+                setIsProviderSetupOpen(true);
+              }}
+            >
+              <span className="font-semibold text-white/90">Bring Your Own Model</span>
+              <span className="text-xs text-muted-foreground">Configure Unsloth or OpenRouter API keys to inject custom capabilities.</span>
+            </button>
           </div>
         </DialogContent>
       </Dialog>

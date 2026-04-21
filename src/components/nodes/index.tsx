@@ -1,6 +1,6 @@
 import React from "react";
 import { NodeProps } from "@xyflow/react";
-import { Bot, Cpu, Database, Globe, ShieldCheck, TerminalSquare, Zap } from "lucide-react";
+import { Bot, Cpu, Database, Globe, ShieldCheck, TerminalSquare, Zap, SquareUser } from "lucide-react";
 import { BaseNode } from "./BaseNode";
 import { NODE_DEFINITION_MAP } from "@/lib/graph/catalog";
 
@@ -19,6 +19,9 @@ function getNodeIcon(type: string) {
   }
   if (type.includes("service") || type.includes("function") || type.includes("scheduler")) {
     return <Cpu className="w-4 h-4" />;
+  }
+  if (type.includes("agent")) {
+    return <SquareUser className="w-4 h-4" />;
   }
   if (type.includes("prompt") || type.includes("llm") || type.includes("embed") || type.includes("classify") || type.includes("extract") || type.includes("summarize") || type.includes("memory") || type.includes("router") || type.includes("evaluator")) {
     return <Bot className="w-4 h-4" />;
