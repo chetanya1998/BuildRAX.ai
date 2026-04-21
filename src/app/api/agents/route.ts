@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth/options";
-import connectDB from "@/lib/db/mongoose";
+import { authOptions } from "@/lib/auth";
+import connectDB from "@/lib/mongodb";
 import { Agent } from "@/lib/models/Agent";
 
 export async function GET(req: NextRequest) {
