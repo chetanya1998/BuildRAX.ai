@@ -13,9 +13,9 @@ const FONT_VARIABLES: CSSProperties = {
 };
 
 export const metadata: Metadata = {
-  title: "BuildRAX.ai — Build AI Visually",
+  title: "BuildRAX.ai — Design Backend Workflows Before Writing Code",
   description:
-    "Drag, drop, and wire AI agents visually. Watch every prompt, tool call, and output flow in real time. Open source AI agent builder.",
+    "Visually map backend systems, run workflow checks, simulate behavior, and export developer-ready architecture outputs before writing code.",
   icons: {
     icon: [
       { url: "/favicon.svg", type: "image/svg+xml" },
@@ -24,9 +24,9 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
-    title: "BuildRAX.ai — Build AI Visually",
+    title: "BuildRAX.ai — Design Backend Workflows Before Writing Code",
     description:
-      "Drag, drop, and wire AI agents visually. Open source AI agent builder.",
+      "Map backend workflows visually, validate logic, simulate failures, and export developer-ready architecture outputs.",
     type: "website",
   },
 };
@@ -43,8 +43,16 @@ export default function RootLayout({
       lang="en"
       className="dark h-full antialiased"
       style={FONT_VARIABLES}
+      suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="min-h-full flex flex-col bg-background text-foreground" suppressHydrationWarning>
+        <script
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{document.body.removeAttribute('data-new-gr-c-s-check-loaded');document.body.removeAttribute('data-gr-ext-installed');}catch(e){}",
+          }}
+        />
         <NextTopLoader color="#22d3ee" showSpinner={false} height={3} shadow="0 0 10px #22d3ee,0 0 5px #22d3ee" />
         <Toaster position="top-right" richColors toastOptions={{
           style: {
