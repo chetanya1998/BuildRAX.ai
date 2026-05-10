@@ -11,7 +11,6 @@ import {
   Boxes,
   Braces,
   Check,
-  ChevronRight,
   CircleDot,
   Code2,
   Database,
@@ -711,13 +710,7 @@ export default function LandingPage() {
                     Start Building <ArrowRight className="ml-1 size-4" />
                   </Link>
                 </Button>
-                <Button size="lg" variant="outline" className="h-12 rounded-lg border-[#78A0FF]/15 bg-white/[0.03] px-6 text-base text-white hover:bg-white/[0.06]" asChild>
-                  <Link href="/templates">Explore Templates</Link>
-                </Button>
               </div>
-              <Link href="#showcase" className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-[#8DB5FF] hover:text-white">
-                Open Mermaid Sandbox <ChevronRight className="size-4" />
-              </Link>
               <p className="mt-8 text-sm text-[#778398]">
                 Built for founders, PMs, backend engineers, and fast-moving product teams.
               </p>
@@ -986,9 +979,6 @@ export default function LandingPage() {
             <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Button size="lg" className="h-12 rounded-lg bg-[#2F7BFF] px-6 text-base font-semibold text-white shadow-[0_0_32px_rgba(47,123,255,0.35)] hover:bg-[#4D8EFF]" asChild>
                 <Link href="/builder" prefetch={false}>Start Building</Link>
-              </Button>
-              <Button size="lg" variant="outline" className="h-12 rounded-lg border-[#78A0FF]/15 bg-white/[0.03] px-6 text-base text-white hover:bg-white/[0.06]" asChild>
-                <Link href="/templates">Explore Templates</Link>
               </Button>
             </div>
             <p className="mt-5 text-sm text-[#778398]">No complex setup. Start visually in minutes.</p>

@@ -2,7 +2,7 @@
 
 import { signIn } from "next-auth/react";
 import { Button } from "@/components/ui/button";
-import { BrainCircuit, Github, LogIn, ChevronRight, Sparkles } from "lucide-react";
+import { BrainCircuit, LogIn, ChevronRight, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useState, useEffect } from "react";
@@ -172,6 +172,7 @@ function LoginContent() {
                       <ChevronRight className="w-5 h-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                     </Button>
                     
+                    {/* Provider auth temporarily hidden. Keep this block for quick restore.
                     <div className="relative my-4">
                       <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white-[0.05]" /></div>
                       <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest"><span className="bg-[#121214] px-4 text-muted-foreground">Secure Login</span></div>
@@ -195,6 +196,7 @@ function LoginContent() {
                         Google
                       </Button>
                     </div>
+                    */}
                   </div>
                 </div>
               </motion.div>
