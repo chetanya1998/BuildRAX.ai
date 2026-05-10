@@ -1,260 +1,421 @@
-<div align="center">
+# BuildRAX
 
-# 🧠 BuildRAX.ai
+BuildRAX is a backend workflow builder and architecture simulator. It helps founders, product teams, engineering teams, consultants, and students design backend systems visually before code is written.
 
-**Demystifying AI through Visual Logic.**
+Instead of starting with tickets, scattered diagrams, or a long document, BuildRAX lets a user model the backend as a graph of practical components: API endpoints, authentication, rate limits, databases, queues, workers, third-party integrations, logs, metrics, exports, and custom services. The system can then review the graph, simulate important scenarios, generate Mermaid diagrams, and export developer handoff artifacts.
 
-Create agents, workflows, and AI tools with drag-and-drop blocks.
-See prompts, memory, tools, and outputs step-by-step. No black boxes.
+The current MVP is intentionally deterministic. Review, simulation, Mermaid generation, and export generation do not require AI provider keys, credits, or LLM calls. This makes the product useful even before AI features are added.
 
-[![Status](https://img.shields.io/badge/Status-Beta-orange.svg)](#)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](#-license)
-[![Next.js](https://img.shields.io/badge/Next.js-16-black.svg)](https://nextjs.org/)
-[![Database](https://img.shields.io/badge/MongoDB-green.svg)](https://www.mongodb.com/)
-[![Workflow](https://img.shields.io/badge/Inngest-blue.svg)](https://www.inngest.com/)
+## Documentation Map
 
-[Quick Start](#-quick-start) · [Explore Features](#-feature-deep-dive) · [Node Reference](#-node-encyclopedia) · [Architecture](#-architecture--under-the-hood) · [Self-Hosting](#-self-hosting-handbook)
+Start here, then go deeper into the focused references:
 
-</div>
+- [Node Catalog](./docs/NODES.md): all backend node categories, roles, and examples.
+- [Template Catalog](./docs/TEMPLATES.md): the 100 backend blueprint templates and when to use them.
+- [Design Patterns](./docs/DESIGN_PATTERNS.md): the architecture and product design patterns used in BuildRAX.
+- [AI Roadmap](./docs/AI_ROADMAP.md): how BuildRAX can become AI-enabled while preserving deterministic trust.
 
----
+## What BuildRAX Solves
 
-## 🧭 Choose Your Path
+Many teams know what product they want but struggle to explain the backend clearly. A typical early conversation sounds like this:
 
-BuildRAX is designed to serve different audiences by providing transparency into the "AI black box."
+- "We need user login, teams, subscriptions, credits, and reports."
+- "What happens if Stripe fails?"
+- "Where do we store failed jobs?"
+- "Do we need a queue?"
+- "How will developers know the API contracts?"
+- "Can the founder understand the architecture before engineers start?"
 
-### 🎓 I want to Learn (Students & Beginners)
-- **Guided Missions**: The BuildRAX Academy walks you from "What is a Prompt?" to "Multi-Agent Workflows."
-- **Interactive Traces**: Watch data flow through each node in real-time.
-- **Starter Templates**: Clone pre-built flows for Resume Analysis, Research, and Productivity.
+BuildRAX turns those questions into a visual workflow. A non-technical user can see what the system does. A technical user can inspect nodes, dependencies, failure modes, contracts, and export artifacts.
 
-### 🛠️ I want to Build (Developers & Architects)
-- **Visual DSL**: Orchestrate LLM chains, RAG pipelines, and tool-users without boilerplate.
-- **Next.js 16 Backend**: A robust stack with 20+ REST endpoints for CRUD and execution.
-- **Rapid Prototyping**: Test prompts and logic cycles in seconds before moving to production.
+## Who It Is For
 
-### 🔬 I want to Analyze (AI Practitioners)
-- **Prompt Transparency**: Inspect the exact system prompt and user message for every run.
-- **Topological Engine**: Understand dependency resolution and execution order (Kahn's Algorithm).
-- **Multi-Model Support**: Swap between OpenAI (GPT-4o), Anthropic (Claude), and local models (Ollama).
+### Non-Technical Users
 
----
+BuildRAX helps non-technical users explain a product idea in backend terms without needing to write code.
 
-## ⚡ Quick Start
+Examples:
 
-Get your local instance running in under 5 minutes.
+- A founder planning a SaaS app can start from the "User Authentication SaaS" or "Subscription Billing SaaS" template.
+- A product manager can review the happy path and failure path before sending a build request to engineering.
+- A consultant can create a client-facing architecture map and export a developer handoff.
+- A student can learn why backend systems need auth, rate limits, queues, logs, metrics, and failure handling.
 
-### 1. Clone & Install
+The goal is not to make every user a backend engineer. The goal is to make backend planning visible, reviewable, and easier to discuss.
+
+### Technical Users
+
+BuildRAX helps engineers and architects model backend workflows as structured graphs.
+
+Examples:
+
+- A backend engineer can map API entry points, data stores, queues, and observability before implementation.
+- A staff engineer can compare architecture options and spot reliability gaps.
+- A technical lead can export workflow JSON, Mermaid diagrams, simulation reports, and developer handoff markdown.
+- A platform team can define custom nodes that represent internal systems such as feature flag services, identity services, fraud engines, and internal queues.
+
+The product is designed to be a planning workspace, not a runtime execution engine for production traffic.
+
+## Core Product Flow
+
+The main user journey is:
+
+1. Start from a blank workflow or a template.
+2. Add backend nodes to the visual canvas.
+3. Configure node details such as role, contracts, outputs, dependencies, and failure modes.
+4. Run deterministic review to find design issues.
+5. Run simulation to understand behavior under a selected scenario.
+6. Generate Mermaid to communicate the architecture.
+7. Export developer artifacts for implementation handoff.
+
+This flow is intentionally step-by-step because backend planning works best when users see the system move from idea to design to review to simulation to handoff.
+
+## Complete User Journey Example
+
+Imagine a founder wants to build a SaaS product where companies can invite teammates, pay monthly, and export reports.
+
+### Step 1: Pick a Template
+
+The user opens Templates and chooses "Subscription Billing SaaS" or "Team Collaboration SaaS." BuildRAX loads a workflow with backend components such as:
+
+- HTTP trigger
+- request validator
+- auth node
+- RBAC permission check
+- subscription billing
+- database write
+- notification
+- audit log
+- metrics
+
+### Step 2: Customize the Workflow
+
+The user opens the builder and adjusts the workflow:
+
+- Adds a rate limiter before public API traffic.
+- Adds a queue for async invoice emails.
+- Adds a custom node called "Internal Plan Entitlement Service."
+- Adds dependencies, outputs, and failure modes for that custom node.
+
+### Step 3: Review
+
+The user clicks Review. BuildRAX opens a review modal and scores areas such as:
+
+- architecture completeness
+- security
+- reliability
+- observability
+- operational readiness
+
+If the workflow has no rate limiter, no audit log, or no failure path for payment errors, review flags those issues.
+
+### Step 4: Simulate
+
+The user clicks Simulate. BuildRAX runs a deterministic sandbox trace and produces an overall report:
+
+- status
+- trace steps
+- fallback gaps
+- downstream impact count
+- likely bottleneck
+- per-node messages
+
+For example, if the payment gateway is the slowest dependency, simulation can show it as a likely bottleneck.
+
+### Step 5: Generate Mermaid
+
+The user clicks Mermaid. BuildRAX generates Mermaid flowchart source. The user can edit it in the Mermaid compiler modal and validate the diagram.
+
+Example Mermaid output:
+
+```mermaid
+flowchart TD
+    A[HTTP Trigger] --> B[Request Validator]
+    B --> C[Auth Node]
+    C --> D[Subscription]
+    D --> E[Database Write]
+    D --> F[Queue]
+    F --> G[Notification]
+```
+
+### Step 6: Export
+
+The user opens Export and generates:
+
+- Developer Handoff
+- Workflow JSON
+- Simulation Report
+
+The developer handoff is useful for engineers. The Workflow JSON is useful for persistence, imports, and automation. The simulation report is useful for product and architecture review.
+
+## Main Features
+
+### Visual Backend Builder
+
+The builder uses a graph canvas where each node represents a backend component. Users can add nodes from the node library, connect them, inspect them, and configure their details.
+
+Current builder features:
+
+- collapsible left node library
+- collapsible right inspector
+- React Flow canvas with minimap and controls
+- custom node creation
+- node configuration panel
+- validation status
+- terminal / step compiler panel
+- modal-based Review, Simulation, Mermaid, and Export stages
+
+### Custom Nodes
+
+Custom nodes let teams model internal systems or product-specific components that are not part of the default registry.
+
+Custom node fields include:
+
+- name
+- role
+- behavior description
+- dependencies
+- outputs
+- failure modes
+
+Example:
+
+```text
+Name: Fraud Scoring Service
+Role: fraud_scoring_service
+Dependencies:
+- user profile service
+- payment history store
+- risk rules database
+
+Outputs:
+- fraud_score
+- risk_level
+- review_required
+
+Failure modes:
+- provider_timeout
+- insufficient_history
+- rules_engine_error
+```
+
+### Deterministic Review
+
+Review is rule-based. It checks for architecture completeness, security, reliability, scalability, data flow, API design, failure handling, observability, cost awareness, and operational readiness.
+
+Example review finding:
+
+```text
+Severity: high
+Category: security
+Issue: Public API flow has no rate limiter.
+Why it matters: A public endpoint without rate limiting is vulnerable to abuse and cost spikes.
+Suggested fix: Add a Rate Limiter before the route reaches business logic.
+```
+
+### Deterministic Simulation
+
+Simulation walks the graph and estimates behavior for scenarios such as happy path, failure path, timeout, load estimate, and security misuse.
+
+Simulation does not execute real backend code. It is a design-time sandbox that helps teams reason about the workflow.
+
+Example simulation summary:
+
+```text
+Scenario: Happy Path
+Status: completed
+Trace steps: 8
+Fallback gaps: 0
+Bottleneck: Payment Gateway at approximately 850ms
+```
+
+### Mermaid Compiler
+
+The Mermaid stage generates sanitized Mermaid flowchart source and provides an editor/compiler modal. Users can generate, edit, compile, validate, and copy the diagram source.
+
+### Export Center
+
+The Export modal creates practical handoff artifacts:
+
+- Developer Handoff: markdown summary for developers.
+- Workflow JSON: portable graph data.
+- Simulation Report: scenario, trace, bottleneck, and fallback summary.
+
+Future export types can include OpenAPI specifications, security checklists, architecture decision records, ticket breakdowns, and code scaffolds.
+
+## Existing Node And Template Coverage
+
+BuildRAX currently includes:
+
+- 60 backend node definitions.
+- 100 backend blueprint templates.
+- 13 node categories.
+- 10 template categories.
+
+Detailed references:
+
+- [All Nodes](./docs/NODES.md)
+- [All Templates](./docs/TEMPLATES.md)
+
+## Use Cases
+
+### SaaS Product Planning
+
+Plan authentication, workspaces, subscriptions, usage credits, teams, permissions, reports, and exports before implementation.
+
+Example templates:
+
+- User Authentication SaaS
+- Multi-Tenant SaaS Workspace
+- Subscription Billing SaaS
+- Usage-Based Credits SaaS
+
+### Marketplace Architecture
+
+Model users, vendors, listings, escrow, payouts, dispute flows, notifications, audit logs, and admin actions.
+
+Example templates:
+
+- Two-Sided Marketplace
+- Freelance Marketplace with Escrow
+- Service Booking Marketplace
+- Dispute Resolution Marketplace
+
+### AI Product Backend Planning
+
+Design AI product workflows without depending on AI execution during planning. Model prompt builders, LLM calls, vector search, guardrails, output parsers, usage meters, and safety checks.
+
+Example templates:
+
+- AI Chatbot SaaS
+- RAG Knowledge Base
+- AI Agent Tool Calling
+- AI Moderation
+
+### Fintech And Payments
+
+Plan high-risk workflows where correctness, consistency, failure handling, and auditability matter.
+
+Example templates:
+
+- Digital Wallet
+- Escrow Payment
+- Refund Processing
+- Fraud Detection Payment
+- Financial Reconciliation
+
+### Internal Tools
+
+Design admin dashboards, approval flows, support operations, incident response, and compliance reporting.
+
+Example templates:
+
+- Admin Dashboard
+- Approval Management
+- Incident Management
+- Compliance Reporting
+
+### Developer Tools
+
+Model API tooling, CI/CD, feature flags, load testing, webhook testing, and multi-environment configuration.
+
+Example templates:
+
+- API Documentation Generator
+- CI/CD Pipeline
+- Feature Flag System
+- Developer API Key Management
+
+## Why This Is Important
+
+Backend architecture is often invisible until something breaks. BuildRAX makes backend planning visible earlier.
+
+This matters because:
+
+- Non-technical stakeholders can understand system behavior before engineering begins.
+- Engineers can spot missing auth, missing rate limits, missing observability, and missing failure recovery earlier.
+- Teams can align on the shape of the system before writing implementation tickets.
+- Mermaid and export artifacts reduce handoff ambiguity.
+- Deterministic review and simulation create trust because users can inspect the reasoning instead of relying on vague AI output.
+
+## Technical Stack
+
+Current stack:
+
+- Next.js App Router
+- React
+- React Flow
+- TypeScript
+- MongoDB / Mongoose
+- NextAuth
+- Tailwind-style utility classes
+- Mermaid-compatible diagram generation
+
+Important source areas:
+
+- Builder UI: `src/app/(app)/builder/page.tsx`
+- Node registry: `src/lib/graph/catalog.ts`
+- Generated catalog: `src/lib/data/buildraxCatalog.ts`
+- Review engine: `src/lib/backend/review.ts`
+- Simulation engine: `src/lib/backend/simulation.ts`
+- Mermaid generation: `src/lib/backend/mermaid.ts`
+- Export generation: `src/lib/backend/exports.ts`
+
+## Local Development
+
+Install dependencies:
+
 ```bash
-git clone https://github.com/chetanya1998/BuildRAX.ai.git
-cd BuildRAX.ai
 npm install
 ```
 
-### 2. Configure Environment
-Create a `.env.local` file:
+Create `.env.local`:
+
 ```env
-MONGODB_URI=mongodb+srv://<user>:<pass>@cluster.mongodb.net/buildrax
-NEXTAUTH_SECRET=your-secret-here
-NEXTAUTH_URL=http://localhost:3000
-
-# AI Configuration
-OPENAI_API_KEY=sk-...
-# Optional: LiteLLM Proxy for local models
-LITELLM_BASE_URL=http://localhost:4000
+MONGODB_URI=mongodb+srv://<user>:<password>@<cluster>/<database>
+NEXTAUTH_SECRET=<your-secret>
+NEXTAUTH_URL=http://localhost:3001
 ```
 
-### 3. Seed & Start
+Run the app:
+
 ```bash
-# Seed the learning missions
-npx tsx seed-missions.ts
-
-# In terminal 1: Start the app
-npm run dev
-
-# In terminal 2: Start Inngest (Background Task Runner)
-npx inngest-cli@latest dev
-```
-Navigate to **http://localhost:3000** to begin.
-
----
-
-## 🎨 Feature Deep Dive
-
-### 🧱 Visual DSL Builder
-A low-code canvas built on **React Flow** that turns AI logic into a graph. 
-- **Drag-and-Drop**: 14+ specialized node types for input, processing, and integration.
-- **Interactive Edges**: Animated data flow shows the direction of state propagation.
-- **Mini-Map & Zoom**: Navigate complex multi-agent architectures with ease.
-- **UI/UX Enhancements**: High-contrast node blocks, functional gallery filtering, and smooth global page transitions powered by `framer-motion`.
-
-### 🤖 AI Architect
-- **Automated Workflow Generation**: The AI Architect generates multi-step workflows automatically based on your prompt, complete with optimal node setup and connections.
-- **Analysis Feedback Loops**: Real-time insights and complexity scoring for your workflow graph.
-- **Agent Versioning & Benchmarking**: Track the performance and history of your deployed AI agents.
-
-### 🔍 Execution Trace Panel
-Every execution generates a detailed "black box" audit trail.
-- **Flow Steps**: A timeline of node arrivals, processing times, and departures.
-- **Prompt Inspector**: View raw templates vs. final rendered prompts with injected context.
-- **Output Preview**: See real-time "Simulated Output" directly on the node headers.
-
-### 🎮 Gamification & Learning
-BuildRAX isn't just a tool; it's a game.
-- **XP System & Leveling**: Earn 50-200 XP for building, executing, and publishing flows to level up your profile. Special rewards available for first-time publishers!
-- **Badges**: Unlock *Prompt Tuner*, *Memory Weaver*, and *Agent Explorer* as you master concepts.
-- **Academy**: Interactive, gamified zig-zag pathway for user onboarding and progressive missions with increasing difficulty.
-
-### 🌍 Community & Templates
-- **Template Cloning Architecture**: Deep-clone entire workflow graphs (nodes and edges) instantly to your own workspace.
-- **Community Publishing**: Publish your agents, accrue ratings from the community, and share your creations.
-- **Rich Previews**: Data-rich template modals displaying complexity scores, node sequences, and comprehensive stats.
-
----
-
-## 🧩 Node Encyclopedia
-
-BuildRAX nodes are powered by a unified `BaseNode` system, ensuring consistent behavior across categories.
-
-### 🟢 Input & Output
-| Node | Purpose | Details |
-|------|---------|---------|
-| **Input** | Gateway | The starting point. Accepts raw text/data to inject into the flow. |
-| **Output** | Terminal | Displays the final result of the logic chain. |
-
-### 🧠 Logic & Processing
-| Node | Category | Customization |
-|------|----------|---------------|
-| **Prompt** | Formatting | Support for `{{handle}}` syntax to inject upstream data into templates. |
-| **LLM** | Intelligence | Configurable Model (GPT-4o, Llama 3), System Prompt, and Temperature (0.0-2.0). |
-| **Memory** | RAG | Similarity search against vector stores to retrieve context for LLMs. |
-| **Combine** | Merging | Joins two data streams into a single merged output. |
-
-### 🛠️ Tools & Integrations
-| Node | Integration | Functionality |
-|------|-------------|---------------|
-| **Google Search** | ToolING | Performs live web searches to ground AI answers in real-time data. |
-| **Web Scraper** | ToolING | Extracts content from URLs for analysis by LLM nodes. |
-| **Slack/Discord** | Messaging | Sends the final output directly to configured channels. |
-| **Twitter/Email** | Publishing | Posts updates or sends notifications as part of a workflow. |
-
-### 🔄 Control Flow
-| Node | Gate | Logic |
-|------|------|-------|
-| **Condition** | Branching | If/Else gate based on boolean evaluation. Route to `True` or `False` paths. |
-| **Loop** | Iteration | Processes arrays of items through connected downstream logic. |
-
----
-
-## 🏗️ Architecture & Under the Hood
-
-### System Diagram
-
-```mermaid
-graph TB
-    subgraph UI["Frontend — Next.js 16 (App Router)"]
-        Builder["Visual Builder<br/>(React Flow)"]
-        Dash["Dashboard<br/>(Personalized)"]
-        Trace["Trace Panel<br/>(Transparency)"]
-        Academy["Academy<br/>(Learning Path)"]
-    end
-
-    subgraph API["API Layer — Node.js"]
-        Execute["/api/execute<br/>(Inngest Bridge)"]
-        Workflow["/api/workflows<br/>(CRUD)"]
-        Auth["/api/auth<br/>(NextAuth)"]
-    end
-
-    subgraph Core["Execution Engine — Background"]
-        TS["Topological Sort<br/>(Kahn's Algorithm)"]
-        LLMW["LiteLLM Wrapper<br/>(Multi-Model)"]
-        ENC["AES-256-GCM<br/>(Key Encryption)"]
-    end
-
-    subgraph Storage["Data & Tasks"]
-        MDB[("MongoDB<br/>(Mongoose)")]
-        INN["Inngest<br/>(Task Queue)"]
-    end
-
-    UI --> API
-    API --> INN
-    INN --> Core
-    Core --> LLMW
-    API --> MDB
+npm run dev -- --webpack -p 3001
 ```
 
-### ⚙️ Asynchronous Execution Engine
-Powered by **Inngest**, our backend execution engine provides robust, event-driven background processing.
-- Handles complex, multi-step AI workflows asynchronously without timing out.
-- Reliable state tracking and execution loops for long-running AI and integration operations.
+Build:
 
-### 🔄 The Topological Sort Engine
-Unlike linear scripts, BuildRAX treats flows as **Directed Acyclic Graphs (DAGs)**. When you click run:
-1. The engine builds a dependency map of all nodes.
-2. **Kahn's Algorithm** verifies there are no cycles and determines the execution order.
-3. Steps execute in sequence, passing state from parent outputs to child inputs.
-
-### ⚡ Performance & UX Optimizations
-- **Global Navigation Bar**: High-performance routing feedback seamlessly integrated with `nextjs-toploader`.
-- **Intelligent Loading states**: Custom AI-themed `FancyLoader` and intelligent skeleton layouts on dashboard and templates eliminate blank screens and greatly enhance perceived performance.
-
----
-
-## 🖥️ Self-Hosting Handbook
-
-### ⚙️ Prerequisites
-- **Node.js**: v20 or higher.
-- **MongoDB**: A running instance (local or Atlas).
-- **Inngest**: The local dev server is required for workflow execution logic.
-
-### 💾 Database Setup
-Before running, you must seed the project with the mission curriculum:
 ```bash
-npx tsx seed-missions.ts
+npm run build
 ```
 
-### 🤖 Local AI (Ollama)
-To run BuildRAX without cloud costs:
-1. Install **Ollama**.
-2. Run `pip install litellm[proxy]`
-3. Start the proxy: `litellm --model ollama/llama3 --port 4000`
-4. Set `LITELLM_BASE_URL=http://localhost:4000` in `.env.local`.
+Type check:
 
----
+```bash
+npx tsc --noEmit
+```
 
-## 📡 API Reference & Roadmap
+## Roadmap Summary
 
-| Domain | Key Endpoints |
-|--------|---------------|
-| **Execution** | `POST /api/execute`, `GET /api/execute/stream` |
-| **Planning** | `POST /api/architect/analyze`, `/api/architect/generate` |
-| **Community** | `GET /api/templates/featured`, `POST /api/templates/[id]/clone` |
+The near-term roadmap focuses on making the deterministic MVP deeper and more useful:
 
-### ✅ Completed
-- Visual Builder (14 Node Types)
-- Inngest background processing
-- Full Academy/XP system
-- AES API key encryption
+- stronger graph validation
+- scenario-specific simulation controls
+- richer Mermaid preview rendering
+- OpenAPI export
+- security checklist export
+- developer ticket export
+- template preview diagrams
+- workflow version history
+- custom node registry persistence
+- visual diff between workflow versions
 
-### 🚀 Future
-- **Python Nodes**: Run code directly in the flow.
-- **Agent Orchestration**: Multi-agent collaborative cycles.
-- **Real-time Collab**: Multi-player building.
+The AI roadmap is deliberately staged so AI augments deterministic behavior instead of replacing it.
 
----
+See [AI Roadmap](./docs/AI_ROADMAP.md) for the full plan.
 
-## 📜 License
+## Product Principle
 
-MIT License - See the file for details.
+BuildRAX should feel like a premium technical SaaS tool for planning backend systems. It should be dense, fast to scan, dark, focused, and operational. It should avoid vague magic and instead show the user what is happening: nodes, edges, checks, traces, diagrams, exports, and reports.
 
-Copyright (c) 2025 BuildRAX.ai
-
----
-
-<div align="center">
-
-**BuildRAX.ai** — Building the future of AI transparency.
-
-[GitHub](https://github.com/chetanya1998/BuildRAX.ai) · [Templates](#-choose-your-path) · [Contribute](#-contributing)
-
-</div>
+The long-term vision is an AI-assisted backend architecture workspace where deterministic systems provide the foundation and AI helps generate, explain, improve, compare, and document backend workflows.
