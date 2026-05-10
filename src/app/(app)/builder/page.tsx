@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { signIn, useSession } from "next-auth/react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   addEdge,
   Background,
@@ -19,2049 +19,964 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
+  AlertTriangle,
   ArrowLeft,
-  BrainCircuit,
-  Bot,
-  CreditCard,
-  FilePlus2,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardCheck,
+  Download,
+  FileText,
   GitBranch,
-  GraduationCap,
-  KeyRound,
   LayoutDashboard,
-  Layers,
   Library,
   Loader2,
+  PanelLeftClose,
+  PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Play,
-  Rocket,
-  Search,
+  Plus,
   Save,
+  Search,
   ShieldCheck,
-  Sparkles,
-  SlidersHorizontal,
-  Trash2,
+  TerminalSquare,
+  Workflow,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
-import { ExecutionPanel } from "@/components/ExecutionPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import * as LucideIcons from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { FancyLoader } from "@/components/ui/FancyLoader";
-import { getDefaultNodeData, NODE_DEFINITIONS, NODE_PACK_ORDER } from "@/lib/graph/catalog";
-import { DEFAULT_VIEWPORT } from "@/lib/graph/persistence";
-import { CreditBalance, NodeExecutionResult, ScenarioDefinition, WorkflowGraph } from "@/lib/graph/types";
+import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
+import { ExportType, generateExport } from "@/lib/backend/exports";
+import { generateMermaid, validateMermaid } from "@/lib/backend/mermaid";
+import { runWorkflowReview } from "@/lib/backend/review";
+import { runWorkflowSimulation } from "@/lib/backend/simulation";
+import { getDefaultNodeData, getNodePackLabel, NODE_DEFINITIONS, NODE_PACK_ORDER } from "@/lib/graph/catalog";
 import { nodeTypes } from "@/components/nodes";
+import { ReviewResult, SimulationResult, WorkflowGraph } from "@/lib/graph/types";
 import { cn } from "@/lib/utils";
-
-const LOCAL_DRAFT_KEY = "buildrax:builder-draft:v2";
-const PENDING_ACTION_KEY = "buildrax:pending-builder-action";
 
 type FlowNode = Node<Record<string, unknown>, string>;
 type FlowEdge = Edge;
+type BuilderStage = "build" | "review" | "simulate" | "mermaid" | "export";
+type ConsoleLevel = "info" | "success" | "warning" | "error";
 
-interface BlueprintRecord {
-  slug: string;
-  name: string;
-  description: string;
-  sector: string;
-  useCase: string;
-  tags: string[];
-  graph: WorkflowGraph;
-}
-
-interface BenchmarkScore {
-  variantId: string;
-  model?: string;
-  totalScore?: number;
-  assertionPassRate: number;
-  latencyMs: number;
-  tokenUsage: number;
-  cost: number;
-}
-
-interface RunPanelData {
-  mode: string;
-  summary: {
-    status: string;
-    latencyMs: number;
-    tokenUsage: number;
-    cost: number;
-    warnings: string[];
-    blockedCount?: number;
-  };
-  analysis?: Record<string, unknown>;
-  nodeResults?: NodeExecutionResult[];
-  scores?: BenchmarkScore[];
-  winnerVariantId?: string;
-  confidence?: number;
-}
-
-interface LocalDraft {
-  workflowId?: string;
-  workflowName?: string;
-  workflowDescription?: string;
-  sourceBlueprintSlug?: string;
-  graph?: WorkflowGraph;
-  scenario?: ScenarioDefinition;
-  benchmarkModels?: string;
-  promptInput?: string;
-  scenarioPrompt?: string;
-  modelProviderId?: string;
-  modelId?: string;
-}
-
-type AIProviderType = "openrouter" | "unsloth" | "custom_openai";
-
-interface PublicAIProvider {
+interface ConsoleEntry {
   id: string;
-  name: string;
-  type: AIProviderType;
-  baseUrl: string;
-  defaultModelId: string;
-  testReady: boolean;
-  liveReady: boolean;
-  hasApiKey: boolean;
-  lastTestStatus?: "passed" | "failed";
-  lastTestMessage?: string;
+  level: ConsoleLevel;
+  message: string;
+  timestamp: string;
 }
 
-interface ProviderFormState {
-  type: AIProviderType;
-  name: string;
-  baseUrl: string;
-  apiKey: string;
-  defaultModelId: string;
-}
+const LOCAL_DRAFT_KEY = "buildrax:backend-builder-draft:v1";
 
-interface FlowViewportController {
-  getViewport: () => { x: number; y: number; zoom: number };
-  screenToFlowPosition: (position: { x: number; y: number }) => { x: number; y: number };
-}
+const starterNodes: FlowNode[] = [
+  { id: "api-1", type: "http_trigger", position: { x: 60, y: 160 }, data: getDefaultNodeData("http_trigger") },
+  { id: "validator-1", type: "request_validator", position: { x: 390, y: 90 }, data: getDefaultNodeData("request_validator") },
+  { id: "auth-1", type: "auth_node", position: { x: 390, y: 260 }, data: getDefaultNodeData("auth_node") },
+  { id: "db-1", type: "database_write", position: { x: 735, y: 160 }, data: getDefaultNodeData("database_write") },
+  { id: "logger-1", type: "logger", position: { x: 1080, y: 160 }, data: getDefaultNodeData("logger") },
+];
 
-const SERVER_DEFAULT_PROVIDER_VALUE = "__server_default__";
-const NO_PROVIDER_VALUE = "__no_provider__";
+const starterEdges: FlowEdge[] = [
+  { id: "api-validator", source: "api-1", target: "validator-1", animated: true },
+  { id: "validator-auth", source: "validator-1", target: "auth-1", animated: true },
+  { id: "auth-db", source: "auth-1", target: "db-1", animated: true },
+  { id: "db-logger", source: "db-1", target: "logger-1", animated: true },
+];
 
-const workspaceNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/workflows", label: "Workflows", icon: Layers },
-  { href: "/builder", label: "AI Architect", icon: BrainCircuit },
-  { href: "/agents", label: "Agents", icon: Bot },
-  { href: "/templates", label: "Templates", icon: Library },
-  { href: "/billing", label: "Billing", icon: CreditCard },
-  { href: "/learn", label: "Learn", icon: GraduationCap },
-] as const;
-
-const packAccentClasses: Record<string, string[]> = {
-  ai: ["bg-sky-500/14 text-sky-300 border-sky-400/20", "bg-indigo-500/14 text-indigo-300 border-indigo-400/20", "bg-blue-500/14 text-blue-300 border-blue-400/20", "bg-cyan-500/14 text-cyan-300 border-cyan-400/20"],
-  backend: ["bg-violet-500/14 text-violet-300 border-violet-400/20", "bg-purple-500/14 text-purple-300 border-purple-400/20", "bg-fuchsia-500/14 text-fuchsia-300 border-fuchsia-400/20"],
-  data: ["bg-emerald-500/14 text-emerald-300 border-emerald-400/20", "bg-teal-500/14 text-teal-300 border-teal-400/20", "bg-green-500/14 text-green-300 border-green-400/20"],
-  reliability: ["bg-amber-500/14 text-amber-200 border-amber-400/20", "bg-orange-500/14 text-orange-200 border-orange-400/20", "bg-yellow-500/14 text-yellow-200 border-yellow-400/20"],
-  security: ["bg-rose-500/14 text-rose-200 border-rose-400/20", "bg-red-500/14 text-red-200 border-red-400/20", "bg-pink-500/14 text-pink-200 border-pink-400/20"],
-  observability: ["bg-cyan-500/14 text-cyan-200 border-cyan-400/20", "bg-slate-500/14 text-slate-200 border-slate-400/20"],
-};
-
-const defaultScenario: ScenarioDefinition = {
-  name: "Baseline Test",
-  trafficProfile: "steady",
-  dependencyMode: "safe_test",
-  failureMode: "none",
-  timeoutMs: 1200,
-  queueDepth: 25,
-  assertionRules: [],
-};
-
-function makeGraph(args: {
-  name: string;
-  description: string;
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-  tags?: string[];
-  assumptions?: string[];
-  riskWarnings?: string[];
-  suggestedScenarios?: string[];
-}): WorkflowGraph {
+function makeGraph(name: string, description: string, nodes: FlowNode[], edges: FlowEdge[]): WorkflowGraph {
   return {
     version: "1.0",
-    nodes: args.nodes as WorkflowGraph["nodes"],
-    edges: args.edges.map((edge) => ({
-      ...edge,
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      type: node.type || "custom",
+      position: node.position,
+      data: node.data || {},
+    })),
+    edges: edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
       sourceHandle: edge.sourceHandle || undefined,
       targetHandle: edge.targetHandle || undefined,
-    })) as WorkflowGraph["edges"],
-    metadata: {
-      name: args.name,
-      description: args.description,
-      mode: "design",
-      tags: args.tags || [],
-      assumptions: args.assumptions || [],
-      riskWarnings: args.riskWarnings || [],
-      suggestedScenarios: args.suggestedScenarios || [],
-    },
+      animated: edge.animated,
+      label: typeof edge.label === "string" ? edge.label : undefined,
+    })),
+    metadata: { name, description, mode: "design", tags: ["backend-architecture"] },
   };
-}
-
-function formatModeLabel(value: string) {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 function BuilderCanvas() {
-  const { data: session, status } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const queryWorkflowId = searchParams?.get("id") || "";
-  const resumeAfterLogin = searchParams?.get("resume") === "1";
-
-  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
+  const { data: session } = useSession();
+  const workflowIdFromUrl = searchParams.get("id") || "";
+  const [workflowId, setWorkflowId] = useState(workflowIdFromUrl);
+  const [workflowName, setWorkflowName] = useState("Backend Workflow");
+  const [workflowDescription, setWorkflowDescription] = useState("Design, review, simulate, and export a backend architecture before implementation.");
+  const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>(starterNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>(starterEdges);
   const [selectedNode, setSelectedNode] = useState<FlowNode | null>(null);
-  const [workflowId, setWorkflowId] = useState<string>(queryWorkflowId);
-  const [workflowName, setWorkflowName] = useState("Untitled Workflow");
-  const [workflowDescription, setWorkflowDescription] = useState("");
-  const [sourceBlueprintSlug, setSourceBlueprintSlug] = useState("");
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [autosaveStatus, setAutosaveStatus] = useState("Local draft");
-  const [promptInput, setPromptInput] = useState("");
-  const [runData, setRunData] = useState<RunPanelData | null>(null);
-  const [isRunPanelOpen, setIsRunPanelOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activePack, setActivePack] = useState<string>("all");
   const [isSaving, setIsSaving] = useState(false);
-  const [isCompilingPrompt, setIsCompilingPrompt] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [isBenchmarking, setIsBenchmarking] = useState(false);
-  const [blueprints, setBlueprints] = useState<BlueprintRecord[]>([]);
-  const [blueprintQuery, setBlueprintQuery] = useState("");
-  const [selectedSector, setSelectedSector] = useState("all");
-  const [nodeQuery, setNodeQuery] = useState("");
-  const [libraryTab, setLibraryTab] = useState("nodes");
-  const [inspectorTab, setInspectorTab] = useState("workflow");
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showEngineOnboarding, setShowEngineOnboarding] = useState(false);
-  const [hasSeenEnginePrompt, setHasSeenEnginePrompt] = useState(false);
-  const [scenario, setScenario] = useState(defaultScenario);
-  const [scenarioPrompt, setScenarioPrompt] = useState("");
-  const [modelProviderId, setModelProviderId] = useState("");
-  const [modelId, setModelId] = useState("google/gemma-4-26b-a4b-it");
-  const [aiProviders, setAiProviders] = useState<PublicAIProvider[]>([]);
-  const [serverDefaultProvider, setServerDefaultProvider] = useState<PublicAIProvider | null>(null);
-  const [isProviderSetupOpen, setIsProviderSetupOpen] = useState(false);
-  const [isSavingProvider, setIsSavingProvider] = useState(false);
-  const [isTestingProvider, setIsTestingProvider] = useState(false);
-  const [providerForm, setProviderForm] = useState<ProviderFormState>({
-    type: "openrouter",
-    name: "OpenRouter",
-    baseUrl: "",
-    apiKey: "",
-    defaultModelId: "google/gemma-4-26b-a4b-it",
-  });
-  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
-  const [benchmarkModels, setBenchmarkModels] = useState("google/gemma-4-26b-a4b-it,google/gemma-4-31b-it,gpt-4o");
-  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
-  const reactFlowInstanceRef = useRef<FlowViewportController | null>(null);
-  const autosaveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const skipNextAutosaveRef = useRef(false);
-  const deferredNodeQuery = useDeferredValue(nodeQuery);
+  const [lastSavedAt, setLastSavedAt] = useState<string>("Local draft");
+  const [activeStage, setActiveStage] = useState<BuilderStage>("build");
+  const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
+  const [simulationResult, setSimulationResult] = useState<SimulationResult | null>(null);
+  const [mermaidCode, setMermaidCode] = useState("");
+  const [mermaidDraft, setMermaidDraft] = useState("");
+  const [mermaidCompilerMessage, setMermaidCompilerMessage] = useState("Compiler idle.");
+  const [exportContent, setExportContent] = useState("");
+  const [selectedExportType, setSelectedExportType] = useState<ExportType>("developer_handoff");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [activeModal, setActiveModal] = useState<Exclude<BuilderStage, "build"> | null>(null);
+  const [isLeftCollapsed, setIsLeftCollapsed] = useState(false);
+  const [isRightCollapsed, setIsRightCollapsed] = useState(false);
+  const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false);
+  const [isCustomNodeOpen, setIsCustomNodeOpen] = useState(false);
+  const [customNodeName, setCustomNodeName] = useState("");
+  const [customNodeRole, setCustomNodeRole] = useState("custom_operation");
+  const [customNodeDescription, setCustomNodeDescription] = useState("");
+  const [customNodeDependencies, setCustomNodeDependencies] = useState("");
+  const [customNodeOutputs, setCustomNodeOutputs] = useState("");
+  const [customNodeFailureModes, setCustomNodeFailureModes] = useState("validation_error\ntimeout\ndependency_error");
+  const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([
+    {
+      id: "boot",
+      level: "info",
+      message: "Sandbox console ready. Run review, simulation, Mermaid, and exports from this builder.",
+      timestamp: "ready",
+    },
+  ]);
 
-  const packedNodes = useMemo(
-    () =>
-      NODE_PACK_ORDER.map((pack) => ({
-        pack,
-        items: NODE_DEFINITIONS.filter((definition) => !definition.experimental && definition.pack === pack),
-      })),
-    []
-  );
+  const logToConsole = useCallback((level: ConsoleLevel, message: string) => {
+    setConsoleEntries((current) => [
+      {
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        level,
+        message,
+        timestamp: new Date().toLocaleTimeString(),
+      },
+      ...current,
+    ].slice(0, 80));
+  }, []);
 
-  const filteredNodeGroups = useMemo(() => {
-    const query = deferredNodeQuery.trim().toLowerCase();
+  const graph = useMemo(() => makeGraph(workflowName, workflowDescription, nodes, edges), [workflowName, workflowDescription, nodes, edges]);
+  const validation = useMemo(() => {
+    const problems: string[] = [];
+    if (nodes.length === 0) problems.push("Add at least one backend node.");
+    const roles = nodes.map((node) => String(node.data?.node_role || ""));
+    if (!roles.includes("trigger") && !roles.includes("api_endpoint")) problems.push("Add an entry point.");
+    if ((roles.includes("trigger") || roles.includes("api_endpoint")) && !nodes.some((node) => node.type === "rate_limiter")) problems.push("Public API flows should include a rate limiter.");
+    if (!roles.some((role) => ["observer", "operations_response", "availability_monitor", "compliance_observer"].includes(role))) problems.push("Add observability coverage.");
+    return problems;
+  }, [nodes]);
 
-    return packedNodes
-      .map((group) => ({
-        ...group,
-        items: group.items.filter((definition) => {
-          if (!query) return true;
-
-          return (
-            definition.title.toLowerCase().includes(query) ||
-            definition.description.toLowerCase().includes(query) ||
-            definition.category.toLowerCase().includes(query) ||
-            definition.pack.toLowerCase().includes(query)
-          );
-        }),
-      }))
-      .filter((group) => group.items.length > 0);
-  }, [deferredNodeQuery, packedNodes]);
-
-  const sectors = useMemo(
-    () => ["all", ...Array.from(new Set(blueprints.map((blueprint) => blueprint.sector)))],
-    [blueprints]
-  );
-
-  const filteredBlueprints = useMemo(() => {
-    return blueprints.filter((blueprint) => {
-      const matchesSector = selectedSector === "all" || blueprint.sector === selectedSector;
-      const query = blueprintQuery.trim().toLowerCase();
-      const matchesQuery =
-        !query ||
-        blueprint.name.toLowerCase().includes(query) ||
-        blueprint.description.toLowerCase().includes(query) ||
-        blueprint.useCase.toLowerCase().includes(query) ||
-        (blueprint.tags || []).some((tag: string) => tag.toLowerCase().includes(query));
-
-      return matchesSector && matchesQuery;
+  const filteredDefinitions = useMemo(() => {
+    const q = query.toLowerCase();
+    return NODE_DEFINITIONS.filter((definition) => {
+      const packMatch = activePack === "all" || definition.pack === activePack;
+      const queryMatch = !q || [definition.title, definition.description, definition.category, definition.type].join(" ").toLowerCase().includes(q);
+      return packMatch && queryMatch;
     });
-  }, [blueprints, blueprintQuery, selectedSector]);
-
-  const selectedAiProvider = useMemo(
-    () => aiProviders.find((provider) => provider.id === modelProviderId) || null,
-    [aiProviders, modelProviderId]
-  );
-
-  const hasConfiguredAiProvider = Boolean(serverDefaultProvider || aiProviders.length > 0);
-  const creditsDisabled = Boolean(creditBalance?.disabled);
-
-  const simulationOutputs = useMemo(() => {
-    const results = runData?.nodeResults || [];
-    return Object.fromEntries(
-      results.map((result: NodeExecutionResult) => [result.nodeId, JSON.stringify(result.outputs)])
-    );
-  }, [runData]);
-
-  const currentGraph = useMemo(
-    () =>
-      makeGraph({
-        name: workflowName,
-        description: workflowDescription,
-        nodes,
-        edges,
-      }),
-    [workflowName, workflowDescription, nodes, edges]
-  );
+  }, [activePack, query]);
 
   useEffect(() => {
-    if (selectedNode) {
-      setInspectorTab("node");
-      return;
-    }
-
-    setInspectorTab((current) => (current === "node" ? "workflow" : current));
-  }, [selectedNode]);
-
-  const saveLocalDraft = useCallback(
-    (nextWorkflowId = workflowId) => {
-      if (typeof window === "undefined") return;
-      localStorage.setItem(
-        LOCAL_DRAFT_KEY,
-        JSON.stringify({
-          workflowId: nextWorkflowId,
-          workflowName,
-          workflowDescription,
-          sourceBlueprintSlug,
-          graph: currentGraph,
-          scenario,
-          scenarioPrompt,
-          benchmarkModels,
-          promptInput,
-          modelProviderId,
-          modelId,
-          viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
-          updatedAt: new Date().toISOString(),
-        })
-      );
-    },
-    [
-      benchmarkModels,
-      currentGraph,
-      modelId,
-      modelProviderId,
-      promptInput,
-      scenario,
-      scenarioPrompt,
-      sourceBlueprintSlug,
-      workflowDescription,
-      workflowId,
-      workflowName,
-    ]
-  );
-
-  const fetchCreditBalance = useCallback(async () => {
-    if (!session?.user) return;
-    try {
-      const res = await fetch("/api/credits/balance");
-      if (res.ok) {
-        setCreditBalance(await res.json());
-      }
-    } catch (error) {
-      console.error("Failed to load credit balance", error);
-    }
-  }, [session?.user]);
-
-  useEffect(() => {
-    if (!queryWorkflowId && isHydrated && !hasSeenEnginePrompt) {
-      setHasSeenEnginePrompt(true);
-      setShowEngineOnboarding(true);
-    }
-  }, [queryWorkflowId, isHydrated, hasSeenEnginePrompt]);
-
-  const loadAiProviders = useCallback(async () => {
-    if (!session?.user) {
-      setAiProviders([]);
-      setServerDefaultProvider(null);
-      return;
-    }
-
-    try {
-      const res = await fetch("/api/ai/providers");
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to load AI providers");
-      }
-
-      const providers = (data.providers || []) as PublicAIProvider[];
-      setAiProviders(providers);
-      setServerDefaultProvider(data.serverDefaultProvider || null);
-
-      if (!data.serverDefaultProvider && !modelProviderId && providers[0]) {
-        setModelProviderId(providers[0].id);
-        setModelId(providers[0].defaultModelId || "google/gemma-4-26b-a4b-it");
-      }
-
-      if (!data.serverDefaultProvider && providers.length === 0) {
-        setIsProviderSetupOpen(true);
-      }
-    } catch (error) {
-      console.error("Failed to load AI providers", error);
-    }
-  }, [modelProviderId, session?.user]);
-
-  const loadBlueprintCatalog = useCallback(async () => {
-    try {
-      const query = new URLSearchParams();
-      if (blueprintQuery.trim()) query.set("q", blueprintQuery.trim());
-      if (selectedSector !== "all") query.set("sector", selectedSector);
-
-      const res = await fetch(`/api/templates/catalog?${query.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setBlueprints(data.blueprints || []);
-      }
-    } catch (error) {
-      console.error("Failed to load blueprints", error);
-    }
-  }, [blueprintQuery, selectedSector]);
-
-  const applyGraph = useCallback((graph: WorkflowGraph, options?: { sourceBlueprintSlug?: string }) => {
-    setNodes(graph.nodes as FlowNode[]);
-    setEdges(graph.edges as FlowEdge[]);
-    setWorkflowName(graph.metadata.name || "Untitled Workflow");
-    setWorkflowDescription(graph.metadata.description || "");
-    setSourceBlueprintSlug(options?.sourceBlueprintSlug || "");
-    setSelectedNode(null);
-    setRunData(null);
-    setAutosaveStatus("Local draft updated");
-  }, [setEdges, setNodes]);
-
-  const handleNewWorkflow = useCallback(() => {
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-      autosaveTimerRef.current = null;
-    }
-
-    skipNextAutosaveRef.current = true;
-    setWorkflowId("");
-    setWorkflowName("Untitled Workflow");
-    setWorkflowDescription("");
-    setSourceBlueprintSlug("");
-    setNodes([]);
-    setEdges([]);
-    setSelectedNode(null);
-    setRunData(null);
-    setPromptInput("");
-    setScenario(defaultScenario);
-    setScenarioPrompt("");
-    setInspectorTab("workflow");
-    setLibraryTab("nodes");
-    setAutosaveStatus("New blank workflow");
-
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(LOCAL_DRAFT_KEY);
-      window.history.replaceState(null, "", "/builder");
-    }
-
-    toast.success("Started a blank workflow");
-  }, [setEdges, setNodes]);
-
-  const loadWorkflow = useCallback(
-    async (id: string) => {
-      try {
-        const res = await fetch(`/api/workflows/${id}`);
-        if (!res.ok) {
-          throw new Error("Failed to load workflow");
-        }
-
-        const workflow = await res.json();
-        const graph = workflow.graph || makeGraph({
-          name: workflow.name,
-          description: workflow.description,
-          nodes: workflow.nodes || [],
-          edges: workflow.edges || [],
-        });
-
-        applyGraph(graph, { sourceBlueprintSlug: workflow.sourceBlueprintSlug });
-        setWorkflowId(workflow._id);
-        setAutosaveStatus("Cloud workflow loaded");
-      } catch (error) {
-        console.error(error);
-        toast.error("Failed to load workflow");
-      } finally {
-        setIsHydrated(true);
-      }
-    },
-    [applyGraph]
-  );
-
-  useEffect(() => {
-    loadBlueprintCatalog();
-  }, [loadBlueprintCatalog]);
-
-  useEffect(() => {
-    fetchCreditBalance();
-  }, [fetchCreditBalance]);
-
-  useEffect(() => {
-    loadAiProviders();
-  }, [loadAiProviders]);
-
-  useEffect(() => {
-    if (queryWorkflowId) {
-      loadWorkflow(queryWorkflowId);
-      return;
-    }
-
-    if (typeof window !== "undefined") {
-      const draft = localStorage.getItem(LOCAL_DRAFT_KEY);
-      if (draft) {
+    if (!workflowIdFromUrl) {
+      const raw = localStorage.getItem(LOCAL_DRAFT_KEY);
+      if (raw) {
         try {
-          const parsed = JSON.parse(draft) as LocalDraft;
-          if (parsed.graph) {
-            applyGraph(parsed.graph, { sourceBlueprintSlug: parsed.sourceBlueprintSlug });
-          }
-          setWorkflowId(parsed.workflowId || "");
-          setWorkflowName(parsed.workflowName || "Untitled Workflow");
-          setWorkflowDescription(parsed.workflowDescription || "");
-          setSourceBlueprintSlug(parsed.sourceBlueprintSlug || "");
-          setScenario(parsed.scenario || defaultScenario);
-          setScenarioPrompt(parsed.scenarioPrompt || "");
-          setBenchmarkModels(parsed.benchmarkModels || benchmarkModels);
-          setPromptInput(parsed.promptInput || "");
-          setModelProviderId(parsed.modelProviderId || "");
-          setModelId(parsed.modelId || "google/gemma-4-26b-a4b-it");
-          setAutosaveStatus("Recovered local draft");
-        } catch (error) {
-          console.error("Failed to restore local draft", error);
+          const draft = JSON.parse(raw) as { name?: string; description?: string; nodes?: FlowNode[]; edges?: FlowEdge[] };
+          setWorkflowName(draft.name || "Backend Workflow");
+          setWorkflowDescription(draft.description || "");
+          setNodes(draft.nodes || starterNodes);
+          setEdges(draft.edges || starterEdges);
+        } catch {
+          localStorage.removeItem(LOCAL_DRAFT_KEY);
         }
       }
     }
+  }, [setEdges, setNodes, workflowIdFromUrl]);
 
-    setIsHydrated(true);
-  }, [applyGraph, benchmarkModels, loadWorkflow, queryWorkflowId]);
+  useEffect(() => {
+    if (workflowIdFromUrl) {
+      fetch(`/api/workflows/${workflowIdFromUrl}`)
+        .then((response) => response.json())
+        .then((workflow) => {
+          if (workflow.error) throw new Error(workflow.error);
+          setWorkflowId(workflow._id || workflowIdFromUrl);
+          setWorkflowName(workflow.name || workflow.graph?.metadata?.name || "Backend Workflow");
+          setWorkflowDescription(workflow.description || workflow.graph?.metadata?.description || "");
+          setNodes((workflow.graph?.nodes || workflow.nodes || []) as FlowNode[]);
+          setEdges((workflow.graph?.edges || workflow.edges || []) as FlowEdge[]);
+          setLastSavedAt(workflow.updatedAt ? `Saved ${new Date(workflow.updatedAt).toLocaleTimeString()}` : "Saved");
+        })
+        .catch((error) => toast.error(error.message || "Failed to load workflow"));
+    }
+  }, [setEdges, setNodes, workflowIdFromUrl]);
 
-  const ensureCloudWorkflow = useCallback(async () => {
+  useEffect(() => {
+    if (!workflowId) {
+      localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({ name: workflowName, description: workflowDescription, nodes, edges }));
+    }
+  }, [edges, nodes, workflowDescription, workflowId, workflowName]);
+
+  const onConnect = useCallback((connection: Connection) => {
+    setEdges((current) => addEdge({ ...connection, animated: true }, current));
+  }, [setEdges]);
+
+  const addNode = (type: string) => {
+    const definition = NODE_DEFINITIONS.find((item) => item.type === type);
+    const id = `${type}-${Date.now()}`;
+    const column = nodes.length % 4;
+    const row = Math.floor(nodes.length / 4);
+    setNodes((current) => [
+      ...current,
+      {
+        id,
+        type,
+        position: { x: 80 + column * 320, y: 80 + row * 180 },
+        data: { ...getDefaultNodeData(type), label: definition?.title || type },
+      },
+    ]);
+  };
+
+  const addCustomNode = () => {
+    const label = customNodeName.trim() || "Custom Backend Node";
+    const description = customNodeDescription.trim() || "Custom node with user-defined behavior, dependencies, and failure modes.";
+    const id = `custom-${Date.now()}`;
+    const column = nodes.length % 4;
+    const row = Math.floor(nodes.length / 4);
+    setNodes((current) => [
+      ...current,
+      {
+        id,
+        type: "custom",
+        position: { x: 80 + column * 320, y: 80 + row * 180 },
+        data: {
+          label,
+          description,
+          node_role: customNodeRole.trim() || "custom_operation",
+          inputs: "default",
+          outputs: customNodeOutputs.trim() || "default",
+          dependencies: customNodeDependencies.trim(),
+          failure_modes: customNodeFailureModes.trim() || "validation_error\ntimeout\ndependency_error",
+          review_rules: "Document ownership, retries, idempotency, observability, and data contracts.",
+        },
+      },
+    ]);
+    setCustomNodeName("");
+    setCustomNodeDescription("");
+    setCustomNodeDependencies("");
+    setCustomNodeOutputs("");
+    setCustomNodeFailureModes("validation_error\ntimeout\ndependency_error");
+    logToConsole("success", `Custom node added: ${label}.`);
+  };
+
+  const updateNodeData = (id: string, data: Record<string, unknown>) => {
+    setNodes((current) =>
+      current.map((node) => {
+        if (node.id !== id) return node;
+        if (data.__replace__) return { ...node, data: data.__replace__ as Record<string, unknown> };
+        const updated = { ...node, data: { ...node.data, ...data } };
+        setSelectedNode(updated);
+        return updated;
+      })
+    );
+  };
+
+  const saveWorkflow = async () => {
     if (!session?.user) {
-      setShowLoginPrompt(true);
-      return null;
+      toast.error("Sign in or continue as guest before saving.");
+      router.push("/login");
+      return;
     }
-
-    if (workflowId) {
-      return workflowId;
-    }
-
     setIsSaving(true);
     try {
-      const res = await fetch("/api/workflows", {
-        method: "POST",
+      const response = await fetch(workflowId ? `/api/workflows/${workflowId}` : "/api/workflows", {
+        method: workflowId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: workflowName,
-          description: workflowDescription,
-          graph: currentGraph,
-          viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
-          sourceBlueprintSlug,
-        }),
+        body: JSON.stringify({ name: workflowName, description: workflowDescription, graph, nodes: graph.nodes, edges: graph.edges, lifecycle: validation.length > 0 ? "draft" : "configured" }),
       });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Failed to create workflow");
-      }
-
-      const workflow = await res.json();
-      setWorkflowId(workflow._id);
-      saveLocalDraft(workflow._id);
-      setAutosaveStatus("Cloud workflow created");
-      await fetchCreditBalance();
-      return workflow._id as string;
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Save failed");
+      const id = payload._id || payload.workflowId || workflowId;
+      setWorkflowId(id);
+      setLastSavedAt(`Saved ${new Date().toLocaleTimeString()}`);
+      localStorage.removeItem(LOCAL_DRAFT_KEY);
+      toast.success("Workflow saved");
+      if (!workflowId && id) router.replace(`/builder?id=${id}`);
     } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Failed to save workflow");
-      return null;
+      toast.error(error instanceof Error ? error.message : "Save failed");
     } finally {
       setIsSaving(false);
     }
-  }, [
-    currentGraph,
-    fetchCreditBalance,
-    saveLocalDraft,
-    session?.user,
-    sourceBlueprintSlug,
-    workflowDescription,
-    workflowId,
-    workflowName,
-  ]);
+  };
 
-  const persistCloudWorkflow = useCallback(async () => {
-    if (!session?.user || !workflowId) return;
-
+  const runReview = async () => {
+    setActiveStage("review");
+    setActiveModal("review");
+    setIsProcessing(true);
+    logToConsole("info", "Review started. Checking architecture completeness, security, reliability, data flow, and observability.");
     try {
-      setAutosaveStatus("Saving to cloud...");
-      const res = await fetch(`/api/workflows/${workflowId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: workflowName,
-          description: workflowDescription,
-          graph: currentGraph,
-          viewport: reactFlowInstanceRef.current?.getViewport?.() || DEFAULT_VIEWPORT,
-          sourceBlueprintSlug,
-          lifecycle: "draft",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Cloud autosave failed");
-      }
-
-      setAutosaveStatus("Cloud autosaved");
-    } catch (error) {
-      console.error(error);
-      setAutosaveStatus("Cloud autosave failed");
-    }
-  }, [currentGraph, session?.user, sourceBlueprintSlug, workflowDescription, workflowId, workflowName]);
-
-  useEffect(() => {
-    if (!isHydrated) return;
-
-    if (skipNextAutosaveRef.current) {
-      skipNextAutosaveRef.current = false;
-      return;
-    }
-
-    saveLocalDraft();
-    setAutosaveStatus(session?.user && workflowId ? "Queued cloud autosave" : "Local draft autosaved");
-
-    if (autosaveTimerRef.current) {
-      clearTimeout(autosaveTimerRef.current);
-    }
-
-    autosaveTimerRef.current = setTimeout(() => {
-      if (session?.user && workflowId) {
-        persistCloudWorkflow();
-      }
-    }, 1200);
-
-    return () => {
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
-      }
-    };
-  }, [currentGraph, isHydrated, persistCloudWorkflow, saveLocalDraft, session?.user, workflowId]);
-
-  const onConnect = useCallback(
-    (connection: Connection) =>
-      setEdges((currentEdges) =>
-        addEdge(
-          {
-            ...connection,
-            id: `${connection.source}-${connection.sourceHandle || "default"}-${connection.target}-${connection.targetHandle || "default"}-${Date.now()}`,
-            animated: true,
-          },
-          currentEdges
-        )
-      ),
-    [setEdges]
-  );
-
-  const updateNodeData = useCallback(
-    (nodeId: string, newData: Record<string, unknown>) => {
-      setNodes((currentNodes) =>
-        currentNodes.map((node) =>
-          node.id === nodeId
-            ? {
-                ...node,
-                data:
-                  "__replace__" in newData
-                    ? (newData.__replace__ as Record<string, unknown>)
-                    : { ...node.data, ...newData },
-              }
-            : node
-        )
+      const localResult = runWorkflowReview(graph);
+      setReviewResult(localResult);
+      logToConsole(
+        localResult.status === "blocked" ? "warning" : "success",
+        `Review finished with ${localResult.issues.length} findings and ${localResult.scores.overall}/100 overall score.`
       );
-      setSelectedNode((currentSelected) =>
-        currentSelected?.id === nodeId
-          ? {
-              ...currentSelected,
-              data:
-                "__replace__" in newData
-                  ? (newData.__replace__ as Record<string, unknown>)
-                  : { ...currentSelected.data, ...newData },
-            }
-          : currentSelected
-      );
-    },
-    [setNodes]
-  );
 
-  const handleDeleteNode = useCallback(
-    (nodeId: string) => {
-      setNodes((currentNodes) => currentNodes.filter((node) => node.id !== nodeId));
-      setEdges((currentEdges) =>
-        currentEdges.filter((edge) => edge.source !== nodeId && edge.target !== nodeId)
-      );
-      if (selectedNode?.id === nodeId) {
-        setSelectedNode(null);
-      }
-    },
-    [selectedNode?.id, setEdges, setNodes]
-  );
-
-  const handleEditNode = useCallback(
-    (nodeId: string) => {
-      const node = nodes.find((item) => item.id === nodeId);
-      if (node) {
-        setSelectedNode(node);
-      }
-    },
-    [nodes]
-  );
-
-  const handleSave = useCallback(async () => {
-    if (!session?.user) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem(PENDING_ACTION_KEY, "save");
-      }
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    const id = await ensureCloudWorkflow();
-    if (!id) return;
-    await persistCloudWorkflow();
-    toast.success("Workflow saved");
-  }, [ensureCloudWorkflow, persistCloudWorkflow, session?.user]);
-
-  const handleAiFeatureError = useCallback((error: unknown, fallback: string) => {
-    const message = error instanceof Error ? error.message : fallback;
-    if (
-      message.toLowerCase().includes("configure openrouter") ||
-      message.toLowerCase().includes("selected ai provider") ||
-      message.toLowerCase().includes("provider")
-    ) {
-      setLibraryTab("prompt");
-      setIsProviderSetupOpen(true);
-    }
-    toast.error(message);
-  }, []);
-
-  const runAction = useCallback(
-    async (path: string, action: "simulate" | "execute", idOverride?: string) => {
-      // 1. Graph Validation
-      if (currentGraph.nodes.length === 0) {
-        toast.error("Cannot execute an empty workflow.");
-        return;
-      }
-
-      const nodeIdsWithEdges = new Set([
-        ...currentGraph.edges.map(e => e.source),
-        ...currentGraph.edges.map(e => e.target)
-      ]);
-
-      const isolatedNodes = currentGraph.nodes.filter(n => !nodeIdsWithEdges.has(n.id) && currentGraph.nodes.length > 1);
-      
-      if (isolatedNodes.length > 0) {
-        toast.error(`Workflow blocked: Detected ${isolatedNodes.length} isolated nodes. Connect all nodes before ${action}.`);
-        return;
-      }
-
-      const targetIds = new Set(currentGraph.edges.map(e => e.target));
-      const ingressNodes = currentGraph.nodes.filter(n => !targetIds.has(n.id));
-      
-      if (currentGraph.nodes.length > 1 && ingressNodes.length === 0) {
-        toast.error(`Workflow blocked: No entry point found. Please fix circular dependencies before ${action}.`);
-        return;
-      }
-
-      const targetWorkflowId = idOverride || (await ensureCloudWorkflow());
-      if (!targetWorkflowId) return;
-
-      const res = await fetch(`/api/workflows/${targetWorkflowId}/${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: workflowName,
-          description: workflowDescription,
-          graph: currentGraph,
-          scenario,
-          scenarioPrompt,
-          modelProviderId: modelProviderId || undefined,
-          modelId,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || `Failed to ${action} workflow`);
-      }
-
-      setRunData(data);
-      setIsRunPanelOpen(true);
-      await fetchCreditBalance();
-      if (data.summary?.status === "blocked") {
-        toast.warning("Run blocked by missing setup. Open the trace for details.");
-      } else if (data.summary?.status === "failed") {
-        toast.error(action === "simulate" ? "Scenario evaluation failed" : "Live execution failed");
+      if (workflowId) {
+        const response = await fetch(`/api/workflows/${workflowId}/review`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ graph }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Review persistence failed");
+        if (payload.result) setReviewResult(payload.result);
+        logToConsole("success", "Review result saved to this workflow.");
       } else {
-        toast.success(action === "simulate" ? "Scenario evaluation complete" : "Live execution complete");
+        logToConsole("info", "Workflow is unsaved. Review ran in the local sandbox without saving the workflow.");
       }
-    },
-    [
-      currentGraph,
-      ensureCloudWorkflow,
-      fetchCreditBalance,
-      modelId,
-      modelProviderId,
-      scenario,
-      scenarioPrompt,
-      workflowDescription,
-      workflowName,
-    ]
-  );
 
-  const handleSimulation = useCallback(async (idOverride?: string) => {
-    try {
-      setIsSimulating(true);
-      await runAction("simulate", "simulate", idOverride);
+      toast.success("Review complete");
     } catch (error) {
-      console.error(error);
-      handleAiFeatureError(error, "Scenario evaluation failed");
-    } finally {
-      setIsSimulating(false);
-    }
-  }, [handleAiFeatureError, runAction]);
-
-  const handleExecution = useCallback(async (idOverride?: string) => {
-    try {
-      setIsExecuting(true);
-      await runAction("execute", "execute", idOverride);
-    } catch (error) {
-      console.error(error);
-      handleAiFeatureError(error, "Execution failed");
-    } finally {
-      setIsExecuting(false);
-    }
-  }, [handleAiFeatureError, runAction]);
-
-  const handleAnalyze = useCallback(async () => {
-    try {
-      setIsAnalyzing(true);
-      const res = await fetch("/api/architect/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          graph: currentGraph,
-          modelProviderId: modelProviderId || undefined,
-          modelId,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Analysis failed");
-      }
-      setRunData({
-        mode: "analysis",
-        analysis: data,
-        summary: {
-          status: "completed",
-          latencyMs: 0,
-          tokenUsage: 0,
-          cost: 0,
-          warnings: data.warnings || [],
-        },
-        nodeResults: [],
-      });
-      setIsRunPanelOpen(true);
-    } catch (error) {
-      console.error(error);
-      handleAiFeatureError(error, "Analysis failed");
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [currentGraph, handleAiFeatureError, modelId, modelProviderId]);
-
-  const handleBenchmark = useCallback(async (idOverride?: string) => {
-    const models = benchmarkModels
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean);
-
-    if (models.length < 2) {
-      toast.error("Add at least two models to benchmark");
-      return;
-    }
-
-    if (!currentGraph.nodes.some((node) => node.type === "llmNode")) {
-      toast.error("Benchmarking requires at least one LLM node in the graph");
-      return;
-    }
-
-    if (!session?.user) {
-      if (typeof window !== "undefined") {
-        localStorage.setItem(PENDING_ACTION_KEY, "benchmark");
-      }
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    const targetWorkflowId = idOverride || (await ensureCloudWorkflow());
-    if (!targetWorkflowId) return;
-
-    try {
-      setIsBenchmarking(true);
-      const variants = models.map((model, index) => ({
-        variantId: model,
-        label: `Variant ${index + 1}`,
-        graph: {
-          ...currentGraph,
-          metadata: {
-            ...currentGraph.metadata,
-            name: `${workflowName} (${model})`,
-          },
-          nodes: currentGraph.nodes.map((node) =>
-            node.type === "llmNode"
-              ? {
-                  ...node,
-                  data: {
-                    ...node.data,
-                    modelId: model,
-                  },
-                }
-              : node
-          ),
-        },
-      }));
-
-      const res = await fetch(`/api/workflows/${targetWorkflowId}/benchmarks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseGraph: currentGraph,
-          variants,
-          scenario,
-          modelProviderId: modelProviderId || undefined,
-          modelId,
-          scoringConfig: {
-            qualityMode: "llm_judge",
-          },
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Benchmark failed");
-      }
-
-      setRunData({
-        mode: "benchmark",
-        ...data,
-        summary: {
-          status: "completed",
-          latencyMs: Math.max(...((data.scores || []) as BenchmarkScore[]).map((score) => score.latencyMs), 0),
-          tokenUsage: ((data.scores || []) as BenchmarkScore[]).reduce((sum, score) => sum + (score.tokenUsage || 0), 0),
-          cost: Number((((data.scores || []) as BenchmarkScore[]).reduce((sum, score) => sum + (score.cost || 0), 0)).toFixed(4)),
-          warnings: [],
-        },
-        analysis: {
-          score: Math.round((data.confidence || 0) * 100),
-          feedback: `Winner: ${data.winnerVariantId || "n/a"}`,
-          flaws: [],
-          suggestedScenarios: [],
-        },
-      });
-      setIsRunPanelOpen(true);
-      await fetchCreditBalance();
-      toast.success("Benchmark completed");
-    } catch (error) {
-      console.error(error);
-      handleAiFeatureError(error, "Benchmark failed");
-    } finally {
-      setIsBenchmarking(false);
-    }
-  }, [
-    benchmarkModels,
-    currentGraph,
-    ensureCloudWorkflow,
-    fetchCreditBalance,
-    handleAiFeatureError,
-    modelId,
-    modelProviderId,
-    scenario,
-    session?.user,
-    workflowName,
-  ]);
-
-  useEffect(() => {
-    if (!resumeAfterLogin || status !== "authenticated") return;
-
-    const pendingAction = typeof window !== "undefined" ? localStorage.getItem(PENDING_ACTION_KEY) : null;
-
-    async function resumePendingAction() {
-      if (!pendingAction) return;
-
-      const id = await ensureCloudWorkflow();
-      if (!id) return;
-
-      localStorage.removeItem(PENDING_ACTION_KEY);
-      setShowLoginPrompt(false);
-
-      if (pendingAction === "save") {
-        toast.success("Workflow saved to your workspace");
-      } else if (pendingAction === "simulate") {
-        await handleSimulation(id);
-      } else if (pendingAction === "execute") {
-        await handleExecution(id);
-      } else if (pendingAction === "benchmark") {
-        await handleBenchmark(id);
-      }
-    }
-
-    resumePendingAction();
-  }, [ensureCloudWorkflow, handleBenchmark, handleExecution, handleSimulation, resumeAfterLogin, status]);
-
-  const handleDeleteWorkflow = useCallback(async () => {
-    if (!workflowId || !session?.user) {
-      toast.error("Only saved workflows can be deleted");
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/workflows/${workflowId}`, {
-        method: "DELETE",
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Delete failed");
-      }
-
-      setWorkflowId("");
-      setWorkflowName("Untitled Workflow");
-      setWorkflowDescription("");
-      setSourceBlueprintSlug("");
-      setNodes([]);
-      setEdges([]);
-      setSelectedNode(null);
-      setRunData(null);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem(LOCAL_DRAFT_KEY);
-      }
-      toast.success("Workflow deleted");
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Delete failed");
-    }
-  }, [session?.user, workflowId, setEdges, setNodes]);
-
-  const handleProviderTypeChange = useCallback((type: AIProviderType) => {
-    setProviderForm((current) => ({
-      ...current,
-      type,
-      name:
-        type === "openrouter"
-          ? "OpenRouter"
-          : type === "unsloth"
-            ? "Unsloth Endpoint"
-            : "Custom OpenAI Provider",
-      baseUrl: type === "openrouter" ? "" : current.baseUrl,
-      defaultModelId:
-        type === "openrouter"
-          ? "google/gemma-4-26b-a4b-it"
-          : current.defaultModelId || "google/gemma-4-26b-a4b-it",
-    }));
-  }, []);
-
-  const handleCreateProvider = useCallback(async (testAfterCreate = false) => {
-    if (!session?.user) {
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    try {
-      if (providerForm.type !== "unsloth" && !providerForm.apiKey.trim()) {
-        throw new Error("API key is required for this provider.");
-      }
-
-      if (providerForm.type !== "openrouter" && !providerForm.baseUrl.trim()) {
-        throw new Error("Base URL is required for this provider.");
-      }
-
-      setIsSavingProvider(true);
-      const res = await fetch("/api/ai/providers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(providerForm),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to save AI provider");
-      }
-
-      const provider = data.provider as PublicAIProvider;
-      setAiProviders((current) => [provider, ...current.filter((entry) => entry.id !== provider.id)]);
-      setModelProviderId(provider.id);
-      setModelId(provider.defaultModelId || providerForm.defaultModelId);
-      setProviderForm((current) => ({ ...current, apiKey: "" }));
-      setIsProviderSetupOpen(false);
-      toast.success("AI provider saved");
-
-      if (testAfterCreate) {
-        setIsTestingProvider(true);
-        const testRes = await fetch(`/api/ai/providers/${provider.id}/test`, { method: "POST" });
-        const testData = await testRes.json().catch(() => ({}));
-        if (!testRes.ok) {
-          throw new Error(testData.error || "Provider test failed");
-        }
-        await loadAiProviders();
-        toast.success("Provider test passed");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Failed to save AI provider");
-      setIsProviderSetupOpen(true);
-    } finally {
-      setIsSavingProvider(false);
-      setIsTestingProvider(false);
-    }
-  }, [loadAiProviders, providerForm, session?.user]);
-
-  const handleTestSelectedProvider = useCallback(async () => {
-    if (!modelProviderId) {
-      toast.error("Select a saved provider to test");
-      return;
-    }
-
-    try {
-      setIsTestingProvider(true);
-      const res = await fetch(`/api/ai/providers/${modelProviderId}/test`, { method: "POST" });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Provider test failed");
-      }
-      await loadAiProviders();
-      toast.success("Provider test passed");
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Provider test failed");
-    } finally {
-      setIsTestingProvider(false);
-    }
-  }, [loadAiProviders, modelProviderId]);
-
-  const handleCompilePrompt = useCallback(async () => {
-    if (!promptInput.trim()) {
-      toast.error("Describe the system you want to build");
-      return;
-    }
-
-    if (!session?.user) {
-      setShowLoginPrompt(true);
-      return;
-    }
-
-    try {
-      setIsCompilingPrompt(true);
-      const res = await fetch("/api/prompt/compile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: promptInput,
-          modelProviderId: modelProviderId || undefined,
-          modelId,
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Prompt compile failed");
-      }
-
-      applyGraph(data.graph);
-      setLibraryTab("nodes");
-      await fetchCreditBalance();
-      setInspectorTab("workflow");
-      toast.success("Workflow generated on the canvas");
-    } catch (error) {
-      console.error(error);
-      const message = error instanceof Error ? error.message : "Prompt compile failed";
+      const message = error instanceof Error ? error.message : "Review failed";
       toast.error(message);
-      if (
-        message.toLowerCase().includes("configure openrouter") ||
-        message.toLowerCase().includes("selected ai provider") ||
-        message.toLowerCase().includes("provider")
-      ) {
-        setIsProviderSetupOpen(true);
-      }
+      logToConsole("error", message);
     } finally {
-      setIsCompilingPrompt(false);
+      setIsProcessing(false);
     }
-  }, [applyGraph, fetchCreditBalance, modelId, modelProviderId, promptInput, session?.user]);
+  };
 
-  const handleBlueprintApply = useCallback((blueprint: BlueprintRecord) => {
-    applyGraph(blueprint.graph, { sourceBlueprintSlug: blueprint.slug });
-    setSourceBlueprintSlug(blueprint.slug);
-    setLibraryTab("nodes");
-    toast.success(`Loaded blueprint: ${blueprint.name}`);
-  }, [applyGraph]);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-      const type = event.dataTransfer.getData("application/reactflow");
-      if (!type || !reactFlowInstanceRef.current) return;
-
-      const position = reactFlowInstanceRef.current.screenToFlowPosition({
-        x: event.clientX,
-        y: event.clientY,
+  const runSimulation = async () => {
+    setActiveStage("simulate");
+    setActiveModal("simulate");
+    setIsProcessing(true);
+    logToConsole("info", "Simulation started with the Happy Path scenario.");
+    try {
+      const localResult = runWorkflowSimulation(graph, "happy_path");
+      setSimulationResult(localResult);
+      localResult.trace.slice(0, 8).forEach((step) => {
+        logToConsole(step.status === "completed" ? "success" : step.status === "warning" ? "warning" : "error", `${step.label}: ${step.message}`);
       });
+      logToConsole(
+        localResult.status === "completed" ? "success" : localResult.status === "warning" ? "warning" : "error",
+        `Simulation ${localResult.status}. ${localResult.summary}`
+      );
+      logToConsole("info", `Overall report: ${localResult.trace.length} trace steps, ${localResult.missingFallback.length} missing fallbacks, ${localResult.affectedDownstreamNodes.length} downstream impacts.`);
 
-      const newNode = {
-        id: `${type}-${Date.now()}`,
-        type,
-        position,
-        data: getDefaultNodeData(type),
-      };
+      if (workflowId) {
+        const response = await fetch(`/api/workflows/${workflowId}/simulate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ graph, scenarioId: "happy_path" }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Simulation persistence failed");
+        if (payload.result) setSimulationResult(payload.result);
+        logToConsole("success", "Simulation run saved to this workflow.");
+      } else {
+        logToConsole("info", "Workflow is unsaved. Simulation ran in the local sandbox without saving the workflow.");
+      }
 
-      setNodes((currentNodes) => currentNodes.concat(newNode as FlowNode));
-    },
-    [setNodes]
-  );
+      toast.success("Simulation complete");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Simulation failed";
+      toast.error(message);
+      logToConsole("error", message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-  const onDragStart = useCallback((event: React.DragEvent, type: string) => {
-    event.dataTransfer.setData("application/reactflow", type);
-    event.dataTransfer.effectAllowed = "move";
-  }, []);
+  const generateBuilderMermaid = async () => {
+    setActiveStage("mermaid");
+    setActiveModal("mermaid");
+    setIsProcessing(true);
+    logToConsole("info", "Mermaid generation started. Sanitizing node labels and graph edges.");
+    try {
+      let code = generateMermaid(graph);
+      const validationResult = validateMermaid(code);
+      if (!validationResult.valid) throw new Error(validationResult.errors.join(" "));
+      setMermaidCompilerMessage(`Compiled successfully. ${validationResult.warnings.length} warning(s).`);
 
-  const selectedNodeLabel = selectedNode
-    ? String(selectedNode.data?.label || selectedNode.type || "Selected node")
-    : null;
+      if (workflowId) {
+        const response = await fetch(`/api/workflows/${workflowId}/mermaid/generate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ graph }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Mermaid persistence failed");
+        code = payload.mermaid || payload.code || code;
+        logToConsole("success", "Mermaid diagram generated and saved to this workflow.");
+      } else {
+        logToConsole("info", "Workflow is unsaved. Mermaid was generated locally without saving the workflow.");
+      }
 
-  if (!isHydrated) {
-    return (
-      <div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center text-muted-foreground">
-        <FancyLoader text="Initializing production workspace..." />
-      </div>
-    );
-  }
+      setMermaidCode(code);
+      setMermaidDraft(code);
+      toast.success("Mermaid generated");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Mermaid generation failed";
+      toast.error(message);
+      logToConsole("error", message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const generateBuilderExport = async (type: ExportType = selectedExportType) => {
+    setActiveStage("export");
+    setActiveModal("export");
+    setSelectedExportType(type);
+    setIsProcessing(true);
+    const label = type === "developer_handoff" ? "Developer handoff" : type === "workflow_json" ? "Workflow JSON" : type === "simulation_report" ? "Simulation report" : type;
+    logToConsole("info", `${label} export started. Compiling deterministic graph artifacts.`);
+    try {
+      const content = generateExport(graph, type);
+      setExportContent(content);
+
+      if (workflowId) {
+        const response = await fetch(`/api/workflows/${workflowId}/export`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ type, graph }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || "Export persistence failed");
+        logToConsole("success", `${label} export saved to this workflow.`);
+      } else {
+        logToConsole("info", "Workflow is unsaved. Export was generated locally without saving the workflow.");
+      }
+
+      logToConsole("success", `${label} export generated and loaded into preview.`);
+      toast.success(`${label} generated`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Export failed";
+      toast.error(message);
+      logToConsole("error", message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const copyExportContent = async () => {
+    if (!exportContent) {
+      toast.error("Generate an export first.");
+      return;
+    }
+    await navigator.clipboard.writeText(exportContent);
+    logToConsole("success", "Export content copied to clipboard.");
+    toast.success("Export copied");
+  };
+
+  const compileMermaidDraft = () => {
+    setActiveStage("mermaid");
+    setActiveModal("mermaid");
+    const validationResult = validateMermaid(mermaidDraft);
+    if (validationResult.valid) {
+      setMermaidCode(mermaidDraft);
+      setMermaidCompilerMessage(`Compiled successfully. ${validationResult.warnings.length} warning(s).`);
+      logToConsole("success", "Mermaid compiler validated the diagram source.");
+      toast.success("Mermaid compiled");
+      return;
+    }
+    const message = validationResult.errors.join(" ");
+    setMermaidCompilerMessage(message);
+    logToConsole("error", `Mermaid compiler failed: ${message}`);
+    toast.error("Mermaid compile failed");
+  };
+
+  const stageStatus: Record<BuilderStage, "active" | "complete" | "pending"> = {
+    build: validation.length === 0 ? "complete" : "active",
+    review: reviewResult ? "complete" : "pending",
+    simulate: simulationResult ? "complete" : "pending",
+    mermaid: mermaidCode ? "complete" : "pending",
+    export: exportContent ? "complete" : "pending",
+  };
+
+  const consoleTone: Record<ConsoleLevel, string> = {
+    info: "text-slate-300",
+    success: "text-emerald-300",
+    warning: "text-amber-300",
+    error: "text-rose-300",
+  };
+
+  const stageDialogTitle: Record<Exclude<BuilderStage, "build">, string> = {
+    review: "Architecture Review",
+    simulate: "Simulation Report",
+    mermaid: "Mermaid Compiler",
+    export: "Export Center",
+  };
+
+  const stageDialogDescription: Record<Exclude<BuilderStage, "build">, string> = {
+    review: "Deterministic checks for completeness, security, reliability, scalability, observability, and operations.",
+    simulate: "Sandbox trace, impact summary, bottleneck estimate, and overall execution report.",
+    mermaid: "Generate, edit, compile, validate, and copy the workflow flowchart source.",
+    export: "Generate practical handoff artifacts from the current workflow graph.",
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden builder-shell text-foreground">
-      {/* ── Slim icon nav ── */}
-      <aside className="builder-surface-muted flex w-[56px] shrink-0 flex-col items-center justify-between border-r border-white/5 py-3">
-        <div className="space-y-4 flex flex-col items-center">
-          <Link href="/dashboard" title="Dashboard" className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500/15 text-sky-200 builder-accent-ring">
-            <BrainCircuit className="h-4 w-4" />
-          </Link>
-
-          <div className="space-y-1.5 flex flex-col items-center">
-            {workspaceNavItems.map((item) => {
-              const isActive = item.href === "/builder";
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  title={item.label}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-xl border transition-all duration-200",
-                    isActive
-                      ? "border-sky-400/30 bg-sky-500/14 text-sky-100"
-                      : "border-transparent bg-white/[0.03] text-muted-foreground hover:border-white/10 hover:bg-white/[0.06] hover:text-foreground"
-                  )}
-                >
-                  <item.icon className="h-3.5 w-3.5" />
-                </Link>
-              );
-            })}
+    <div className="builder-shell flex h-screen min-h-0 flex-col overflow-hidden text-[#F5F7FB]">
+      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-[#0A0D14]/90 px-4 backdrop-blur-xl">
+        <div className="flex min-w-0 items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-300" asChild>
+            <Link href="/dashboard"><ArrowLeft className="h-4 w-4" /></Link>
+          </Button>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#2F7BFF]/30 bg-[#2F7BFF]/10">
+            <Workflow className="h-4 w-4 text-[#6EA4FF]" />
+          </div>
+          <div className="min-w-0">
+            <input
+              className="h-6 w-[260px] max-w-[42vw] truncate bg-transparent text-sm font-semibold outline-none"
+              value={workflowName}
+              onChange={(event) => setWorkflowName(event.target.value)}
+            />
+            <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{lastSavedAt}</p>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runReview} disabled={isProcessing}>
+            {isProcessing && activeStage === "review" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-2 h-3.5 w-3.5" />} Review
+          </Button>
+          <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runSimulation} disabled={isProcessing}>
+            {isProcessing && activeStage === "simulate" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Play className="mr-2 h-3.5 w-3.5" />} Simulate
+          </Button>
+          <Button variant="outline" size="sm" className="hidden h-8 rounded-lg border-white/10 bg-white/[0.03] md:inline-flex" onClick={generateBuilderMermaid} disabled={isProcessing}>
+            {isProcessing && activeStage === "mermaid" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <GitBranch className="mr-2 h-3.5 w-3.5" />} Mermaid
+          </Button>
+          <Button variant="outline" size="sm" className="hidden h-8 rounded-lg border-white/10 bg-white/[0.03] md:inline-flex" onClick={() => generateBuilderExport("developer_handoff")} disabled={isProcessing}>
+            {isProcessing && activeStage === "export" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />} Export
+          </Button>
+          <Button size="sm" className="h-8 rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={saveWorkflow} disabled={isSaving}>
+            {isSaving ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-2 h-3.5 w-3.5" />} Save
+          </Button>
+        </div>
+      </header>
 
-        <div className="flex flex-col items-center gap-2 pb-1">
-          <div className="text-[9px] text-muted-foreground text-center leading-tight">
-            {session?.user
-              ? creditsDisabled
-                ? "open"
-                : `${creditBalance?.availableCredits ?? "--"}`
-              : "local"}
+      <div
+        className="grid min-h-0 flex-1 transition-[grid-template-columns]"
+        style={{ gridTemplateColumns: `${isLeftCollapsed ? "52px" : "280px"} minmax(0,1fr) ${isRightCollapsed ? "52px" : "320px"}` }}
+      >
+        <aside className="flex min-h-0 flex-col border-r border-white/10 bg-[#0A0D14]/78">
+          <div className="flex items-center justify-between border-b border-white/10 p-3">
+            {!isLeftCollapsed ? <p className="text-xs font-semibold text-white">Node Library</p> : null}
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-slate-400 hover:text-white" onClick={() => setIsLeftCollapsed((value) => !value)}>
+              {isLeftCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
           </div>
-          <Link href="/profile">
-            <Avatar className="h-8 w-8 border border-white/10">
-              <AvatarImage src={session?.user?.image || ""} />
-              <AvatarFallback className="bg-sky-500/10 text-sky-100 text-[10px]">
-                {session?.user?.name?.charAt(0)?.toUpperCase() || "G"}
-              </AvatarFallback>
-            </Avatar>
-          </Link>
-        </div>
-      </aside>
-
-      {/* ── Library panel (collapsible) ── */}
-      <aside className={cn("builder-surface-muted flex shrink-0 flex-col border-r border-white/5 transition-all duration-300 relative", libraryCollapsed ? "w-0 overflow-hidden" : "w-[260px]")}>
-        {/* Panel header */}
-        <div className="border-b border-white/5 px-3 py-3 flex items-center justify-between gap-2">
-          <Tabs value={libraryTab} onValueChange={setLibraryTab} className="flex-1 min-w-0">
-            <TabsList className="grid h-7 w-full grid-cols-3 rounded-xl border border-white/10 bg-black/20 p-0.5">
-              <TabsTrigger value="nodes" className="rounded-lg py-1 text-[11px]">Nodes</TabsTrigger>
-              <TabsTrigger value="blueprints" className="rounded-lg py-1 text-[11px]">Blueprints</TabsTrigger>
-              <TabsTrigger value="prompt" className="rounded-lg py-1 text-[11px]">Prompt</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <span className="text-[10px] text-muted-foreground shrink-0">{nodes.length}n</span>
-        </div>
-
-        <ScrollArea className="flex-1">
-          <div className="px-3 py-3 space-y-3">
-            {libraryTab === "nodes" ? (
-              <>
+          {isLeftCollapsed ? (
+            <div className="flex flex-1 flex-col items-center gap-3 py-3">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-[#6EA4FF]" onClick={() => setIsLeftCollapsed(false)}>
+                <Library className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 rounded-lg text-slate-400"
+                onClick={() => {
+                  setIsLeftCollapsed(false);
+                  setIsCustomNodeOpen(true);
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="border-b border-white/10 p-3">
                 <div className="relative">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    value={nodeQuery}
-                    onChange={(event) => setNodeQuery(event.target.value)}
-                    placeholder="Search nodes..."
-                    className="h-8 rounded-xl border-white/10 bg-black/20 pl-8 text-xs"
-                  />
+                  <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+                  <Input className="h-9 rounded-lg border-white/10 bg-black/20 pl-8 text-xs" placeholder="Search backend nodes" value={query} onChange={(event) => setQuery(event.target.value)} />
                 </div>
-
-                <div className="space-y-3 overflow-y-auto">
-                  {filteredNodeGroups.map((group) => (
-                    <section key={group.pack} className="space-y-1">
-                      <div className="flex items-center gap-1.5 px-1">
-                        <div className={cn("h-1.5 w-1.5 rounded-full", packAccentClasses[group.pack][0])} />
-                        <h3 className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          {formatModeLabel(group.pack)}
-                        </h3>
-                      </div>
-                      <div className="space-y-0.5">
-                        {group.items.map((definition, idx) => {
-                          const variantClass = packAccentClasses[group.pack][idx % packAccentClasses[group.pack].length];
-                          const IconComponent = (LucideIcons as any)[definition.icon] || LucideIcons.Box;
-                          return (
-                            <button
-                              key={definition.type}
-                              type="button"
-                              draggable
-                              onDragStart={(event) => onDragStart(event, definition.type)}
-                              className="group w-full rounded-xl px-2.5 py-2 text-left transition-all duration-150 hover:bg-white/[0.05] hover:border-sky-400/20 border border-transparent"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className={cn("flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border", variantClass)}>
-                                  <IconComponent className="w-3.5 h-3.5" />
-                                </div>
-                                <p className="truncate text-xs font-medium flex-1">{definition.title}</p>
-                                <Badge variant="outline" className="border-white/8 bg-transparent text-[9px] px-1.5 py-0 h-4 hidden group-hover:flex">
-                                  {definition.category}
-                                </Badge>
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              </>
-            ) : null}
-
-            {libraryTab === "blueprints" ? (
-              <>
-                <div className="space-y-2">
-                  <div className="relative">
-                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      value={blueprintQuery}
-                      onChange={(event) => setBlueprintQuery(event.target.value)}
-                      placeholder="Search blueprints..."
-                      className="h-8 rounded-xl border-white/10 bg-black/20 pl-8 text-xs"
-                    />
-                  </div>
-                  <Select value={selectedSector} onValueChange={(value) => setSelectedSector(value || "all")}>
-                    <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
-                      <SelectValue placeholder="All sectors" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {sectors.map((sector) => (
-                        <SelectItem key={sector} value={sector} className="text-xs">
-                          {sector === "all" ? "All sectors" : sector}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-1">
-                  {filteredBlueprints.map((blueprint) => (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {["all", ...NODE_PACK_ORDER].map((pack) => (
                     <button
-                      key={blueprint.slug}
-                      type="button"
-                      className="group w-full rounded-xl px-2.5 py-2.5 text-left transition-all duration-150 hover:bg-white/[0.05] border border-transparent hover:border-sky-400/20"
-                      onClick={() => handleBlueprintApply(blueprint)}
+                      key={pack}
+                      className={cn("rounded-md border px-2 py-1 text-[10px]", activePack === pack ? "border-[#2F7BFF]/40 bg-[#2F7BFF]/15 text-[#9EC0FF]" : "border-white/10 bg-white/[0.03] text-slate-400")}
+                      onClick={() => setActivePack(pack)}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-medium leading-snug truncate flex-1">{blueprint.name}</p>
-                        <Badge variant="outline" className="border-sky-400/20 bg-sky-500/8 text-sky-200 text-[9px] shrink-0 px-1.5 py-0 h-4">
-                          {blueprint.sector}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 line-clamp-1 text-[11px] leading-relaxed text-muted-foreground">
-                        {blueprint.description}
-                      </p>
+                      {pack === "all" ? "All" : getNodePackLabel(pack)}
                     </button>
                   ))}
                 </div>
-              </>
-            ) : null}
-
-            {libraryTab === "prompt" ? (
-              <div className="space-y-3">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">AI Configuration</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Select
-                      value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
-                      onValueChange={(value) => {
-                        if (!value) return;
-                        if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
-                          setModelProviderId("");
-                          setModelId(serverDefaultProvider?.defaultModelId || modelId);
-                        } else {
-                          const provider = aiProviders.find((entry) => entry.id === value);
-                          setModelProviderId(value);
-                          setModelId(provider?.defaultModelId || modelId);
-                        }
-                      }}
+              </div>
+              <ScrollArea className="min-h-0 flex-1">
+                <div className="space-y-2 p-3">
+                  <div className="rounded-lg border border-[#2F7BFF]/25 bg-[#2F7BFF]/10">
+                    <button
+                      type="button"
+                      className="flex w-full items-center justify-between gap-2 p-3 text-left"
+                      onClick={() => setIsCustomNodeOpen((value) => !value)}
                     >
-                      <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-[10px]">
-                        <SelectValue placeholder="Select Provider" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {serverDefaultProvider && (
-                          <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE} className="text-xs">
-                            Server: {serverDefaultProvider.name}
-                          </SelectItem>
-                        )}
-                        {aiProviders.map((provider) => (
-                          <SelectItem key={provider.id} value={provider.id} className="text-xs">
-                            {provider.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={modelId}
-                      onChange={(event) => setModelId(event.target.value)}
-                      placeholder="Model ID"
-                      className="h-8 rounded-xl border-white/10 bg-black/20 text-[10px]"
-                    />
+                      <div>
+                        <p className="text-xs font-semibold text-white">Custom Node</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-400">Define a backend component for this workflow.</p>
+                      </div>
+                      <ChevronRight className={cn("h-4 w-4 shrink-0 text-[#9EC0FF] transition-transform", isCustomNodeOpen && "rotate-90")} />
+                    </button>
+                    {isCustomNodeOpen ? (
+                      <div className="space-y-2 border-t border-[#2F7BFF]/20 p-3 pt-3">
+                        <Input className="h-8 rounded-md border-white/10 bg-black/20 text-xs" placeholder="Node name" value={customNodeName} onChange={(event) => setCustomNodeName(event.target.value)} />
+                        <Input className="h-8 rounded-md border-white/10 bg-black/20 text-xs" placeholder="Role, e.g. fraud_scoring_service" value={customNodeRole} onChange={(event) => setCustomNodeRole(event.target.value)} />
+                        <Textarea className="min-h-14 rounded-md border-white/10 bg-black/20 text-xs" placeholder="Description / behavior" value={customNodeDescription} onChange={(event) => setCustomNodeDescription(event.target.value)} />
+                        <Textarea className="min-h-14 rounded-md border-white/10 bg-black/20 text-xs" placeholder="Dependencies, one per line" value={customNodeDependencies} onChange={(event) => setCustomNodeDependencies(event.target.value)} />
+                        <Textarea className="min-h-14 rounded-md border-white/10 bg-black/20 text-xs" placeholder="Outputs, contracts, or emitted events" value={customNodeOutputs} onChange={(event) => setCustomNodeOutputs(event.target.value)} />
+                        <Textarea className="min-h-14 rounded-md border-white/10 bg-black/20 text-xs" placeholder="Failure modes, one per line" value={customNodeFailureModes} onChange={(event) => setCustomNodeFailureModes(event.target.value)} />
+                        <Button className="h-8 w-full rounded-md bg-[#2F7BFF] text-xs text-white hover:bg-[#5B96FF]" onClick={addCustomNode}>
+                          <Plus className="mr-2 h-3.5 w-3.5" /> Add Custom Node
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Automation Request</Label>
-                  <Textarea
-                    value={promptInput}
-                    onChange={(event) => setPromptInput(event.target.value)}
-                    placeholder="Describe the system you want to build..."
-                    className="min-h-[160px] rounded-2xl border-white/10 bg-black/20 text-xs"
-                  />
-                </div>
-
-                <Button className="w-full rounded-xl h-8 text-xs" onClick={handleCompilePrompt} disabled={isCompilingPrompt || (!serverDefaultProvider && aiProviders.length === 0)}>
-                  {isCompilingPrompt ? <Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> : <BrainCircuit className="mr-1.5 h-3 w-3" />}
-                  {creditsDisabled ? "Generate workflow" : "Generate workflow (1 credit)"}
-                </Button>
-                <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5 text-[10px] leading-relaxed text-muted-foreground">
-                  Describe {"->"} Generate {"->"} Review {"->"} Configure {"->"} Run Test {"->"} AI Audit {"->"} Scenario Evaluation {"->"} Live Execute {"->"} Report
-                </div>
-              </div>
-            ) : null}
-          </div>
-        </ScrollArea>
-      </aside>
-
-      <section className="flex min-w-0 flex-1 flex-col">
-        {/* ── Compact single-row header ── */}
-        <header className="builder-surface-muted border-b border-white/5 px-4 py-2.5 flex items-center gap-3">
-          {/* Left: collapse toggle + back + name */}
-          <button
-            onClick={() => setLibraryCollapsed((c) => !c)}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground transition-colors"
-            title={libraryCollapsed ? "Show library" : "Hide library"}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5" />
-          </button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg border border-white/10 bg-white/[0.03] shrink-0" asChild>
-            <Link href="/templates"><ArrowLeft className="h-3.5 w-3.5" /></Link>
-          </Button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-2">
-              <Input
-                value={workflowName}
-                onChange={(event) => setWorkflowName(event.target.value)}
-                className="h-7 w-auto max-w-[280px] border-none bg-transparent px-0 text-sm font-semibold text-white focus-visible:ring-0"
-              />
-              {sourceBlueprintSlug && (
-                <Badge className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0 text-[10px] text-sky-200 hidden sm:inline-flex">
-                  {sourceBlueprintSlug}
-                </Badge>
-              )}
-            </div>
-            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">
-              {autosaveStatus} · {nodes.length}n {edges.length}e
-            </p>
-          </div>
-
-          <div className="hidden min-w-0 items-center gap-1.5 2xl:flex">
-            {/* Cluttered AI provider inputs removed by design request */}
-          </div>
-
-          {/* Right: action buttons */}
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                "h-7 rounded-lg border px-2.5 text-xs",
-                hasConfiguredAiProvider
-                  ? "border-white/10 bg-white/[0.03]"
-                  : "border-amber-400/20 bg-amber-500/8 text-amber-100"
-              )}
-              onClick={() => setIsProviderSetupOpen(true)}
-            >
-              <KeyRound className="h-3.5 w-3.5" />
-              <span className="ml-1 hidden sm:inline">AI Provider</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleNewWorkflow}>
-              <FilePlus2 className="h-3.5 w-3.5" />
-              <span className="ml-1 hidden sm:inline">New</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleAnalyze} disabled={isAnalyzing}>
-              {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">AI Audit</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={() => handleBenchmark()} disabled={isBenchmarking}>
-              {isBenchmarking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">Evaluate</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={() => handleSimulation()} disabled={isSimulating}>
-              {isSimulating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">Run Test</span>
-            </Button>
-            <Button variant="ghost" size="sm" className="h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-              <span className="ml-1 hidden sm:inline">Save</span>
-            </Button>
-            <Button size="sm" className="h-7 rounded-lg bg-sky-500 text-slate-950 hover:bg-sky-400 px-3 text-xs" onClick={() => handleExecution()} disabled={isExecuting}>
-              {isExecuting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-              <span className="ml-1">Live Execute</span>
-            </Button>
-            {workflowId ? (
-              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-300" onClick={handleDeleteWorkflow}>
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            ) : null}
-            <button
-              onClick={() => setInspectorCollapsed((c) => !c)}
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-muted-foreground hover:text-foreground transition-colors"
-              title={inspectorCollapsed ? "Show inspector" : "Hide inspector"}
-            >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </header>
-
-        <div className="flex min-h-0 flex-1">
-          <main className="builder-grid-overlay relative min-w-0 flex-1 overflow-hidden">
-            <ReactFlow
-              nodes={nodes.map((node) => ({
-                ...node,
-                data: {
-                  ...node.data,
-                  onDelete: handleDeleteNode,
-                  onEdit: handleEditNode,
-                  simulatedOutput: simulationOutputs[node.id],
-                  isSimulating: isSimulating || isExecuting,
-                },
-              }))}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onInit={(instance) => {
-                reactFlowInstanceRef.current = instance;
-              }}
-              onDrop={onDrop}
-              onDragOver={(event) => {
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-              }}
-              onSelectionChange={(selection) => {
-                const nextNode = selection.nodes[0] || null;
-                setSelectedNode(nextNode);
-                if (nextNode) {
-                  setInspectorTab("node");
-                  setInspectorCollapsed(false);
-                }
-              }}
-              fitView
-              className="bg-transparent"
-            >
-              <Background variant={BackgroundVariant.Cross} gap={32} size={1} color="#94a3b8" className="opacity-[0.05]" />
-              <Controls className="overflow-hidden rounded-xl border border-white/10 bg-[#09101c]/90 shadow-lg" showInteractive={false} />
-              <MiniMap nodeColor="#12304d" maskColor="rgba(3,7,18,0.82)" className="!bottom-4 !right-4 !bg-[#09101c]/92 rounded-xl border border-white/10 shadow-lg" />
-            </ReactFlow>
-          </main>
-
-          {/* ── Inspector panel (collapsible) ── */}
-          <aside className={cn("builder-surface-muted flex shrink-0 flex-col border-l border-white/5 transition-all duration-300", inspectorCollapsed ? "w-0 overflow-hidden" : "w-[300px]")}>
-            <Tabs value={inspectorTab} onValueChange={setInspectorTab} className="flex min-h-0 flex-1 flex-col">
-              <div className="border-b border-white/5 px-3 py-3">
-                <TabsList className="grid h-7 w-full grid-cols-3 rounded-xl border border-white/10 bg-black/20 p-0.5">
-                  <TabsTrigger value="workflow" className="rounded-lg py-1 text-[11px]">Workflow</TabsTrigger>
-                  <TabsTrigger value="scenario" className="rounded-lg py-1 text-[11px]">Scenario</TabsTrigger>
-                  <TabsTrigger value="node" className="rounded-lg py-1 text-[11px]">
-                    {selectedNodeLabel ? selectedNodeLabel.slice(0, 8) : "Node"}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <ScrollArea className="flex-1">
-                <div className="px-3 py-3">
-                  <TabsContent value="workflow" className="m-0 space-y-3">
-                    <div>
-                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Description</Label>
-                      <Textarea
-                        value={workflowDescription}
-                        onChange={(event) => setWorkflowDescription(event.target.value)}
-                        placeholder="What does this system do?"
-                        className="mt-1.5 min-h-[100px] rounded-2xl border-white/10 bg-black/20 text-xs"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
-                        <p className="text-[10px] text-muted-foreground">Blueprint</p>
-                        <p className="mt-1 font-medium text-white truncate text-[11px]">{sourceBlueprintSlug || "Custom"}</p>
-                      </div>
-                      <div className="rounded-xl border border-white/8 bg-white/[0.03] p-2.5">
-                        <p className="text-[10px] text-muted-foreground">Nodes / Edges</p>
-                        <p className="mt-1 font-medium text-white text-[11px]">{nodes.length} / {edges.length}</p>
-                      </div>
-                    </div>
-
-                    {!session?.user && (
-                      <div className="rounded-xl border border-sky-400/20 bg-sky-500/8 p-3">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-sky-100">
-                          <ShieldCheck className="h-3.5 w-3.5 text-sky-300" />
-                          Sign in for cloud saves
+                  {filteredDefinitions.map((definition) => (
+                    <button
+                      key={definition.type}
+                      onClick={() => addNode(definition.type)}
+                      className="w-full rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-[#2F7BFF]/35 hover:bg-[#2F7BFF]/10"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-xs font-semibold text-white">{definition.title}</p>
+                          <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">{definition.description}</p>
                         </div>
-                        <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-                          GitHub / Google sign-in unlocks cloud save, provider vaults, test runs, audits, and live execution.
-                        </p>
+                        <Plus className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6EA4FF]" />
                       </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="scenario" className="m-0 space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Situation to test</Label>
-                      <Textarea
-                        value={scenarioPrompt}
-                        onChange={(event) => setScenarioPrompt(event.target.value)}
-                        placeholder="Example: Slack is down, database is slow, or the customer message contains PII."
-                        className="min-h-[92px] rounded-2xl border-white/10 bg-black/20 text-xs"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Traffic</Label>
-                        <Select
-                          value={scenario.trafficProfile}
-                          onValueChange={(value) =>
-                            setScenario((current) => ({
-                              ...current,
-                              trafficProfile: value as ScenarioDefinition["trafficProfile"],
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="single">Single</SelectItem>
-                            <SelectItem value="steady">Steady</SelectItem>
-                            <SelectItem value="burst">Burst</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Dependency</Label>
-                        <Select
-                          value={scenario.dependencyMode}
-                          onValueChange={(value) =>
-                            setScenario((current) => ({
-                              ...current,
-                              dependencyMode: value as ScenarioDefinition["dependencyMode"],
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="fixture">Fixture</SelectItem>
-                            <SelectItem value="safe_test">Safe Test</SelectItem>
-                            <SelectItem value="live">Live</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Failure</Label>
-                        <Select
-                          value={scenario.failureMode}
-                          onValueChange={(value) =>
-                            setScenario((current) => ({
-                              ...current,
-                              failureMode: value as ScenarioDefinition["failureMode"],
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="h-8 rounded-xl border-white/10 bg-black/20 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="latency_spike">Latency Spike</SelectItem>
-                            <SelectItem value="partial_outage">Partial Outage</SelectItem>
-                            <SelectItem value="dependency_timeout">Dep. Timeout</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Queue depth</Label>
-                        <Input
-                          type="number"
-                          value={scenario.queueDepth}
-                          onChange={(event) =>
-                            setScenario((current) => ({ ...current, queueDepth: Number(event.target.value) || 0 }))
-                          }
-                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Timeout (ms)</Label>
-                        <Input
-                          type="number"
-                          value={scenario.timeoutMs}
-                          onChange={(event) =>
-                            setScenario((current) => ({ ...current, timeoutMs: Number(event.target.value) || 0 }))
-                          }
-                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Benchmark models</Label>
-                        <Input
-                          value={benchmarkModels}
-                          onChange={(event) => setBenchmarkModels(event.target.value)}
-                          className="h-8 rounded-xl border-white/10 bg-black/20 text-xs"
-                          placeholder="gpt-4o,gpt-4.1-mini,..."
-                        />
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="node" className="m-0">
-                    <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
-                  </TabsContent>
+                      <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-slate-600">{definition.category}</p>
+                    </button>
+                  ))}
                 </div>
               </ScrollArea>
-            </Tabs>
-          </aside>
-        </div>
-      </section>
+            </>
+          )}
+        </aside>
 
-      <ExecutionPanel open={isRunPanelOpen} onOpenChange={setIsRunPanelOpen} runData={runData} />
-
-      <Dialog open={isProviderSetupOpen} onOpenChange={setIsProviderSetupOpen}>
-        <DialogContent className="sm:max-w-lg bg-card/95 border-white/10">
-          <DialogHeader>
-            <DialogTitle>AI Provider</DialogTitle>
-            <DialogDescription>
-              Configure OpenRouter, Unsloth, or a custom OpenAI-compatible endpoint for generation, audit, and evaluation.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 pt-2">
-            {hasConfiguredAiProvider ? (
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                <Select
-                  value={modelProviderId || SERVER_DEFAULT_PROVIDER_VALUE}
-                  onValueChange={(value) => {
-                    if (!value) return;
-                    if (value === SERVER_DEFAULT_PROVIDER_VALUE) {
-                      setModelProviderId("");
-                      setModelId(serverDefaultProvider?.defaultModelId || modelId);
-                      return;
-                    }
-
-                    const provider = aiProviders.find((entry) => entry.id === value);
-                    setModelProviderId(value);
-                    setModelId(provider?.defaultModelId || modelId);
-                  }}
-                >
-                  <SelectTrigger className="h-9 w-full rounded-xl border-white/10 bg-black/20 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {serverDefaultProvider ? (
-                      <SelectItem value={SERVER_DEFAULT_PROVIDER_VALUE}>
-                        Server default: {serverDefaultProvider.name}
-                      </SelectItem>
-                    ) : null}
-                    {aiProviders.map((provider) => (
-                      <SelectItem key={provider.id} value={provider.id}>
-                        {provider.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-9 rounded-xl border border-white/10 bg-white/[0.03] text-xs"
-                  onClick={handleTestSelectedProvider}
-                  disabled={!modelProviderId || isTestingProvider}
-                >
-                  {isTestingProvider ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                  Test
+        <main className="relative min-h-0">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            nodeTypes={nodeTypes}
+            fitView
+            onNodeClick={(_, node) => setSelectedNode(node)}
+            onPaneClick={() => setSelectedNode(null)}
+            className="bg-[#080C14]"
+          >
+            <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="rgba(120,150,255,0.16)" />
+            <MiniMap pannable zoomable className="!bg-[#101726] !border !border-white/10" />
+            <Controls className="!border-white/10 !bg-[#101726] !text-white" />
+          </ReactFlow>
+          <div className={cn("absolute bottom-4 left-4 right-4 rounded-lg border border-white/10 bg-[#0A0D14]/92 backdrop-blur-xl", isTerminalCollapsed ? "p-2" : "p-3")}>
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
+              <div>
+                <div className="flex items-center gap-2">
+                  <TerminalSquare className="h-3.5 w-3.5 text-[#6EA4FF]" />
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Terminal / Step Compiler</p>
+                </div>
+                {!isTerminalCollapsed ? <p className="mt-1 text-xs text-slate-300">{validation.length === 0 ? "Workflow has a complete baseline shape." : validation.join(" ")}</p> : null}
+              </div>
+              <div className="flex items-center gap-2">
+                {validation.length === 0 ? <CheckCircle2 className="h-4 w-4 text-emerald-300" /> : <AlertTriangle className="h-4 w-4 text-amber-300" />}
+                <span className="text-xs text-slate-400">{nodes.length} nodes / {edges.length} edges</span>
+                <Button variant="ghost" size="icon" className="pointer-events-auto h-7 w-7 rounded-md text-slate-400 hover:text-white" onClick={() => setIsTerminalCollapsed((value) => !value)}>
+                  {isTerminalCollapsed ? <ChevronLeft className="h-4 w-4 rotate-90" /> : <ChevronRight className="h-4 w-4 rotate-90" />}
                 </Button>
               </div>
+            </div>
+            {!isTerminalCollapsed ? (
+              <div className="mt-2 grid max-h-40 gap-2 overflow-y-auto md:grid-cols-2">
+                {consoleEntries.length === 0 ? (
+                  <p className="text-[11px] text-slate-600">No compiler output.</p>
+                ) : (
+                  consoleEntries.slice(0, 8).map((entry) => (
+                    <div key={entry.id} className="rounded-md border border-white/10 bg-white/[0.025] px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn("text-[10px] uppercase tracking-[0.16em]", consoleTone[entry.level])}>{entry.level}</span>
+                        <span className="text-[10px] text-slate-600">{entry.timestamp}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">{entry.message}</p>
+                    </div>
+                  ))
+                )}
+              </div>
             ) : null}
+          </div>
+        </main>
 
-            {(selectedAiProvider || serverDefaultProvider) && hasConfiguredAiProvider ? (
-              <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3 text-xs leading-relaxed text-muted-foreground">
-                <p className="truncate text-white/90">
-                  {(selectedAiProvider || serverDefaultProvider)?.type} · {(selectedAiProvider || serverDefaultProvider)?.defaultModelId}
-                </p>
-                {selectedAiProvider?.lastTestMessage ? (
-                  <p className="mt-1 line-clamp-2">{selectedAiProvider.lastTestMessage}</p>
+        <aside className="flex min-h-0 flex-col border-l border-white/10 bg-[#0A0D14]/78">
+          <div className="flex items-start justify-between gap-2 border-b border-white/10 p-3">
+            {!isRightCollapsed ? (
+              <div>
+                <p className="text-xs font-semibold text-white">Inspector</p>
+                <p className="mt-1 text-[11px] text-slate-500">Configure workflow metadata and selected node details.</p>
+              </div>
+            ) : null}
+            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-slate-400 hover:text-white" onClick={() => setIsRightCollapsed((value) => !value)}>
+              {isRightCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+            </Button>
+          </div>
+          {isRightCollapsed ? (
+            <div className="flex flex-1 flex-col items-center gap-3 py-3">
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-[#6EA4FF]" onClick={() => setIsRightCollapsed(false)}>
+                <ClipboardCheck className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-slate-400" onClick={runReview}>
+                <ShieldCheck className="h-4 w-4" />
+              </Button>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-slate-400" onClick={runSimulation}>
+                <Play className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+          <ScrollArea className="min-h-0 flex-1">
+            <div className="space-y-4 p-3">
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <Label className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Description</Label>
+                <Textarea className="mt-2 min-h-24 rounded-lg border-white/10 bg-black/20 text-xs" value={workflowDescription} onChange={(event) => setWorkflowDescription(event.target.value)} />
+              </div>
+              <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
+              <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <p className="text-xs font-semibold text-white">Builder Journey</p>
+                    <p className="mt-1 text-[11px] text-slate-500">Open each stage as a focused compiler modal.</p>
+                  </div>
+                  <Badge className="rounded-md border-[#2F7BFF]/25 bg-[#2F7BFF]/10 text-[10px] text-[#9EC0FF]">{activeStage}</Badge>
+                </div>
+                <div className="mt-3 grid grid-cols-5 gap-1">
+                  {[
+                    { id: "build" as BuilderStage, label: "Build", icon: Workflow, action: () => setActiveStage("build") },
+                    { id: "review" as BuilderStage, label: "Review", icon: ShieldCheck, action: runReview },
+                    { id: "simulate" as BuilderStage, label: "Sim", icon: Play, action: runSimulation },
+                    { id: "mermaid" as BuilderStage, label: "Map", icon: GitBranch, action: generateBuilderMermaid },
+                    { id: "export" as BuilderStage, label: "Export", icon: Download, action: () => generateBuilderExport("developer_handoff") },
+                  ].map((step) => (
+                    <button
+                      key={step.id}
+                      onClick={step.action}
+                      disabled={isProcessing && activeStage !== step.id}
+                      className={cn(
+                        "flex min-h-14 flex-col items-center justify-center gap-1 rounded-md border px-1 text-[10px] transition",
+                        activeStage === step.id
+                          ? "border-[#2F7BFF]/45 bg-[#2F7BFF]/15 text-[#B8D2FF]"
+                          : "border-white/10 bg-black/15 text-slate-400 hover:border-white/20 hover:text-white"
+                      )}
+                    >
+                      {isProcessing && activeStage === step.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <step.icon className="h-3.5 w-3.5" />}
+                      <span className="leading-none">{step.label}</span>
+                      <span className={cn("h-1.5 w-1.5 rounded-full", stageStatus[step.id] === "complete" ? "bg-emerald-300" : stageStatus[step.id] === "active" ? "bg-amber-300" : "bg-slate-600")} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="h-9 rounded-lg border-white/10 bg-white/[0.03] text-xs" asChild>
+                  <Link href="/dashboard"><LayoutDashboard className="mr-2 h-3.5 w-3.5" /> Dashboard</Link>
+                </Button>
+                <Button variant="outline" className="h-9 rounded-lg border-white/10 bg-white/[0.03] text-xs" asChild>
+                  <Link href="/templates"><Library className="mr-2 h-3.5 w-3.5" /> Templates</Link>
+                </Button>
+              </div>
+            </div>
+          </ScrollArea>
+          )}
+        </aside>
+      </div>
+
+      {activeModal ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className="grid max-h-[88vh] w-full max-w-5xl grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden rounded-xl border border-white/10 bg-[#0A0D14] text-[#F5F7FB] shadow-2xl">
+              <div className="border-b border-white/10 px-5 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-semibold text-white">{stageDialogTitle[activeModal]}</h2>
+                    <p className="mt-1 text-xs text-slate-500">{stageDialogDescription[activeModal]}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="rounded-md border-[#2F7BFF]/25 bg-[#2F7BFF]/10 text-[#9EC0FF]">{isProcessing && activeStage === activeModal ? "running" : stageStatus[activeModal]}</Badge>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 rounded-md text-slate-400 hover:text-white" onClick={() => setActiveModal(null)}>x</Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-h-0 overflow-y-auto p-5">
+                {activeModal === "review" ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-4">
+                      {[
+                        ["Overall", reviewResult?.scores.overall ?? 0],
+                        ["Security", reviewResult?.scores.security ?? 0],
+                        ["Reliability", reviewResult?.scores.reliability ?? 0],
+                        ["Observability", reviewResult?.scores.observability ?? 0],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+                          <p className="mt-2 text-2xl font-semibold text-white">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                      <p className="text-sm font-semibold text-white">{reviewResult ? reviewResult.summary : "Run review to generate findings."}</p>
+                      <div className="mt-3 space-y-2">
+                        {(reviewResult?.issues || []).slice(0, 8).map((issue) => (
+                          <div key={issue.id} className="rounded-md border border-white/10 bg-black/20 p-3">
+                            <div className="flex items-center justify-between gap-2">
+                              <Badge className="rounded-md border-white/10 bg-white/[0.04] text-[10px] text-slate-300">{issue.severity}</Badge>
+                              <span className="text-[10px] uppercase tracking-[0.16em] text-slate-600">{issue.category}</span>
+                            </div>
+                            <p className="mt-2 text-xs font-semibold text-white">{issue.description}</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{issue.suggestedFix}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeModal === "simulate" ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-4">
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Status</p>
+                        <p className="mt-2 text-xl font-semibold text-white">{simulationResult?.status || "not run"}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Trace Steps</p>
+                        <p className="mt-2 text-xl font-semibold text-white">{simulationResult?.trace.length || 0}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Fallback Gaps</p>
+                        <p className="mt-2 text-xl font-semibold text-white">{simulationResult?.missingFallback.length || 0}</p>
+                      </div>
+                      <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                        <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Impacts</p>
+                        <p className="mt-2 text-xl font-semibold text-white">{simulationResult?.affectedDownstreamNodes.length || 0}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+                      <p className="text-sm font-semibold text-white">Overall Report</p>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-400">{simulationResult?.summary || "Run simulation to generate the overall report."}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-500">{simulationResult?.bottleneckEstimate || "No bottleneck estimate yet."}</p>
+                    </div>
+                    <div className="space-y-2">
+                      {(simulationResult?.trace || []).map((step) => (
+                        <div key={`${step.nodeId}-${step.label}`} className="rounded-md border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold text-white">{step.label}</p>
+                            <Badge className="rounded-md border-white/10 bg-white/[0.04] text-[10px] text-slate-300">{step.status} / {step.estimatedLatencyMs}ms</Badge>
+                          </div>
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-400">{step.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeModal === "mermaid" ? (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-white">Compiler Source</p>
+                        <Button size="sm" className="h-8 rounded-md bg-[#2F7BFF] text-xs text-white hover:bg-[#5B96FF]" onClick={compileMermaidDraft}>
+                          <ClipboardCheck className="mr-2 h-3.5 w-3.5" /> Compile
+                        </Button>
+                      </div>
+                      <Textarea className="mt-3 min-h-[360px] rounded-md border-white/10 bg-black/30 font-mono text-xs text-slate-200" value={mermaidDraft} onChange={(event) => setMermaidDraft(event.target.value)} />
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                      <p className="text-sm font-semibold text-white">Compiler Output</p>
+                      <p className={cn("mt-2 text-xs", mermaidCompilerMessage.includes("successfully") ? "text-emerald-300" : "text-amber-300")}>{mermaidCompilerMessage}</p>
+                      <pre className="mt-3 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-md border border-white/10 bg-black/30 p-3 text-[11px] leading-relaxed text-slate-300">{mermaidCode || "Generate Mermaid to preview compiled source."}</pre>
+                    </div>
+                  </div>
+                ) : null}
+
+                {activeModal === "export" ? (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 md:grid-cols-3">
+                      {[
+                        { label: "Developer Handoff", type: "developer_handoff" as ExportType, detail: "Markdown handoff with summary, nodes, state, review, and open questions." },
+                        { label: "Workflow JSON", type: "workflow_json" as ExportType, detail: "Portable JSON graph with review score metadata." },
+                        { label: "Simulation Report", type: "simulation_report" as ExportType, detail: "Markdown trace, status, bottleneck, and fallback report." },
+                      ].map((item) => (
+                        <button
+                          key={item.type}
+                          type="button"
+                          onClick={() => generateBuilderExport(item.type)}
+                          disabled={isProcessing}
+                          className={cn(
+                            "rounded-lg border p-3 text-left transition hover:border-[#2F7BFF]/45 hover:bg-[#2F7BFF]/10",
+                            selectedExportType === item.type ? "border-[#2F7BFF]/45 bg-[#2F7BFF]/12" : "border-white/10 bg-white/[0.03]"
+                          )}
+                        >
+                          <FileText className="h-4 w-4 text-[#6EA4FF]" />
+                          <p className="mt-2 text-xs font-semibold text-white">{item.label}</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-500">{item.detail}</p>
+                          <span className="mt-3 inline-flex rounded-md border border-white/10 bg-black/20 px-2 py-1 text-[10px] text-slate-300">
+                            {isProcessing && selectedExportType === item.type ? "Generating..." : selectedExportType === item.type && exportContent ? "Generated" : "Generate"}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/30">
+                      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
+                        <div>
+                          <p className="text-xs font-semibold text-white">
+                            {selectedExportType === "developer_handoff" ? "Developer Handoff" : selectedExportType === "workflow_json" ? "Workflow JSON" : "Simulation Report"}
+                          </p>
+                          <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-slate-600">{selectedExportType}</p>
+                        </div>
+                        <Button variant="outline" size="sm" className="h-8 rounded-md border-white/10 bg-white/[0.03] text-xs" onClick={copyExportContent} disabled={!exportContent}>
+                          Copy
+                        </Button>
+                      </div>
+                      <pre className="max-h-[420px] overflow-auto whitespace-pre-wrap p-4 text-[11px] leading-relaxed text-slate-300">{exportContent || "Choose an export type above to generate and preview the artifact."}</pre>
+                    </div>
+                  </div>
                 ) : null}
               </div>
-            ) : null}
 
-            <div className="grid gap-3">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Provider Type</Label>
-                  <Select value={providerForm.type} onValueChange={(value) => handleProviderTypeChange(value as AIProviderType)}>
-                    <SelectTrigger className="h-9 w-full rounded-xl border-white/10 bg-black/20 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="openrouter">OpenRouter</SelectItem>
-                      <SelectItem value="unsloth">Unsloth / llama-server</SelectItem>
-                      <SelectItem value="custom_openai">Custom OpenAI-compatible</SelectItem>
-                    </SelectContent>
-                  </Select>
+              <div className="border-t border-white/10 bg-[#050812] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <TerminalSquare className="h-3.5 w-3.5 text-[#6EA4FF]" />
+                    <p className="text-xs font-semibold text-white">Compiler Progress</p>
+                  </div>
+                  <button className="text-[10px] text-slate-500 transition hover:text-white" onClick={() => setConsoleEntries([])}>Clear</button>
                 </div>
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Display Name</Label>
-                  <Input
-                    value={providerForm.name}
-                    onChange={(event) => setProviderForm((current) => ({ ...current, name: event.target.value }))}
-                    placeholder="OpenRouter"
-                    className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
-                  />
+                <div className="mt-2 grid max-h-28 gap-2 overflow-y-auto md:grid-cols-2">
+                  {consoleEntries.slice(0, 4).map((entry) => (
+                    <div key={entry.id} className="rounded-md border border-white/10 bg-white/[0.025] px-2 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={cn("text-[10px] uppercase tracking-[0.16em]", consoleTone[entry.level])}>{entry.level}</span>
+                        <span className="text-[10px] text-slate-600">{entry.timestamp}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">{entry.message}</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
-
-              {providerForm.type !== "openrouter" ? (
-                <div className="space-y-1">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Base URL</Label>
-                  <Input
-                    value={providerForm.baseUrl}
-                    onChange={(event) => setProviderForm((current) => ({ ...current, baseUrl: event.target.value }))}
-                    placeholder="https://your-endpoint.example.com/v1"
-                    className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
-                  />
-                </div>
-              ) : null}
-
-              <div className="space-y-1">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">API Key</Label>
-                <Input
-                  type="password"
-                  value={providerForm.apiKey}
-                  onChange={(event) => setProviderForm((current) => ({ ...current, apiKey: event.target.value }))}
-                  placeholder={providerForm.type === "unsloth" ? "API key if required" : "API key"}
-                  className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Default Model</Label>
-                <Input
-                  value={providerForm.defaultModelId}
-                  onChange={(event) => setProviderForm((current) => ({ ...current, defaultModelId: event.target.value }))}
-                  placeholder="google/gemma-4-26b-a4b-it"
-                  className="h-9 rounded-xl border-white/10 bg-black/20 text-xs"
-                />
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant="ghost"
-                className="h-9 rounded-xl border border-white/10 bg-white/[0.03] text-xs"
-                onClick={() => handleCreateProvider(false)}
-                disabled={isSavingProvider || isTestingProvider}
-              >
-                {isSavingProvider && !isTestingProvider ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                Save
-              </Button>
-              <Button
-                type="button"
-                className="h-9 rounded-xl text-xs"
-                onClick={() => handleCreateProvider(true)}
-                disabled={isSavingProvider || isTestingProvider}
-              >
-                {isSavingProvider || isTestingProvider ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                Save + test
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showEngineOnboarding} onOpenChange={setShowEngineOnboarding}>
-        <DialogContent className="sm:max-w-md bg-card/95 border-white/10">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <BrainCircuit className="w-5 h-5 text-sky-400" />
-              Choose AI Engine
-            </DialogTitle>
-            <DialogDescription>
-              Select an AI model to power your new workflow. Gemma 4 provides leading reasoning capabilities out-of-the-box.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-3 pt-2">
-            <button
-              type="button"
-              className="flex flex-col text-left items-start gap-1 rounded-xl border border-sky-500/30 bg-sky-500/10 p-4 transition-all hover:bg-sky-500/20 outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-              onClick={() => {
-                setModelProviderId("");
-                setModelId("google/gemma-4-26b-a4b-it");
-                setShowEngineOnboarding(false);
-                toast.success("Gemma 4 selected as the execution engine.");
-              }}
-            >
-              <span className="font-semibold text-sky-100 flex items-center gap-2">
-                Use Default Gemma 4
-                <Badge variant="outline" className="border-sky-400/30 bg-sky-500/20 text-sky-200 uppercase text-[9px] px-1.5 py-0 h-4">Recommended</Badge>
-              </span>
-              <span className="text-xs text-sky-200/70">Start building immediately with the default optimized reasoning model.</span>
-            </button>
-            <button
-              type="button"
-              className="flex flex-col text-left items-start gap-1 rounded-xl border border-white/10 bg-white/5 p-4 transition-all hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-              onClick={() => {
-                setShowEngineOnboarding(false);
-                setLibraryTab("prompt");
-                setIsProviderSetupOpen(true);
-              }}
-            >
-              <span className="font-semibold text-white/90">Bring Your Own Model</span>
-              <span className="text-xs text-muted-foreground">Configure Unsloth or OpenRouter API keys to inject custom capabilities.</span>
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={showLoginPrompt} onOpenChange={setShowLoginPrompt}>
-        <DialogContent className="sm:max-w-md bg-card/95 border-white/10">
-          <DialogHeader>
-            <DialogTitle>Sign in to save and run</DialogTitle>
-            <DialogDescription>
-              Local autosave is active. Sign in to persist workflows, configure providers, run test scenarios, perform AI audits, and execute live automations.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 pt-2">
-            <Button
-              variant="outline"
-              className="rounded-xl border-white/10"
-              onClick={() => signIn("github", { callbackUrl: "/builder?resume=1" })}
-            >
-              GitHub
-            </Button>
-            <Button
-              variant="outline"
-              className="rounded-xl border-white/10"
-              onClick={() => signIn("google", { callbackUrl: "/builder?resume=1" })}
-            >
-              Google
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      ) : null}
     </div>
   );
 }
 
 export default function BuilderPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-screen bg-[#0A0A0B] flex items-center justify-center"><FancyLoader text="Opening builder..." /></div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center bg-[#0A0D14] text-slate-400">Loading builder...</div>}>
       <BuilderCanvas />
     </Suspense>
   );

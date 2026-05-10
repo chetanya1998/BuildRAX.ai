@@ -1,33 +1,25 @@
-export type BuilderMode = "design" | "analysis" | "test" | "live";
-
-export type RunMode = "test" | "live";
-export type RunStatus = "completed" | "failed" | "blocked" | "skipped";
+export type BuilderMode = "design" | "review" | "simulate" | "diagram" | "export" | "analysis" | "test" | "live";
 
 export type WorkflowLifecycle =
   | "draft"
+  | "configured"
+  | "reviewed"
+  | "has_critical_issues"
   | "simulated"
-  | "benchmarked"
-  | "published"
+  | "exported"
   | "archived"
   | "soft_deleted";
 
 export type NodePack =
-  | "ai"
-  | "backend"
-  | "data"
-  | "reliability"
-  | "security"
-  | "observability";
+  | "entry_point"
+  | "auth_security"
+  | "data_layer"
+  | "messaging_queue"
+  | "external_service"
+  | "monitoring_operations"
+  | "custom";
 
-export type NodeFieldType =
-  | "text"
-  | "textarea"
-  | "number"
-  | "select"
-  | "boolean"
-  | "json"
-  | "password";
-
+export type NodeFieldType = "text" | "textarea" | "number" | "select" | "boolean" | "json" | "password";
 export type ValueSchema = "text" | "json" | "number" | "boolean" | "array";
 
 export interface NodePortDefinition {
@@ -62,6 +54,7 @@ export interface NodeCapabilityMatrix {
 export interface NodeDefinition {
   type: string;
   title: string;
+  displayName?: string;
   description: string;
   pack: NodePack;
   category: string;
@@ -72,6 +65,8 @@ export interface NodeDefinition {
   fields: NodeFieldDefinition[];
   previewFields?: string[];
   capabilities: NodeCapabilityMatrix;
+  reviewChecks: string[];
+  simulationBehavior?: string;
   experimental?: boolean;
 }
 
@@ -84,12 +79,7 @@ export interface WorkflowNode {
   id: string;
   type: string;
   position: WorkflowNodePosition;
-  data: Record<string, unknown> & {
-    providerId?: string;
-    modelId?: string;
-    model?: string;
-    modelSettings?: Record<string, unknown>;
-  };
+  data: Record<string, unknown>;
 }
 
 export interface WorkflowEdge {
@@ -100,6 +90,8 @@ export interface WorkflowEdge {
   targetHandle?: string;
   animated?: boolean;
   label?: string;
+  condition?: string;
+  edgeType?: "success" | "failure" | "async" | "data" | "control";
 }
 
 export interface WorkflowMetadata {
@@ -110,6 +102,7 @@ export interface WorkflowMetadata {
   assumptions?: string[];
   riskWarnings?: string[];
   suggestedScenarios?: string[];
+  mermaid?: string;
 }
 
 export interface WorkflowGraph {
@@ -117,6 +110,94 @@ export interface WorkflowGraph {
   nodes: WorkflowNode[];
   edges: WorkflowEdge[];
   metadata: WorkflowMetadata;
+}
+
+export type ReviewSeverity = "critical" | "high" | "medium" | "low" | "info";
+
+export interface ReviewIssue {
+  id: string;
+  severity: ReviewSeverity;
+  category:
+    | "architecture_completeness"
+    | "security"
+    | "reliability"
+    | "scalability"
+    | "data_flow"
+    | "api_design"
+    | "failure_handling"
+    | "observability"
+    | "cost_awareness"
+    | "operational_readiness";
+  affectedNodeId?: string;
+  affectedNodeLabel?: string;
+  description: string;
+  whyItMatters: string;
+  suggestedFix: string;
+  designPatternReference: string;
+}
+
+export interface ReviewResult {
+  status: "passed" | "needs_attention" | "blocked";
+  scores: {
+    architecture: number;
+    security: number;
+    reliability: number;
+    observability: number;
+    overall: number;
+  };
+  issues: ReviewIssue[];
+  summary: string;
+  createdAt: string;
+}
+
+export type SimulationScenarioId =
+  | "happy_path"
+  | "failure_path"
+  | "timeout"
+  | "load_estimate"
+  | "security_misuse";
+
+export interface SimulationScenario {
+  id: SimulationScenarioId;
+  name: string;
+  inputs: Record<string, unknown>;
+}
+
+export interface SimulationTraceStep {
+  nodeId: string;
+  label: string;
+  type: string;
+  status: "completed" | "warning" | "failed" | "blocked" | "skipped";
+  message: string;
+  estimatedLatencyMs: number;
+}
+
+export interface SimulationResult {
+  scenario: SimulationScenario;
+  status: "completed" | "warning" | "failed" | "blocked";
+  trace: SimulationTraceStep[];
+  failedNodes: string[];
+  affectedDownstreamNodes: string[];
+  bottleneckEstimate: string;
+  missingFallback: string[];
+  summary: string;
+  createdAt: string;
+}
+
+export interface TemplateBlueprint {
+  slug: string;
+  name: string;
+  description: string;
+  sector: string;
+  useCase: string;
+  maturity: "starter" | "production";
+  tags: string[];
+  requiredConnectors: string[];
+  configurableParameters: string[];
+  analysisRubric: string[];
+  benchmarkRubric: string[];
+  estimatedCreditCost: number;
+  graph: WorkflowGraph;
 }
 
 export interface AssertionRule {
@@ -138,6 +219,44 @@ export interface ScenarioDefinition {
   prompt?: string;
   expectedBehavior?: string;
 }
+
+export interface BenchmarkVariant {
+  variantId: string;
+  label: string;
+  graph: WorkflowGraph;
+}
+
+export interface BenchmarkScore {
+  variantId: string;
+  latencyMs: number;
+  errorRate: number;
+  assertionPassRate: number;
+  tokenUsage: number;
+  cost: number;
+  qualityScore?: number;
+  totalScore: number;
+}
+
+export interface CreditPolicy {
+  promptCompile: number;
+  templateInstantiate: number;
+  simulate: number;
+  execute: number;
+  benchmarkVariant: number;
+}
+
+export interface CreditBalance {
+  plan: "free" | "pro_20" | "growth_40" | "enterprise";
+  availableCredits: number;
+  monthlyLimit: number;
+  dailyRemaining?: number;
+  monthlyRemaining: number;
+  disabled?: boolean;
+  label?: string;
+}
+
+export type RunMode = "test" | "live";
+export type RunStatus = "completed" | "failed" | "blocked" | "skipped";
 
 export interface NodeExecutionMetrics {
   latencyMs: number;
@@ -175,56 +294,4 @@ export interface PromptCompileResult {
   unresolvedDependencies: string[];
   riskWarnings: string[];
   suggestedScenarios: string[];
-}
-
-export interface TemplateBlueprint {
-  slug: string;
-  name: string;
-  description: string;
-  sector: string;
-  useCase: string;
-  maturity: "starter" | "production";
-  tags: string[];
-  requiredConnectors: string[];
-  configurableParameters: string[];
-  analysisRubric: string[];
-  benchmarkRubric: string[];
-  estimatedCreditCost: number;
-  defaultScenario: ScenarioDefinition;
-  graph: WorkflowGraph;
-}
-
-export interface BenchmarkVariant {
-  variantId: string;
-  label: string;
-  graph: WorkflowGraph;
-}
-
-export interface BenchmarkScore {
-  variantId: string;
-  latencyMs: number;
-  errorRate: number;
-  assertionPassRate: number;
-  tokenUsage: number;
-  cost: number;
-  qualityScore?: number;
-  totalScore: number;
-}
-
-export interface CreditPolicy {
-  promptCompile: number;
-  templateInstantiate: number;
-  simulate: number;
-  execute: number;
-  benchmarkVariant: number;
-}
-
-export interface CreditBalance {
-  plan: "free" | "pro_20" | "growth_40" | "enterprise";
-  availableCredits: number;
-  monthlyLimit: number;
-  dailyRemaining?: number;
-  monthlyRemaining: number;
-  disabled?: boolean;
-  label?: string;
 }

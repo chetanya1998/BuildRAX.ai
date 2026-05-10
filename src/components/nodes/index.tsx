@@ -1,32 +1,17 @@
 import React from "react";
 import { NodeProps } from "@xyflow/react";
-import { Bot, Cpu, Database, Globe, ShieldCheck, TerminalSquare, Zap, SquareUser } from "lucide-react";
+import { TerminalSquare } from "lucide-react";
+import * as LucideIcons from "lucide-react";
 import { BaseNode } from "./BaseNode";
 import { NODE_DEFINITION_MAP } from "@/lib/graph/catalog";
 
 function getNodeIcon(type: string) {
-  if (type.includes("http") || type.includes("webhook") || type.includes("apiGateway")) {
-    return <Globe className="w-4 h-4" />;
-  }
-  if (type.includes("mongo") || type.includes("redis") || type.includes("postgres") || type.includes("vector") || type.includes("storage") || type.includes("queue")) {
-    return <Database className="w-4 h-4" />;
-  }
-  if (type.includes("auth") || type.includes("rbac") || type.includes("secrets") || type.includes("pii")) {
-    return <ShieldCheck className="w-4 h-4" />;
-  }
-  if (type.includes("retry") || type.includes("timeout") || type.includes("rate") || type.includes("fallback") || type.includes("circuit")) {
-    return <Zap className="w-4 h-4" />;
-  }
-  if (type.includes("service") || type.includes("function") || type.includes("scheduler")) {
-    return <Cpu className="w-4 h-4" />;
-  }
-  if (type.includes("agent")) {
-    return <SquareUser className="w-4 h-4" />;
-  }
-  if (type.includes("prompt") || type.includes("llm") || type.includes("embed") || type.includes("classify") || type.includes("extract") || type.includes("summarize") || type.includes("memory") || type.includes("router") || type.includes("evaluator")) {
-    return <Bot className="w-4 h-4" />;
-  }
-  return <TerminalSquare className="w-4 h-4" />;
+  const definition = NODE_DEFINITION_MAP[type];
+  const Icon = definition?.icon
+    ? (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[definition.icon]
+    : TerminalSquare;
+  const SafeIcon = Icon || TerminalSquare;
+  return <SafeIcon className="w-4 h-4" />;
 }
 
 function renderPreviewValue(value: unknown) {
@@ -121,3 +106,5 @@ function DynamicNode({ id, data, selected, type }: NodeProps) {
 export const nodeTypes = Object.fromEntries(
   Object.keys(NODE_DEFINITION_MAP).map((type) => [type, DynamicNode])
 );
+
+nodeTypes.custom = DynamicNode;

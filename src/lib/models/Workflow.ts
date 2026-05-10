@@ -13,14 +13,18 @@ export interface IWorkflow extends Document {
   clones: number;
   lifecycle:
     | "draft"
+    | "configured"
+    | "reviewed"
+    | "has_critical_issues"
     | "simulated"
-    | "benchmarked"
-    | "published"
+    | "exported"
     | "archived"
     | "soft_deleted";
   graphVersion: string;
   sourceBlueprintSlug?: string;
   metadata?: Record<string, unknown>;
+  latestReviewId?: mongoose.Types.ObjectId | string;
+  latestSimulationId?: mongoose.Types.ObjectId | string;
   deletedAt?: Date | null;
   lastSavedAt?: Date;
   createdAt: Date;
@@ -41,12 +45,14 @@ const WorkflowSchema: Schema = new Schema(
     clones: { type: Number, default: 0 },
     lifecycle: {
       type: String,
-      enum: ["draft", "simulated", "benchmarked", "published", "archived", "soft_deleted"],
+      enum: ["draft", "configured", "reviewed", "has_critical_issues", "simulated", "exported", "archived", "soft_deleted"],
       default: "draft",
     },
     graphVersion: { type: String, default: "1.0" },
     sourceBlueprintSlug: { type: String, default: "" },
     metadata: { type: Schema.Types.Mixed, default: {} },
+    latestReviewId: { type: Schema.Types.ObjectId, ref: "ReviewRun", default: null },
+    latestSimulationId: { type: Schema.Types.ObjectId, ref: "SimulationRun", default: null },
     deletedAt: { type: Date, default: null },
     lastSavedAt: { type: Date, default: Date.now },
   },

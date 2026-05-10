@@ -51,9 +51,11 @@ export function buildWorkflowGraph(input: {
 export function normalizeLifecycle(value?: string): WorkflowLifecycle {
   if (
     value === "draft" ||
+    value === "configured" ||
+    value === "reviewed" ||
+    value === "has_critical_issues" ||
     value === "simulated" ||
-    value === "benchmarked" ||
-    value === "published" ||
+    value === "exported" ||
     value === "archived" ||
     value === "soft_deleted"
   ) {

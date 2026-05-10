@@ -2,152 +2,122 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { cn } from "@/lib/utils";
-import { 
-  LayoutDashboard, 
-  Layers, 
-  Library, 
-  GraduationCap, 
-  CreditCard,
-  LogOut,
-  BrainCircuit,
-  Bot,
-  ChevronLeft,
-  ChevronRight
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { signOut, useSession } from "next-auth/react";
-import { Progress } from "@/components/ui/progress";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  BellRing,
+  ChevronLeft,
+  ChevronRight,
+  LayoutDashboard,
+  Layers,
+  Library,
+  LogOut,
+  Settings,
+  Workflow,
+} from "lucide-react";
 import { useState } from "react";
-import useSWR from "swr";
-import { fetcher } from "@/lib/fetcher";
-import { ProgressSummary } from "@/lib/gamification";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const navItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "My Workflows", href: "/workflows", icon: Layers },
-  { name: "AI Architect", href: "/builder", icon: BrainCircuit },
-  { name: "Agents", href: "/agents", icon: Bot },
+  { name: "Workflows", href: "/workflows", icon: Layers },
+  { name: "Builder", href: "/builder", icon: Workflow },
   { name: "Templates", href: "/templates", icon: Library },
-  { name: "Billing", href: "/billing", icon: CreditCard },
-  { name: "Learn", href: "/learn", icon: GraduationCap },
+  { name: "Settings", href: "/settings", icon: Settings },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { data: session } = useSession();
-  
-  const { data: progress } = useSWR<ProgressSummary>(
-    session?.user ? "/api/user/progress" : null,
-    fetcher
-  );
-
   const user = session?.user;
-  const xp = progress?.xpInCurrentLevel || 0;
-  const level = progress?.level || 1;
-  const xpThreshold = progress?.xpRequiredForNextLevel || 1000;
-  const progressPercentage = progress?.progressPercentage || 0;
 
   return (
-    <aside 
+    <aside
       className={cn(
-        "h-screen flex flex-col border-r transition-all duration-300 relative z-50 shrink-0",
-        "bg-[oklch(0.13_0.018_250/0.95)] backdrop-blur-xl border-[oklch(0.3_0.02_250/0.18)]",
-        isCollapsed ? "w-[60px]" : "w-[220px]"
+        "relative z-50 flex h-screen shrink-0 flex-col border-r border-white/10 bg-[#0A0D14]/96 text-[#F5F7FB] backdrop-blur-xl transition-all duration-300",
+        isCollapsed ? "w-[64px]" : "w-[240px]"
       )}
     >
-      {/* Brand */}
-      <div className={cn("h-14 flex items-center border-b border-[oklch(0.3_0.02_250/0.15)]", isCollapsed ? "justify-center px-3" : "px-4")}>
-        <Link href="/dashboard" className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary/20 border border-primary/30 flex items-center justify-center shrink-0">
-            <BrainCircuit className="w-4 h-4 text-primary" />
+      <div className={cn("flex h-14 items-center border-b border-white/10", isCollapsed ? "justify-center px-3" : "px-4")}>
+        <Link href="/dashboard" className="flex min-w-0 items-center gap-2.5">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#2F7BFF]/30 bg-[#2F7BFF]/12">
+            <Workflow className="h-4 w-4 text-[#6EA4FF]" />
           </div>
-          {!isCollapsed && <span className="font-bold text-base tracking-tight text-foreground">BuildRAX</span>}
+          {!isCollapsed ? (
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold tracking-tight">BuildRAX</p>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Backend Studio</p>
+            </div>
+          ) : null}
         </Link>
       </div>
 
-      {/* Nav Items */}
-      <nav className={cn("flex-1 py-3 space-y-0.5", isCollapsed ? "px-2" : "px-3")}>
+      <nav className={cn("flex-1 space-y-1 py-3", isCollapsed ? "px-2" : "px-3")}>
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive =
+            pathname === item.href ||
+            (item.href === "/workflows" && pathname?.startsWith("/workflows")) ||
+            (item.href === "/builder" && pathname?.startsWith("/builder"));
           return (
             <Link
-              key={item.href}
+              key={`${item.name}-${item.href}`}
               href={item.href}
               title={isCollapsed ? item.name : undefined}
               className={cn(
-                "flex items-center gap-2.5 py-2 rounded-lg transition-all duration-150 group relative",
-                isCollapsed ? "justify-center px-0 w-9 mx-auto" : "px-3",
-                isActive 
-                  ? "bg-primary/15 text-primary border border-primary/20 shadow-[0_0_12px_rgba(91,156,246,0.10)]" 
-                  : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground border border-transparent"
+                "group relative flex items-center gap-2.5 rounded-lg border py-2 text-sm transition",
+                isCollapsed ? "mx-auto h-9 w-9 justify-center px-0" : "px-3",
+                isActive
+                  ? "border-[#2F7BFF]/30 bg-[#2F7BFF]/14 text-[#9EC0FF] shadow-[0_0_18px_rgba(47,123,255,0.12)]"
+                  : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/[0.04] hover:text-white"
               )}
             >
-              <item.icon className={cn(
-                "shrink-0 transition-colors",
-                isCollapsed ? "w-4 h-4" : "w-4 h-4",
-                isActive ? "text-primary" : "group-hover:text-foreground"
-              )} />
-              {!isCollapsed && <span className="text-sm font-medium">{item.name}</span>}
-              
-              {/* Active accent bar */}
-              {isActive && !isCollapsed && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary rounded-r-full" />
-              )}
+              <item.icon className="h-4 w-4 shrink-0" />
+              {!isCollapsed ? <span className="truncate font-medium">{item.name}</span> : null}
+              {isActive && !isCollapsed ? <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-[#2F7BFF]" /> : null}
             </Link>
           );
         })}
       </nav>
 
-      {/* Bottom: Profile & XP */}
-      <div className={cn("mt-auto border-t border-[oklch(0.3_0.02_250/0.15)] space-y-3", isCollapsed ? "px-2 py-3" : "px-3 py-3")}>
-        {!isCollapsed && (
-          <div className="space-y-1.5 px-1">
-            <div className="flex justify-between items-end">
-              <span className="text-[10px] uppercase font-semibold text-muted-foreground tracking-widest">Level {level}</span>
-              <span className="text-[10px] text-muted-foreground">{Math.floor(xp)}/{Math.floor(xpThreshold)} XP</span>
-            </div>
-            <Progress value={progressPercentage} className="h-1 bg-white/5" />
+      {!isCollapsed ? (
+        <div className="mx-3 mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-300">
+            <BellRing className="h-3.5 w-3.5 text-[#6EA4FF]" />
+            Non-AI MVP Mode
           </div>
-        )}
+          <p className="text-[11px] leading-relaxed text-slate-500">Review, simulation, Mermaid, and exports run deterministically without provider keys.</p>
+        </div>
+      ) : null}
 
-        <div className={cn(
-          "flex items-center gap-2.5 p-2 rounded-xl bg-white/[0.04] border border-white/[0.07]",
-          isCollapsed ? "justify-center" : ""
-        )}>
-          <Avatar className="w-7 h-7 border border-primary/20 shrink-0">
+      <div className={cn("border-t border-white/10", isCollapsed ? "p-2" : "p-3")}>
+        <div className={cn("flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] p-2", isCollapsed && "justify-center")}>
+          <Avatar className="h-7 w-7 shrink-0 border border-[#2F7BFF]/20">
             <AvatarImage src={user?.image || ""} />
-            <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+            <AvatarFallback className="bg-[#2F7BFF]/10 text-xs text-[#9EC0FF]">
               {user?.name?.charAt(0)?.toUpperCase() || "G"}
             </AvatarFallback>
           </Avatar>
-          {!isCollapsed && (
+          {!isCollapsed ? (
             <>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-semibold truncate">{user?.name || "Guest"}</p>
-                <p className="text-[10px] text-muted-foreground truncate">{user?.email || "anonymous"}</p>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-semibold">{user?.name || "Guest Builder"}</p>
+                <p className="truncate text-[10px] text-slate-500">{user?.email || "local draft mode"}</p>
               </div>
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-6 w-6 rounded-md text-muted-foreground hover:text-destructive transition-colors shrink-0"
-                onClick={() => signOut()}
-              >
-                <LogOut className="w-3.5 h-3.5" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-slate-500 hover:text-white" onClick={() => signOut()}>
+                <LogOut className="h-3.5 w-3.5" />
               </Button>
             </>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Collapse Toggle */}
       <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-16 w-6 h-6 rounded-full border border-[oklch(0.3_0.02_250/0.3)] bg-[oklch(0.16_0.018_250)] shadow-lg flex items-center justify-center text-muted-foreground hover:text-foreground transition-all hover:scale-110 z-50"
+        onClick={() => setIsCollapsed((value) => !value)}
+        className="absolute -right-3 top-16 flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#101726] text-slate-400 shadow-lg transition hover:text-white"
       >
-        {isCollapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
+        {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
       </button>
     </aside>
   );

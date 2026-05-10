@@ -3,9 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { buildWorkflowGraph } from "@/lib/graph/persistence";
-import { runWorkflowSimulation } from "@/lib/backend/simulation";
-import { SimulationScenarioId } from "@/lib/graph/types";
-import { SimulationRun } from "@/lib/models/SimulationRun";
+import { runWorkflowReview } from "@/lib/backend/review";
+import { ReviewRun } from "@/lib/models/ReviewRun";
 import { Workflow } from "@/lib/models/Workflow";
 
 type SessionUser = { id?: string };
@@ -33,27 +32,18 @@ export async function POST(
       name: body.name || workflow.name,
       description: body.description || workflow.description,
     });
-    const result = runWorkflowSimulation(graph, (body.scenarioId || "happy_path") as SimulationScenarioId, body.inputs || {});
+    const result = runWorkflowReview(graph);
 
-    const simulationRun = await SimulationRun.create({
-      workflowId: id,
-      userId,
-      scenario: result.scenario,
-      graph,
-      analysis: {},
-      nodeResults: result.trace,
-      summary: result,
-      status: result.status === "failed" || result.status === "blocked" ? "failed" : "completed",
-    });
-    workflow.latestSimulationId = simulationRun._id;
-    workflow.lifecycle = "simulated";
-    workflow.metadata = { ...(workflow.metadata || {}), latestSimulation: result };
+    const reviewRun = await ReviewRun.create({ workflowId: id, userId, graph, result, status: result.status });
+    workflow.latestReviewId = reviewRun._id;
+    workflow.lifecycle = result.status === "blocked" ? "has_critical_issues" : "reviewed";
+    workflow.metadata = { ...(workflow.metadata || {}), latestReview: result };
     await workflow.save();
 
-    return NextResponse.json({ simulationId: simulationRun._id, result });
+    return NextResponse.json({ reviewId: reviewRun._id, result });
   } catch (error) {
-    console.error("Simulation error:", error);
-    return NextResponse.json({ error: "Failed to run simulation" }, { status: 500 });
+    console.error("Review error:", error);
+    return NextResponse.json({ error: "Failed to run review" }, { status: 500 });
   }
 }
 
@@ -67,9 +57,9 @@ export async function GET(
     const { id } = await params;
     const userId = String((session.user as SessionUser).id || "");
     await dbConnect();
-    const simulations = await SimulationRun.find({ workflowId: id, userId }).sort({ createdAt: -1 }).limit(20).lean();
-    return NextResponse.json({ simulations });
+    const reviews = await ReviewRun.find({ workflowId: id, userId }).sort({ createdAt: -1 }).limit(20).lean();
+    return NextResponse.json({ reviews });
   } catch {
-    return NextResponse.json({ error: "Failed to list simulations" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to list reviews" }, { status: 500 });
   }
 }

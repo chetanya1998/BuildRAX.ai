@@ -2,538 +2,221 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import type { LucideIcon } from "lucide-react";
 import {
-  ArrowRight,
-  BrainCircuit,
+  BriefcaseBusiness,
   Building2,
-  CheckCircle2,
-  CopyPlus,
-  Filter,
+  Car,
+  CreditCard,
+  Dumbbell,
+  GraduationCap,
+  HeartHandshake,
+  Home,
+  Landmark,
   Layers,
-  Loader2,
+  MessageSquare,
   Search,
-  Sparkles,
-  Megaphone,
-  Activity,
-  ShieldAlert,
   ShoppingCart,
-  UserCheck,
-  Settings,
+  Store,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BUILD_RAX_TEMPLATE_CATALOG } from "@/lib/data/buildraxCatalog";
+import { getDefaultNodeData, getNodeDefinition, LAUNCH_TEMPLATE_COUNT, MVP_TEMPLATE_IDS } from "@/lib/graph/catalog";
+import { WorkflowGraph } from "@/lib/graph/types";
 
-interface WorkflowNode {
-  id: string;
-  type: string;
-}
+type TemplateRecord = (typeof BUILD_RAX_TEMPLATE_CATALOG)[number];
 
-interface WorkflowGraphPreview {
-  nodes: WorkflowNode[];
-  edges: Array<{ id: string }>;
-}
-
-interface BlueprintRecord {
-  _id: string;
-  slug: string;
-  name: string;
-  description: string;
-  sector: string;
-  useCase: string;
-  maturity: "starter" | "production";
-  tags: string[];
-  requiredConnectors: string[];
-  configurableParameters: string[];
-  analysisRubric: string[];
-  benchmarkRubric: string[];
-  estimatedCreditCost: number;
-  graph: WorkflowGraphPreview;
-}
-
-interface CatalogResponse {
-  blueprints: BlueprintRecord[];
-  total: number;
-}
-
-interface CommunityTemplateRecord {
-  _id: string;
-  name: string;
-  description?: string;
-  category?: string;
-  averageRating?: number;
-  clones?: number;
-  nodes?: unknown[];
-}
-
-const fetcher = async <T,>(url: string): Promise<T> => {
-  const response = await fetch(url);
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed: ${response.status}`);
-  }
-  return response.json();
+const productIcons: Record<string, LucideIcon> = {
+  SaaS: Layers,
+  CRM: BriefcaseBusiness,
+  Support: MessageSquare,
+  Marketplace: Store,
+  Fintech: Landmark,
+  Ecommerce: ShoppingCart,
+  "Consumer App": Users,
+  Education: GraduationCap,
+  Health: HeartHandshake,
+  Fitness: Dumbbell,
+  Mobility: Car,
+  "Real Estate": Home,
 };
 
-function formatPackCount(blueprint: BlueprintRecord) {
-  const nodeCount = blueprint.graph?.nodes?.length || 0;
-  // Vary node count based on length of tags to make it look diverse instead of all 10 nodes
-  const displayNodeCount = nodeCount === 10 ? nodeCount + (blueprint.tags.join("").length % 7) - 3 : nodeCount;
-  const connectorCount = blueprint.requiredConnectors?.length || 0;
-  return `${Math.max(3, displayNodeCount)} automated nodes • ${connectorCount} connectors`;
+function iconFor(template: TemplateRecord) {
+  return productIcons[template.product_type] || productIcons[template.category] || Building2;
 }
 
-const getCategoryStyles = (tags: string[] = []) => {
-  const tagList = tags.join(" ").toLowerCase();
-  if (tagList.includes("marketing") || tagList.includes("campaigns") || tagList.includes("content")) {
-    return { icon: Megaphone, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20" };
-  }
-  if (tagList.includes("sales") || tagList.includes("revops") || tagList.includes("scoring")) {
-    return { icon: Activity, color: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20" };
-  }
-  if (tagList.includes("fraud") || tagList.includes("risk") || tagList.includes("compliance") || tagList.includes("exceptions")) {
-    return { icon: ShieldAlert, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/20" };
-  }
-  if (tagList.includes("hr") || tagList.includes("support") || tagList.includes("screening")) {
-    return { icon: UserCheck, color: "text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20" };
-  }
-  if (tagList.includes("catalog") || tagList.includes("orders")) {
-    return { icon: ShoppingCart, color: "text-fuchsia-400", bg: "bg-fuchsia-500/10", border: "border-fuchsia-500/20" };
-  }
-  
-  return { icon: Settings, color: "text-sky-400", bg: "bg-sky-500/10", border: "border-sky-500/20" };
-};
+function resolveNodeId(nodeId: string) {
+  if (getNodeDefinition(nodeId)) return nodeId;
+  return getNodeDefinition("user_defined_component") ? "user_defined_component" : nodeId;
+}
+
+function graphFor(template: TemplateRecord): WorkflowGraph {
+  const resolvedNodes = template.recommended_nodes.map((node) => ({
+    ...node,
+    resolvedId: resolveNodeId(node.node_id),
+  }));
+
+  return {
+    version: "1.0",
+    metadata: {
+      name: template.name,
+      description: template.description,
+      mode: "design",
+      tags: [template.category, template.product_type, ...template.core_flow.slice(0, 4)],
+      assumptions: [...template.validation_checks],
+      suggestedScenarios: [...template.simulation_profile.default_scenarios],
+    },
+    nodes: resolvedNodes.map((node, index) => ({
+      id: `${node.resolvedId}-${index + 1}`,
+      type: node.resolvedId,
+      position: { x: 80 + (index % 4) * 320, y: 100 + Math.floor(index / 4) * 190 },
+      data: {
+        ...getDefaultNodeData(node.resolvedId),
+        label: node.name,
+        catalog_node_id: node.node_id,
+        catalog_match: node.catalog_match,
+        fallback_type: node.fallback_type,
+      },
+    })),
+    edges: resolvedNodes.slice(1).map((_, index) => ({
+      id: `edge-${index + 1}`,
+      source: `${resolvedNodes[index].resolvedId}-${index + 1}`,
+      target: `${resolvedNodes[index + 1].resolvedId}-${index + 2}`,
+      animated: true,
+    })),
+  };
+}
 
 export default function TemplatesPage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [sector, setSector] = useState("all");
-  const [activeTab, setActiveTab] = useState<"enterprise" | "community">("enterprise");
-  const [selectedBlueprint, setSelectedBlueprint] = useState<BlueprintRecord | null>(null);
-  const [selectedCommunity, setSelectedCommunity] = useState<CommunityTemplateRecord | null>(null);
-  const [instantiatingSlug, setInstantiatingSlug] = useState<string | null>(null);
-  const [cloningTemplateId, setCloningTemplateId] = useState<string | null>(null);
+  const [category, setCategory] = useState("all");
+  const [creating, setCreating] = useState<string | null>(null);
 
-  const catalogQuery = useMemo(() => {
-    const params = new URLSearchParams();
-    if (query.trim()) params.set("q", query.trim());
-    if (sector !== "all") params.set("sector", sector);
-    return `/api/templates/catalog?${params.toString()}`;
-  }, [query, sector]);
-
-  const {
-    data: catalogData,
-    error: catalogError,
-    isLoading: isCatalogLoading,
-  } = useSWR<CatalogResponse>(catalogQuery, fetcher);
-
-  const {
-    data: communityTemplates,
-    error: communityError,
-    isLoading: isCommunityLoading,
-  } = useSWR<CommunityTemplateRecord[]>("/api/templates", fetcher);
-
-  const sectors = useMemo(() => {
-    const allSectors = (catalogData?.blueprints || []).map((blueprint) => blueprint.sector);
-    return ["all", ...Array.from(new Set(allSectors))];
-  }, [catalogData?.blueprints]);
-
-  const filteredCommunity = useMemo(() => {
-    const templates = communityTemplates || [];
-    if (!query.trim()) return templates;
+  const categories = useMemo(() => ["all", ...Array.from(new Set(BUILD_RAX_TEMPLATE_CATALOG.map((template) => template.category)))], []);
+  const filtered = useMemo(() => {
     const q = query.toLowerCase();
-    return templates.filter(
-      (template) =>
-        template.name.toLowerCase().includes(q) ||
-        (template.description || "").toLowerCase().includes(q) ||
-        (template.category || "").toLowerCase().includes(q)
-    );
-  }, [communityTemplates, query]);
+    return BUILD_RAX_TEMPLATE_CATALOG.filter((template) => {
+      const categoryMatch = category === "all" || template.category === category;
+      const queryMatch =
+        !q ||
+        [
+          template.id,
+          template.name,
+          template.category,
+          template.product_type,
+          template.description,
+          ...template.core_flow,
+          ...template.recommended_nodes.map((node) => node.name),
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(q);
+      return categoryMatch && queryMatch;
+    });
+  }, [category, query]);
 
-  const handleInstantiateBlueprint = async (slug: string) => {
+  const createFromTemplate = async (template: TemplateRecord) => {
+    setCreating(template.id);
     try {
-      setInstantiatingSlug(slug);
-      const response = await fetch(`/api/templates/catalog/${slug}/instantiate`, {
+      const graph = graphFor(template);
+      const response = await fetch("/api/workflows", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: graph.metadata.name,
+          description: graph.metadata.description,
+          graph,
+          nodes: graph.nodes,
+          edges: graph.edges,
+          sourceBlueprintSlug: template.id,
+          lifecycle: "draft",
+        }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to instantiate blueprint");
-      }
-      toast.success("Blueprint instantiated. Opening the builder...");
-      router.push(`/builder?id=${payload.workflowId}`);
+      if (!response.ok) throw new Error(payload.error || "Failed to use template");
+      toast.success("Template opened in builder");
+      router.push(`/builder?id=${payload._id}`);
     } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Instantiation failed");
+      toast.error(error instanceof Error ? error.message : "Failed to use template");
     } finally {
-      setInstantiatingSlug(null);
-    }
-  };
-
-  const handleCloneCommunityTemplate = async (templateId: string) => {
-    try {
-      setCloningTemplateId(templateId);
-      const response = await fetch(`/api/templates/${templateId}/clone`, {
-        method: "POST",
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to clone template");
-      }
-      toast.success("Community template cloned. Opening the builder...");
-      router.push(`/builder?id=${payload.workflowId}`);
-    } catch (error) {
-      console.error(error);
-      toast.error(error instanceof Error ? error.message : "Clone failed");
-    } finally {
-      setCloningTemplateId(null);
+      setCreating(null);
     }
   };
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 pb-10 md:p-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 pb-10 md:p-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <span className="text-xs text-muted-foreground uppercase tracking-widest">Production Blueprint Catalog</span>
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Enterprise Automation Templates</h1>
-          <p className="text-sm text-muted-foreground mt-1 max-w-xl">
-            Curated production-grade blueprints across B2B, Fintech, E-Commerce, HR, and more.
+          <Badge className="mb-3 rounded-md border-[#2F7BFF]/25 bg-[#2F7BFF]/10 text-[#9EC0FF]">
+            {BUILD_RAX_TEMPLATE_CATALOG.length} Templates / {LAUNCH_TEMPLATE_COUNT} MVP Launch Picks
+          </Badge>
+          <h1 className="text-2xl font-semibold text-white">Backend blueprint templates</h1>
+          <p className="mt-1 max-w-2xl text-sm text-slate-400">
+            A 100-template catalog across SaaS, consumer apps, marketplaces, fintech, commerce, learning, mobility, and operations workflows.
           </p>
         </div>
-        <Button className="h-9 rounded-xl bg-sky-500 px-5 text-sm text-slate-950 hover:bg-sky-400 shrink-0" onClick={() => router.push("/builder")}>
-          <BrainCircuit className="w-4 h-4 mr-2" />
-          Open Builder
-        </Button>
-      </div>
-
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            className="h-11 rounded-2xl border-white/10 bg-black/20 pl-9"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by blueprint name, use case, sector, or tags..."
-          />
-        </div>
-        <div className="w-full md:w-72">
-          <Select value={sector} onValueChange={(value) => setSector(value || "all")}>
-            <SelectTrigger className="h-11 rounded-2xl border-white/10 bg-black/20">
-              <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-              <SelectValue placeholder="Filter by sector" />
-            </SelectTrigger>
-            <SelectContent>
-              {sectors.map((sectorOption) => (
-                <SelectItem key={sectorOption} value={sectorOption}>
-                  {sectorOption === "all" ? "All sectors" : sectorOption}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex w-full flex-col gap-2 md:w-[520px] md:flex-row">
+          <select
+            className="h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-slate-200 outline-none"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+          >
+            {categories.map((item) => (
+              <option key={item} value={item}>{item === "all" ? "All categories" : item}</option>
+            ))}
+          </select>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+            <Input className="rounded-lg border-white/10 bg-black/20 pl-9" placeholder="Search templates, flows, nodes" value={query} onChange={(event) => setQuery(event.target.value)} />
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "enterprise" | "community")}>
-        <TabsList className="inline-flex h-auto rounded-2xl border border-white/10 bg-white/[0.03] p-1.5">
-          <TabsTrigger value="enterprise" className="rounded-xl px-4 py-2">
-            Enterprise Catalog
-          </TabsTrigger>
-          <TabsTrigger value="community" className="rounded-xl px-4 py-2">
-            Community Templates
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="enterprise" className="mt-6 space-y-6">
-          {catalogError ? (
-            <Card className="bg-destructive/5 border-destructive/20">
-              <CardHeader>
-                <CardTitle>Failed to load blueprint catalog</CardTitle>
-                <CardDescription>{catalogError.message}</CardDescription>
-              </CardHeader>
-            </Card>
-          ) : isCatalogLoading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Array.from({ length: 9 }).map((_, index) => (
-                <Skeleton key={`catalog-skeleton-${index}`} className="h-[260px] rounded-2xl bg-card/40" />
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  {(catalogData?.total || 0)} blueprints available
-                </p>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {filtered.map((template) => {
+          const Icon = iconFor(template);
+          const isMvp = (MVP_TEMPLATE_IDS as readonly string[]).includes(template.id);
+          return (
+            <div key={template.id} className="flex min-h-[310px] flex-col rounded-lg border border-white/10 bg-[#101726]/55 p-4">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#2F7BFF]/20 bg-[#2F7BFF]/10">
+                  <Icon className="h-5 w-5 text-[#9EC0FF]" />
+                </div>
+                <div className="flex gap-1">
+                  {isMvp ? <Badge className="rounded-md border-emerald-400/20 bg-emerald-500/10 text-emerald-200">MVP</Badge> : null}
+                  <Badge className="rounded-md border-white/10 bg-white/[0.04] text-slate-300">{template.product_type}</Badge>
+                </div>
               </div>
-              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                {(catalogData?.blueprints || []).map((blueprint) => (
-                  <Card
-                    key={blueprint.slug}
-                    className="builder-surface overflow-hidden rounded-[28px] border-white/10 transition-all hover:-translate-y-0.5 hover:border-white/20"
-                  >
-                    <CardHeader className="space-y-3 pb-4">
-                      <div className="flex items-start justify-between gap-3">
-                        {(() => {
-                          const { icon: Icon, color, bg, border } = getCategoryStyles(blueprint.tags);
-                          return (
-                            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl border ${border} ${bg}`}>
-                              <Icon className={`w-5 h-5 ${color}`} />
-                            </div>
-                          );
-                        })()}
-                        <Badge variant="outline" className="border-white/10 bg-white/5 text-white/70">
-                          {blueprint.sector}
-                        </Badge>
-                      </div>
-                      <div>
-                        <CardTitle className="text-lg leading-snug">{blueprint.name}</CardTitle>
-                        <CardDescription className="line-clamp-2 mt-2">
-                          Automates the {blueprint.useCase.toLowerCase()} process by connecting {blueprint.requiredConnectors.join(", ")} directly into your {blueprint.sector} operations.
-                        </CardDescription>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-xs text-muted-foreground">{formatPackCount(blueprint)}</p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {(blueprint.tags || []).slice(0, 4).map((tag) => (
-                          <span
-                            key={`${blueprint.slug}-${tag}`}
-                            className="text-[10px] px-2 py-1 rounded-full bg-secondary/20 text-secondary-foreground"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex gap-2 border-t border-white/8 bg-black/10">
-                      <Button
-                        className="flex-1 rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400"
-                        onClick={() => handleInstantiateBlueprint(blueprint.slug)}
-                        disabled={instantiatingSlug === blueprint.slug}
-                      >
-                        {instantiatingSlug === blueprint.slug ? (
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                          <CopyPlus className="w-4 h-4 mr-2" />
-                        )}
-                        Use Blueprint
-                      </Button>
-                      <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => setSelectedBlueprint(blueprint)}>
-                        View
-                      </Button>
-                    </CardFooter>
-                  </Card>
+              <h2 className="text-sm font-semibold text-white">{template.name}</h2>
+              <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">{template.description}</p>
+              <div className="mt-4">
+                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Core Flow</p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300">{template.core_flow.join(" -> ")}</p>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-1">
+                {template.recommended_nodes.slice(0, 4).map((node) => (
+                  <span key={`${template.id}-${node.node_id}-${node.name}`} className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-400">
+                    {node.name}
+                  </span>
                 ))}
+                {template.recommended_nodes.length > 4 ? (
+                  <span className="rounded-md border border-white/10 px-2 py-1 text-[10px] text-slate-500">+{template.recommended_nodes.length - 4}</span>
+                ) : null}
               </div>
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="community" className="mt-6 space-y-6">
-          {communityError ? (
-            <Card className="bg-destructive/5 border-destructive/20">
-              <CardHeader>
-                <CardTitle>Failed to load community templates</CardTitle>
-                <CardDescription>{communityError.message}</CardDescription>
-              </CardHeader>
-            </Card>
-          ) : isCommunityLoading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={`community-skeleton-${index}`} className="h-[220px] rounded-2xl bg-card/40" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-              {filteredCommunity.map((template) => (
-                <Card
-                  key={template._id}
-                  className="builder-surface overflow-hidden rounded-[28px] border-white/10 transition-all hover:-translate-y-0.5 hover:border-sky-400/20"
-                >
-                  <CardHeader className="space-y-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03]">
-                        <Layers className="w-5 h-5 text-secondary-foreground" />
-                      </div>
-                      <Badge variant="outline" className="border-white/10">
-                        {template.category || "Community"}
-                      </Badge>
-                    </div>
-                    <CardTitle className="text-lg">{template.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {template.description || "Community-contributed template."}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      {(template.nodes?.length || 0)} nodes • {template.clones || 0} clones
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Rating: {(template.averageRating || 0).toFixed(1)}
-                    </p>
-                  </CardContent>
-                  <CardFooter className="flex gap-2 border-t border-white/8 bg-black/10">
-                    <Button
-                      className="flex-1 rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400"
-                      onClick={() => handleCloneCommunityTemplate(template._id)}
-                      disabled={cloningTemplateId === template._id}
-                    >
-                      {cloningTemplateId === template._id ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <CopyPlus className="w-4 h-4 mr-2" />
-                      )}
-                      Clone
-                    </Button>
-                    <Button variant="outline" className="rounded-2xl border-white/10 bg-white/[0.03]" onClick={() => setSelectedCommunity(template)}>
-                      View
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-
-      <Dialog open={!!selectedBlueprint} onOpenChange={(open) => !open && setSelectedBlueprint(null)}>
-        <DialogContent className="max-h-[88vh] max-w-5xl overflow-hidden rounded-[32px] border border-white/10 bg-[#07090f] p-0">
-          {selectedBlueprint ? (
-            <div className="grid max-h-[88vh] md:grid-cols-[360px_minmax(0,1fr)]">
-              <div className="builder-surface flex flex-col justify-between border-r border-white/8 p-7">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    {(() => {
-                        const { icon: Icon, color, bg, border } = getCategoryStyles(selectedBlueprint.tags);
-                        return (
-                          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border ${border} ${bg}`}>
-                            <Icon className={`w-6 h-6 ${color}`} />
-                          </div>
-                        );
-                    })()}
-                    <Badge variant="outline" className="border-white/10 bg-white/5 text-white/70 text-xs uppercase tracking-wider">
-                      {selectedBlueprint.sector} Workflow
-                    </Badge>
-                  </div>
-                  <h3 className="text-2xl font-bold leading-tight mt-2">{selectedBlueprint.name}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    An enterprise-grade automation workflow designed to streamline {selectedBlueprint.useCase.toLowerCase()} by integrating your core tools ({selectedBlueprint.requiredConnectors.join(", ")}). Features built-in reliability and exception handling.
-                  </p>
-                </div>
-                <div className="mt-6 grid gap-4 text-sm">
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Use Case</p>
-                    <p className="mt-2 font-semibold text-white">{selectedBlueprint.useCase}</p>
-                  </div>
-                  <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-                    <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Estimated Credits</p>
-                    <p className="mt-2 font-semibold text-white">{selectedBlueprint.estimatedCreditCost}</p>
-                  </div>
-                </div>
-                <Button
-                  className="mt-6 w-full rounded-2xl bg-sky-500 text-slate-950 hover:bg-sky-400"
-                  onClick={() => handleInstantiateBlueprint(selectedBlueprint.slug)}
-                  disabled={instantiatingSlug === selectedBlueprint.slug}
-                >
-                  {instantiatingSlug === selectedBlueprint.slug ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                  )}
-                  Instantiate Blueprint
+              <div className="mt-auto pt-5">
+                <Button className="w-full rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={() => createFromTemplate(template)} disabled={creating === template.id}>
+                  {creating === template.id ? "Creating..." : "Use template"}
                 </Button>
               </div>
-
-              <div className="overflow-y-auto p-7 space-y-6">
-                <DialogHeader className="space-y-2">
-                  <DialogTitle>Production Blueprint Details</DialogTitle>
-                  <DialogDescription>
-                    Review connectors, analysis rubric, and benchmark rubric before instantiation.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-3">
-                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Required Connectors</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedBlueprint.requiredConnectors.map((connector) => (
-                      <span key={connector} className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-100">
-                        {connector}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Analysis Rubric</h4>
-                  <div className="space-y-2">
-                    {selectedBlueprint.analysisRubric.map((item, index) => (
-                      <div key={`analysis-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="text-xs uppercase tracking-widest text-muted-foreground">Benchmark Rubric</h4>
-                  <div className="space-y-2">
-                    {selectedBlueprint.benchmarkRubric.map((item, index) => (
-                      <div key={`benchmark-${index}`} className="rounded-2xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm leading-relaxed text-muted-foreground">
-                        {item}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
             </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={!!selectedCommunity} onOpenChange={(open) => !open && setSelectedCommunity(null)}>
-        <DialogContent className="max-w-xl rounded-[28px] border border-white/10 bg-[#07090f]">
-          {selectedCommunity ? (
-            <>
-              <DialogHeader>
-                <DialogTitle>{selectedCommunity.name}</DialogTitle>
-                <DialogDescription>
-                  Community template preview.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-3 text-sm text-muted-foreground">
-                <p>{selectedCommunity.description || "No description provided."}</p>
-                <p>Category: {selectedCommunity.category || "Community"}</p>
-                <p>Nodes: {selectedCommunity.nodes?.length || 0}</p>
-                <p>Clones: {selectedCommunity.clones || 0}</p>
-                <p>Rating: {(selectedCommunity.averageRating || 0).toFixed(1)}</p>
-              </div>
-              <div className="flex justify-end">
-                <Button
-                  className="rounded-xl"
-                  onClick={() => handleCloneCommunityTemplate(selectedCommunity._id)}
-                  disabled={cloningTemplateId === selectedCommunity._id}
-                >
-                  {cloningTemplateId === selectedCommunity._id ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <ArrowRight className="w-4 h-4 mr-2" />
-                  )}
-                  Clone to Builder
-                </Button>
-              </div>
-            </>
-          ) : null}
-        </DialogContent>
-      </Dialog>
+          );
+        })}
+      </div>
     </div>
   );
 }

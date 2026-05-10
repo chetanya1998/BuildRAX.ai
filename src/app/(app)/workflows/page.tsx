@@ -1,147 +1,143 @@
 "use client";
 
-import useSWR from "swr";
-import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Play, Plus, Clock, Layers, ArrowRight, Trash2 } from "lucide-react";
+import useSWR from "swr";
+import { Archive, Copy, FileCode2, GitBranch, MoreHorizontal, Play, Plus, RotateCcw, ShieldCheck, Trash2, Workflow } from "lucide-react";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import { fetcher } from "@/lib/fetcher";
 
 interface WorkflowListItem {
   _id: string;
   name: string;
   description?: string;
-  isPublic?: boolean;
   lifecycle?: string;
   updatedAt: string;
+  nodes?: unknown[];
+  edges?: unknown[];
+}
+
+function statusClass(status?: string) {
+  if (status === "has_critical_issues") return "border-rose-400/25 bg-rose-500/10 text-rose-200";
+  if (status === "reviewed") return "border-blue-400/25 bg-blue-500/10 text-blue-200";
+  if (status === "simulated") return "border-emerald-400/25 bg-emerald-500/10 text-emerald-200";
+  if (status === "exported") return "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
+  if (status === "archived") return "border-slate-400/20 bg-slate-500/10 text-slate-300";
+  return "border-white/10 bg-white/[0.04] text-slate-300";
 }
 
 export default function WorkflowsPage() {
-  const { data, error, isLoading, mutate } = useSWR("/api/workflows", fetcher);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const workflows = data?.workflows || [];
+  const router = useRouter();
+  const { data, isLoading, mutate } = useSWR("/api/workflows", fetcher);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const workflows = (data?.workflows || []) as WorkflowListItem[];
 
-  const handleDelete = async (workflowId: string) => {
+  const postAction = async (workflowId: string, action: "duplicate" | "archive" | "restore") => {
+    setBusyId(workflowId);
     try {
-      setDeletingId(workflowId);
-      const res = await fetch(`/api/workflows/${workflowId}`, { method: "DELETE" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(body.error || "Delete failed");
-      }
-      toast.success("Workflow deleted");
+      const response = await fetch(`/api/workflows/${workflowId}/${action}`, { method: "POST" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `${action} failed`);
+      toast.success(action === "duplicate" ? "Workflow duplicated" : action === "archive" ? "Workflow archived" : "Workflow restored");
       mutate();
-    } catch (deleteError) {
-      console.error(deleteError);
-      toast.error(deleteError instanceof Error ? deleteError.message : "Delete failed");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : `${action} failed`);
     } finally {
-      setDeletingId(null);
+      setBusyId(null);
     }
   };
 
-  if (isLoading && !data) {
-    return <WorkflowsSkeleton />;
-  }
-  
-  if (error) {
-    console.error("Error fetching workflows:", error);
-  }
+  const deleteWorkflow = async (workflowId: string) => {
+    setBusyId(workflowId);
+    try {
+      const response = await fetch(`/api/workflows/${workflowId}`, { method: "DELETE" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || "Delete failed");
+      toast.success("Workflow deleted");
+      mutate();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Delete failed");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (isLoading && !data) return <WorkflowsSkeleton />;
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 pb-10 md:p-8">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">My Workflows</h1>
-          <p className="text-muted-foreground mt-1">Manage your saved drafts and active AI experiments.</p>
+          <Badge className="mb-3 rounded-md border-[#2F7BFF]/25 bg-[#2F7BFF]/10 text-[#9EC0FF]">Architecture Inventory</Badge>
+          <h1 className="text-2xl font-semibold tracking-tight text-white">Backend Workflows</h1>
+          <p className="mt-1 text-sm text-slate-400">Manage drafts, reviewed architectures, simulations, exports, and archived backend plans.</p>
         </div>
-        <Button className="rounded-xl px-6" asChild>
-          <Link href="/builder">
-            <Plus className="w-4 h-4 mr-2" /> New Project
-          </Link>
+        <Button className="rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" asChild>
+          <Link href="/workflows/new"><Plus className="mr-2 h-4 w-4" /> New Workflow</Link>
         </Button>
       </div>
 
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {workflows.length > 0 ? (
-          workflows.map((workflow: WorkflowListItem) => (
-            <Card key={workflow._id} className="bg-card/30 border-border/40 hover:border-primary/50 hover:bg-card/50 transition-all duration-300 group cursor-pointer relative overflow-hidden flex flex-col">
-              <CardHeader className="pb-4">
-                <div className="flex justify-between items-start">
-                  <Badge variant="secondary" className="bg-primary/5 text-primary border-primary/10 px-2 py-0.5">
-                    {workflow.lifecycle || (workflow.isPublic ? "Public" : "Private")}
-                  </Badge>
-                  <div className="flex items-center gap-2">
-                    <Button size="icon" variant="secondary" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-md">
-                      <Play className="w-4 h-4 text-primary fill-primary" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="secondary"
-                      className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-all scale-90 group-hover:scale-100 shadow-md text-red-400 hover:text-red-300"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        handleDelete(workflow._id);
-                      }}
-                      disabled={deletingId === workflow._id}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                <CardTitle className="text-xl mt-4 group-hover:text-primary transition-colors">{workflow.name}</CardTitle>
-                <CardDescription className="line-clamp-2 mt-2 text-sm leading-relaxed">
-                  {workflow.description || "No description provided for this workflow."}
-                </CardDescription>
-              </CardHeader>
-              <div className="flex-1" />
-              <CardFooter className="pt-0 text-xs text-muted-foreground flex items-center justify-between border-t border-border/10 mt-4 py-3 bg-secondary/5">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5" /> 
-                  <span>Edited {new Date(workflow.updatedAt).toLocaleDateString()}</span>
-                </div>
-                <Link href={`/builder?id=${workflow._id}`} className="text-primary hover:underline font-medium flex items-center gap-1">
-                  Open <ArrowRight className="w-3 h-3" />
-                </Link>
-              </CardFooter>
-            </Card>
-          ))
-        ) : (
-          <div className="col-span-full py-16 flex flex-col items-center justify-center border-2 border-dashed border-border/40 rounded-3xl bg-secondary/5 text-center px-4">
-            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-              <Layers className="w-8 h-8 text-primary" />
-            </div>
-            <h3 className="font-semibold text-xl mb-2">No projects yet</h3>
-            <p className="text-muted-foreground text-base max-w-sm mb-8">Start your AI building journey by creating a blank workflow or using a template.</p>
-            <Button className="rounded-xl px-8" asChild>
-              <Link href="/builder">Create First Workflow</Link>
-            </Button>
+      {workflows.length > 0 ? (
+        <div className="overflow-hidden rounded-lg border border-white/10 bg-[#101726]/55">
+          <div className="grid grid-cols-[minmax(0,1fr)_120px_160px_210px] border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-[0.18em] text-slate-500">
+            <span>Workflow</span>
+            <span>Status</span>
+            <span>Updated</span>
+            <span className="text-right">Actions</span>
           </div>
-        )}
-      </div>
+          <div className="divide-y divide-white/10">
+            {workflows.map((workflow) => (
+              <div key={workflow._id} className="grid grid-cols-[minmax(0,1fr)_120px_160px_210px] items-center gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <Link href={`/builder?id=${workflow._id}`} className="truncate text-sm font-semibold text-white hover:text-[#9EC0FF]">{workflow.name}</Link>
+                  <p className="mt-1 line-clamp-1 text-xs text-slate-500">{workflow.description || "No description provided."}</p>
+                </div>
+                <Badge className={`w-fit rounded-md border text-[10px] ${statusClass(workflow.lifecycle)}`}>{workflow.lifecycle || "draft"}</Badge>
+                <p className="text-xs text-slate-500">{new Date(workflow.updatedAt).toLocaleDateString()}</p>
+                <div className="flex justify-end gap-1.5">
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-white/10 bg-white/[0.03]" asChild><Link href={`/builder?id=${workflow._id}`}><Workflow className="h-3.5 w-3.5" /></Link></Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-white/10 bg-white/[0.03]" asChild><Link href={`/workflows/${workflow._id}/review`}><ShieldCheck className="h-3.5 w-3.5" /></Link></Button>
+                  <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg border-white/10 bg-white/[0.03]" asChild><Link href={`/workflows/${workflow._id}/simulate`}><Play className="h-3.5 w-3.5" /></Link></Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03]" disabled={busyId === workflow._id}>
+                      <MoreHorizontal className="h-3.5 w-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="border-white/10 bg-[#101726]">
+                      <DropdownMenuItem onClick={() => postAction(workflow._id, "duplicate")}><Copy className="mr-2 h-3.5 w-3.5" /> Duplicate</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => postAction(workflow._id, "archive")}><Archive className="mr-2 h-3.5 w-3.5" /> Archive</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => postAction(workflow._id, "restore")}><RotateCcw className="mr-2 h-3.5 w-3.5" /> Restore</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(`/workflows/${workflow._id}/mermaid`)}><GitBranch className="mr-2 h-3.5 w-3.5" /> Mermaid</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(`/workflows/${workflow._id}/exports`)}><FileCode2 className="mr-2 h-3.5 w-3.5" /> Exports</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => deleteWorkflow(workflow._id)} className="text-rose-300 focus:text-rose-300"><Trash2 className="mr-2 h-3.5 w-3.5" /> Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-4 py-16 text-center">
+          <Workflow className="mb-3 h-9 w-9 text-[#6EA4FF]" />
+          <h3 className="text-base font-semibold text-white">No backend workflows yet</h3>
+          <p className="mt-2 max-w-md text-sm text-slate-500">Create a workflow from a blank canvas, template, Mermaid diagram, or JSON import.</p>
+          <Button className="mt-6 rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" asChild><Link href="/workflows/new">Start planning</Link></Button>
+        </div>
+      )}
     </div>
   );
 }
 
 function WorkflowsSkeleton() {
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <div className="flex justify-between items-center">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-48 bg-primary/10" />
-          <Skeleton className="h-4 w-64 bg-muted/50" />
-        </div>
-        <Skeleton className="h-10 w-32 rounded-xl bg-primary/20" />
-      </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Skeleton key={i} className="h-[200px] w-full rounded-2xl bg-card/40 border border-border/40 shimmer" />
-        ))}
-      </div>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+      <Skeleton className="h-20 rounded-lg bg-white/[0.04]" />
+      <Skeleton className="h-96 rounded-lg bg-white/[0.04]" />
     </div>
   );
 }

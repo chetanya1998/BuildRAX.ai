@@ -176,8 +176,9 @@ async function executeNode(args: {
   userId?: string;
   modelProviderId?: string;
   modelId?: string;
+  apiKey?: string;
 }): Promise<NodeExecutionResult> {
-  const { node, inputs, mode, scenario, userId } = args;
+  const { node, inputs, mode, scenario, userId, apiKey } = args;
   const startedAt = new Date();
   const inputValue = firstInput(inputs);
   const inputText = serialize(inputValue);
@@ -210,6 +211,7 @@ async function executeNode(args: {
           userId,
           providerId: String(node.data.providerId || args.modelProviderId || ""),
           modelId: selectedModel || args.modelId,
+          apiKey: node.data.apiKey ? String(node.data.apiKey) : apiKey,
           temperature: Number(node.data.temperature ?? 0.3),
           max_tokens: Number(node.data.max_tokens || 1200),
         });
@@ -226,6 +228,7 @@ async function executeNode(args: {
           userId,
           providerId: String(node.data.providerId || args.modelProviderId || ""),
           modelId: String(node.data.modelId || node.data.model || "text-embedding-3-small"),
+          apiKey: node.data.apiKey ? String(node.data.apiKey) : apiKey,
         });
         outputs.vector = result.vector;
         tokenUsage = result.usage.totalTokens;
@@ -251,6 +254,7 @@ async function executeNode(args: {
           userId,
           providerId: String(node.data.providerId || args.modelProviderId || ""),
           modelId: String(node.data.modelId || args.modelId || ""),
+          apiKey: node.data.apiKey ? String(node.data.apiKey) : apiKey,
           temperature: 0.1,
           response_format: node.type === "extractNode" || node.type === "evaluatorNode"
             ? { type: "json_object" }
@@ -602,6 +606,7 @@ export async function runGraph(args: {
   userId?: string;
   modelProviderId?: string;
   modelId?: string;
+  apiKey?: string;
 }): Promise<GraphRunResult> {
   const scenario: ScenarioDefinition =
     args.scenario || {
@@ -705,6 +710,7 @@ export async function runGraph(args: {
       userId: args.userId,
       modelProviderId: args.modelProviderId,
       modelId: args.modelId,
+      apiKey: args.apiKey,
     });
     nodeResults.push(result);
     totalTokens += result.metrics.tokenUsage;

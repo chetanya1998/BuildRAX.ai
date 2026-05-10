@@ -1,185 +1,169 @@
 "use client";
 
-import useSWR from "swr";
-import { fetcher } from "@/lib/fetcher";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
+import useSWR from "swr";
+import type { LucideIcon } from "lucide-react";
+import { Activity, ArrowRight, CheckCircle2, FileCode2, GitBranch, Layers, Library, Play, Plus, ShieldCheck, Workflow } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, BrainCircuit, Activity, Archive, PauseCircle, ArrowRight, Layers, Plus } from "lucide-react";
+import { fetcher } from "@/lib/fetcher";
+
+interface WorkflowItem {
+  _id: string;
+  name: string;
+  description?: string;
+  lifecycle?: string;
+  updatedAt: string;
+  nodes?: unknown[];
+  edges?: unknown[];
+}
+
+function statusTone(status?: string) {
+  if (status === "has_critical_issues") return "border-rose-400/25 bg-rose-500/10 text-rose-200";
+  if (status === "reviewed") return "border-blue-400/25 bg-blue-500/10 text-blue-200";
+  if (status === "simulated") return "border-emerald-400/25 bg-emerald-500/10 text-emerald-200";
+  if (status === "exported") return "border-cyan-400/25 bg-cyan-500/10 text-cyan-200";
+  return "border-white/10 bg-white/[0.04] text-slate-300";
+}
 
 export default function DashboardPage() {
-  const { data, error, isLoading } = useSWR("/api/dashboard/summary", fetcher);
+  const { data, isLoading } = useSWR("/api/dashboard/summary", fetcher);
+  const workflows = (data?.recentWorkflows || []) as WorkflowItem[];
+  const reviewed = workflows.filter((item) => ["reviewed", "has_critical_issues"].includes(item.lifecycle || "")).length;
+  const simulated = workflows.filter((item) => item.lifecycle === "simulated").length;
+  const exported = workflows.filter((item) => item.lifecycle === "exported").length;
 
-  if (isLoading || !data) {
-    return <DashboardSkeleton />;
-  }
+  if (isLoading && !data) return <DashboardSkeleton />;
 
-  if (error) {
-    console.error("Error fetching dashboard data:", error);
-  }
-
-  const { user, recentWorkflows } = data || {};
-  
-  // Calculate mock stats based on recent workflows for the command center
-  const total = recentWorkflows?.length || 0;
-  const activeCount = Math.floor(total * 0.6) || 0;
-  const inactiveCount = Math.floor(total * 0.3) || 0;
-  const archiveCount = total - activeCount - inactiveCount;
+  const statCards: Array<[string, number, LucideIcon, string]> = [
+    ["Workflows", workflows.length, Layers, "Saved backend blueprints"],
+    ["Reviewed", reviewed, ShieldCheck, "Rule-based review runs"],
+    ["Simulated", simulated, Play, "Scenario simulations"],
+    ["Exported", exported, FileCode2, "Developer artifacts"],
+  ];
+  const flowSteps: Array<[LucideIcon, string, string]> = [
+    [CheckCircle2, "Build", "Drag backend components into a clear graph."],
+    [ShieldCheck, "Review", "Run deterministic architecture and security checks."],
+    [Play, "Simulate", "Test happy path, failure, timeout, load, and misuse."],
+    [GitBranch, "Diagram", "Generate and edit Mermaid documentation."],
+    [FileCode2, "Export", "Create developer-ready artifacts."],
+  ];
 
   return (
-    <div className="p-4 md:p-8 max-w-5xl mx-auto space-y-6 pb-10">
-      
-      {/* Welcome banner */}
-      <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-card/40 px-6 py-6">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/10 rounded-full blur-[80px] -translate-y-1/3 translate-x-1/3 pointer-events-none" />
-        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="mx-auto max-w-7xl space-y-6 p-4 pb-10 md:p-8">
+      <section className="rounded-lg border border-white/10 bg-[#101726]/70 p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Badge variant="outline" className="mb-3 bg-primary/10 text-primary border-primary/20 text-xs">
-              <Sparkles className="w-3 h-3 mr-1" /> Level {user?.level || 1}
-            </Badge>
-            <h1 className="text-2xl font-bold tracking-tight">
-              Welcome back, {user?.name?.split(" ")[0] || "Builder"}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {user?.xpToNextLevel || 350} XP to next level
+            <Badge className="mb-3 rounded-md border-[#2F7BFF]/25 bg-[#2F7BFF]/10 text-[#9EC0FF]">Backend Architecture Workspace</Badge>
+            <h1 className="text-2xl font-semibold tracking-tight text-white">Design backend workflows before writing code.</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Map APIs, services, data stores, queues, webhooks, and operational controls. Review and simulate architecture before engineering commits to implementation.
             </p>
-            <div className="mt-3 w-48">
-              <Progress value={user?.progressPercentage || 30} className="h-1.5 bg-surface-secondary rounded-full" />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button className="rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" asChild>
+              <Link href="/workflows/new"><Plus className="mr-2 h-4 w-4" /> New Workflow</Link>
+            </Button>
+            <Button variant="outline" className="rounded-lg border-white/10 bg-white/[0.03]" asChild>
+              <Link href="/templates"><Library className="mr-2 h-4 w-4" /> Templates</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-4">
+        {statCards.map(([label, value, Icon, copy]) => (
+          <div key={String(label)} className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+            <div className="mb-3 flex items-center justify-between">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">{label}</p>
+              <Icon className="h-4 w-4 text-[#6EA4FF]" />
             </div>
+            <p className="text-3xl font-semibold text-white">{value}</p>
+            <p className="mt-1 text-xs text-slate-500">{copy}</p>
           </div>
-          <Button className="rounded-xl px-5 h-9 text-sm font-medium" asChild>
-            <Link href="/builder">
-              <BrainCircuit className="w-4 h-4 mr-2" /> Launch AI Architect
-            </Link>
-          </Button>
-        </div>
-      </div>
+        ))}
+      </section>
 
-      <div className="grid sm:grid-cols-3 gap-4">
-        <div className="rounded-xl border border-border/40 bg-card/30 p-4 hover:border-green-500/30 transition-colors">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active Flows</p>
-            <Activity className="w-4 h-4 text-green-500" />
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="rounded-lg border border-white/10 bg-[#101726]/55">
+          <div className="flex items-center justify-between border-b border-white/10 p-4">
+            <div>
+              <h2 className="text-sm font-semibold text-white">Recent Workflows</h2>
+              <p className="text-xs text-slate-500">Continue reviewing, simulating, or exporting active backend plans.</p>
+            </div>
+            <Button variant="ghost" size="sm" className="text-[#9EC0FF]" asChild>
+              <Link href="/workflows">View all <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
+            </Button>
           </div>
-          <p className="text-3xl font-bold">{activeCount}</p>
-          <p className="text-xs text-muted-foreground mt-1">Running in production</p>
-        </div>
-
-        <div className="rounded-xl border border-border/40 bg-card/30 p-4 hover:border-yellow-500/30 transition-colors">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Inactive</p>
-            <PauseCircle className="w-4 h-4 text-yellow-500" />
-          </div>
-          <p className="text-3xl font-bold">{inactiveCount}</p>
-          <p className="text-xs text-muted-foreground mt-1">Drafts and paused</p>
-        </div>
-
-        <div className="rounded-xl border border-border/40 bg-card/30 p-4 hover:border-muted-foreground/30 transition-colors">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Archived</p>
-            <Archive className="w-4 h-4 text-muted-foreground" />
-          </div>
-          <p className="text-3xl font-bold">{archiveCount}</p>
-          <p className="text-xs text-muted-foreground mt-1">Cold storage</p>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 mt-4 ml-1">
-        <Sparkles className="w-4 h-4 text-sky-400" />
-        <h2 className="text-sm font-semibold tracking-wider uppercase text-muted-foreground">Quick Start</h2>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-5 mb-4">
-        <Link href="/builder" className="block outline-none group focus-visible:ring-2 focus-visible:ring-sky-500 rounded-xl">
-          <div className="h-full rounded-xl border border-sky-500/20 bg-gradient-to-br from-sky-500/10 to-transparent p-5 hover:border-sky-500/40 hover:bg-sky-500/15 transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 bg-sky-500/20 rounded-lg text-sky-400">
-                <Plus className="w-5 h-5" />
+          <div className="divide-y divide-white/10">
+            {workflows.length > 0 ? workflows.slice(0, 6).map((workflow) => (
+              <div key={workflow._id} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h3 className="truncate text-sm font-semibold text-white">{workflow.name}</h3>
+                    <Badge className={`rounded-md border text-[10px] ${statusTone(workflow.lifecycle)}`}>{workflow.lifecycle || "draft"}</Badge>
+                  </div>
+                  <p className="mt-1 line-clamp-1 text-xs text-slate-500">{workflow.description || "No description provided."}</p>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" asChild>
+                    <Link href={`/builder?id=${workflow._id}`}><Workflow className="mr-1.5 h-3.5 w-3.5" /> Builder</Link>
+                  </Button>
+                  <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" asChild>
+                    <Link href={`/workflows/${workflow._id}/review`}><ShieldCheck className="mr-1.5 h-3.5 w-3.5" /> Review</Link>
+                  </Button>
+                </div>
               </div>
-              <h3 className="font-semibold text-lg text-white">Create Blank Workflow</h3>
-            </div>
-            <p className="text-sm text-slate-300 mb-6">Start from scratch with the visual AI architect canvas. Build custom automation logic exactly how you need it.</p>
-            <div className="flex items-center text-sm font-semibold text-sky-400 group-hover:text-sky-300">
-              Open Canvas <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
-            </div>
-          </div>
-        </Link>
-
-        <Link href="/templates" className="block outline-none group focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl">
-          <div className="h-full rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-transparent p-5 hover:border-emerald-500/40 hover:bg-emerald-500/15 transition-all">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="p-2.5 bg-emerald-500/20 rounded-lg text-emerald-400">
-                <Layers className="w-5 h-5" />
+            )) : (
+              <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+                <Workflow className="mb-3 h-8 w-8 text-[#6EA4FF]" />
+                <h3 className="text-sm font-semibold text-white">No backend workflows yet</h3>
+                <p className="mt-2 max-w-sm text-sm text-slate-500">Start from a blank canvas or a backend blueprint template.</p>
+                <Button className="mt-5 rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" asChild>
+                  <Link href="/workflows/new">Create first workflow</Link>
+                </Button>
               </div>
-              <h3 className="font-semibold text-lg text-white">Start from Template</h3>
-            </div>
-            <p className="text-sm text-slate-300 mb-6">Deploy production-ready setups instantly. Choose from 50+ pre-built marketing, sales, scraping, and analytics pipelines.</p>
-            <div className="flex items-center text-sm font-semibold text-emerald-400 group-hover:text-emerald-300">
-              Browse Templates <ArrowRight className="w-4 h-4 ml-1.5 transition-transform group-hover:translate-x-1" />
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-lg border border-white/10 bg-[#101726]/55 p-4">
+            <h2 className="text-sm font-semibold text-white">MVP Flow</h2>
+            <div className="mt-4 space-y-3">
+              {flowSteps.map(([Icon, title, copy]) => (
+                <div key={String(title)} className="flex gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#2F7BFF]/20 bg-[#2F7BFF]/10">
+                    <Icon className="h-4 w-4 text-[#9EC0FF]" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-white">{title}</p>
+                    <p className="text-xs leading-5 text-slate-500">{copy}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        </Link>
-      </div>
-
-      <div className="grid sm:grid-cols-2 gap-4">
-        <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 relative overflow-hidden">
-          <Badge className="bg-primary text-primary-foreground mb-2 text-[10px] font-bold tracking-widest uppercase rounded-md">New Feature</Badge>
-          <h4 className="font-semibold mb-1">Expanded Node Library</h4>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-            35+ advanced nodes including Stripe, Twitter, Pinecone, and Claude 3.5.
-          </p>
-          <Button variant="link" className="p-0 h-auto text-primary text-xs font-semibold flex items-center gap-1" asChild>
-            <Link href="/builder">Try it out <ArrowRight className="w-3 h-3" /></Link>
-          </Button>
+          <div className="rounded-lg border border-[#2F7BFF]/20 bg-[#2F7BFF]/10 p-4">
+            <Activity className="mb-3 h-5 w-5 text-[#9EC0FF]" />
+            <h2 className="text-sm font-semibold text-white">No AI dependency</h2>
+            <p className="mt-2 text-xs leading-5 text-slate-400">The core MVP runs without model providers, prompt generation, credits, or code execution. Every check is deterministic.</p>
+          </div>
         </div>
-
-        <div className="rounded-xl border border-border/40 bg-card/20 p-4">
-          <Badge variant="outline" className="mb-2 text-[10px] font-bold tracking-widest uppercase border-secondary/50 text-secondary rounded-md">Templates</Badge>
-          <h4 className="font-semibold mb-1">100+ Enterprise Blueprints</h4>
-          <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-            Launch production-ready systems for B2B, Fintech, E-Commerce, HR, and more.
-          </p>
-          <Button variant="link" className="p-0 h-auto text-foreground text-xs font-medium flex items-center gap-1" asChild>
-            <Link href="/templates">Browse Library <ArrowRight className="w-3 h-3" /></Link>
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">Manage your projects</p>
-        <Button variant="ghost" className="text-primary hover:text-primary/80 text-xs h-8" asChild>
-          <Link href="/workflows" className="flex items-center gap-1">
-            My Workflows <ArrowRight className="w-3 h-3" />
-          </Link>
-        </Button>
-      </div>
+      </section>
     </div>
   );
 }
 
 function DashboardSkeleton() {
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto space-y-8 pb-10">
-      <Skeleton className="h-[300px] w-full rounded-[2rem] bg-card/40 border border-border/40 shimmer" />
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="col-span-2 space-y-6">
-          <Skeleton className="h-8 w-48 bg-primary/10" />
-          <div className="grid sm:grid-cols-3 gap-5">
-            <Skeleton className="h-[120px] rounded-2xl bg-card/30 border border-border/40 shimmer" />
-            <Skeleton className="h-[120px] rounded-2xl bg-card/30 border border-border/40 shimmer" />
-            <Skeleton className="h-[120px] rounded-2xl bg-card/30 border border-border/40 shimmer" />
-          </div>
-        </div>
-        <div className="space-y-6">
-          <Skeleton className="h-8 w-48 bg-secondary/10" />
-          <div className="space-y-4">
-            <Skeleton className="h-[180px] rounded-2xl bg-card/20 border border-border/40 shimmer" />
-            <Skeleton className="h-[160px] rounded-2xl bg-card/20 border border-border/40 shimmer" />
-          </div>
-        </div>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 md:p-8">
+      <Skeleton className="h-40 rounded-lg bg-white/[0.04]" />
+      <div className="grid gap-3 md:grid-cols-4">
+        {[1, 2, 3, 4].map((item) => <Skeleton key={item} className="h-28 rounded-lg bg-white/[0.04]" />)}
       </div>
+      <Skeleton className="h-96 rounded-lg bg-white/[0.04]" />
     </div>
   );
 }
