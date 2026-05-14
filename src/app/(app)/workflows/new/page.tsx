@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Braces, FileJson, GitBranch, LayoutTemplate, Loader2, Plus, Workflow } from "lucide-react";
+import { ArrowRight, Braces, Check, FileJson, GitBranch, LayoutTemplate, Loader2, Plus, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,10 +14,10 @@ import { getDefaultNodeData } from "@/lib/graph/catalog";
 import { WorkflowGraph } from "@/lib/graph/types";
 
 const starts = [
-  { id: "blank", title: "Blank Canvas", copy: "Start with a minimal API/auth/database/logging baseline.", icon: Workflow },
-  { id: "template", title: "Template", copy: "Choose a backend blueprint from the template library.", icon: LayoutTemplate },
-  { id: "mermaid", title: "Import Mermaid", copy: "Paste an existing diagram and refine it in BuildRAX.", icon: GitBranch },
-  { id: "json", title: "Import JSON", copy: "Bring in a workflow JSON graph.", icon: FileJson },
+  { id: "blank", title: "Blank Canvas", copy: "Start with a minimal API/auth/database/logging baseline.", icon: Workflow, action: "Use blank canvas" },
+  { id: "template", title: "Template", copy: "Choose a backend blueprint from the template library.", icon: LayoutTemplate, action: "Open templates" },
+  { id: "mermaid", title: "Import Mermaid", copy: "Paste an existing diagram and refine it in BuildRAX.", icon: GitBranch, action: "Paste Mermaid" },
+  { id: "json", title: "Import JSON", copy: "Bring in a workflow JSON graph.", icon: FileJson, action: "Paste JSON" },
 ];
 
 function blankGraph(name: string, description: string): WorkflowGraph {
@@ -45,6 +45,14 @@ export default function NewWorkflowPage() {
   const [selected, setSelected] = useState("blank");
   const [importPayload, setImportPayload] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+
+  const selectStartingPoint = (optionId: string) => {
+    if (optionId === "template") {
+      router.push("/templates");
+      return;
+    }
+    setSelected(optionId);
+  };
 
   const createWorkflow = async () => {
     if (selected === "template") {
@@ -91,12 +99,28 @@ export default function NewWorkflowPage() {
           {starts.map((option) => (
             <button
               key={option.id}
-              onClick={() => setSelected(option.id)}
-              className={`rounded-lg border p-4 text-left transition ${selected === option.id ? "border-[#2F7BFF]/45 bg-[#2F7BFF]/12" : "border-white/10 bg-white/[0.03] hover:border-white/20"}`}
+              type="button"
+              onClick={() => selectStartingPoint(option.id)}
+              disabled={isCreating}
+              aria-pressed={selected === option.id}
+              className={`group relative cursor-pointer rounded-lg border p-4 text-left shadow-[0_16px_36px_rgba(0,0,0,0.18)] transition duration-200 hover:-translate-y-1 hover:shadow-[0_22px_54px_rgba(0,0,0,0.24),0_0_34px_rgba(47,123,255,0.18)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#2F7BFF]/70 disabled:cursor-not-allowed disabled:opacity-60 ${
+                selected === option.id
+                  ? "border-[#2F7BFF]/70 bg-[#2F7BFF]/16 shadow-[0_0_34px_rgba(47,123,255,0.18)]"
+                  : "border-white/10 bg-white/[0.03] hover:border-[#2F7BFF]/45 hover:bg-[#101726]/90"
+              }`}
             >
-              <option.icon className="mb-4 h-5 w-5 text-[#9EC0FF]" />
+              {selected === option.id ? (
+                <span className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-[#2F7BFF] text-white shadow-[0_0_18px_rgba(47,123,255,0.45)]">
+                  <Check className="h-3.5 w-3.5" />
+                </span>
+              ) : null}
+              <option.icon className="mb-4 h-5 w-5 text-[#9EC0FF] transition group-hover:scale-110 group-hover:text-white" />
               <h2 className="text-sm font-semibold text-white">{option.title}</h2>
               <p className="mt-2 text-xs leading-5 text-slate-500">{option.copy}</p>
+              <span className="mt-5 inline-flex items-center gap-1.5 text-xs font-semibold text-[#9EC0FF] transition group-hover:text-white">
+                {option.action}
+                <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
+              </span>
             </button>
           ))}
         </div>
