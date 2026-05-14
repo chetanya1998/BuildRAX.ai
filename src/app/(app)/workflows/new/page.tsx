@@ -13,8 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { getDefaultNodeData } from "@/lib/graph/catalog";
 import { WorkflowGraph } from "@/lib/graph/types";
 
-const starts = [
-  { id: "blank", title: "Blank Canvas", copy: "Start with a minimal API/auth/database/logging baseline.", icon: Workflow, action: "Use blank canvas" },
+type StartOptionId = "blank" | "template" | "mermaid" | "json";
+
+const starts: Array<{ id: StartOptionId; title: string; copy: string; icon: typeof Workflow; action: string }> = [
+  { id: "blank", title: "Blank Canvas", copy: "Start with a minimal API/auth/database/logging baseline.", icon: Workflow, action: "Create blank workflow" },
   { id: "template", title: "Template", copy: "Choose a backend blueprint from the template library.", icon: LayoutTemplate, action: "Open templates" },
   { id: "mermaid", title: "Import Mermaid", copy: "Paste an existing diagram and refine it in BuildRAX.", icon: GitBranch, action: "Paste Mermaid" },
   { id: "json", title: "Import JSON", copy: "Bring in a workflow JSON graph.", icon: FileJson, action: "Paste JSON" },
@@ -42,31 +44,35 @@ export default function NewWorkflowPage() {
   const router = useRouter();
   const [name, setName] = useState("Backend Workflow");
   const [description, setDescription] = useState("Plan a production backend flow before implementation.");
-  const [selected, setSelected] = useState("blank");
+  const [selected, setSelected] = useState<StartOptionId>("blank");
   const [importPayload, setImportPayload] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
-  const selectStartingPoint = (optionId: string) => {
+  const selectStartingPoint = (optionId: StartOptionId) => {
     if (optionId === "template") {
       router.push("/templates");
+      return;
+    }
+    if (optionId === "blank") {
+      createWorkflow("blank");
       return;
     }
     setSelected(optionId);
   };
 
-  const createWorkflow = async () => {
-    if (selected === "template") {
+  const createWorkflow = async (mode: StartOptionId = selected) => {
+    if (mode === "template") {
       router.push("/templates");
       return;
     }
     setIsCreating(true);
     try {
       let graph = blankGraph(name, description);
-      if (selected === "json" && importPayload.trim()) {
+      if (mode === "json" && importPayload.trim()) {
         const parsed = JSON.parse(importPayload) as WorkflowGraph;
         graph = { ...parsed, metadata: { ...(parsed.metadata || {}), name, description } };
       }
-      if (selected === "mermaid") {
+      if (mode === "mermaid") {
         graph.metadata.assumptions = ["Imported Mermaid parsing is stored as source text for MVP refinement."];
         graph.metadata.mermaid = importPayload;
       }
