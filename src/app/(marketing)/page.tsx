@@ -402,7 +402,7 @@ function HeroMock() {
 }
 
 function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
-  const commonCard = "rounded-lg border border-[#78A0FF]/15 bg-[#0D1421]/75 shadow-[0_24px_70px_rgba(0,0,0,0.28)]";
+  const commonCard = "group rounded-lg border border-[#78A0FF]/15 bg-[#0D1421]/75 shadow-[0_24px_70px_rgba(0,0,0,0.28),0_0_42px_rgba(47,123,255,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#2F7BFF]/55 hover:bg-[#101A2B]/90 hover:shadow-[0_30px_90px_rgba(0,0,0,0.34),0_0_48px_rgba(47,123,255,0.22)]";
 
   const builderVisual = (
     <div className="grid min-h-[360px] gap-5 lg:grid-cols-[1fr_260px]">
@@ -421,13 +421,15 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
           {["Request", "Gateway", "Auth", "Service"].map((item, index) => (
             <motion.div
               key={item}
-              className="relative rounded-lg border border-[#78A0FF]/20 bg-[#101726]/90 p-4"
+              className="group/node relative rounded-lg border border-[#78A0FF]/20 bg-[#101726]/90 p-4 shadow-[0_0_24px_rgba(47,123,255,0.06)] transition hover:-translate-y-1 hover:border-[#2F7BFF]/60 hover:shadow-[0_0_34px_rgba(47,123,255,0.22)]"
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -6 }}
+              whileTap={{ scale: 0.98 }}
               transition={{ delay: index * 0.08 }}
             >
               {index < 3 ? <div className="absolute left-full top-1/2 hidden h-px w-4 bg-[#2F7BFF]/70 md:block" /> : null}
-              <div className="mb-10 flex size-10 items-center justify-center rounded-md bg-[#2F7BFF]/12 text-[#8DB5FF]">
+              <div className="mb-10 flex size-10 items-center justify-center rounded-md bg-[#2F7BFF]/12 text-[#8DB5FF] transition group-hover/node:shadow-[0_0_24px_rgba(47,123,255,0.35)]">
                 <Network className="size-4" />
               </div>
               <div className="text-sm font-semibold text-white">{item}</div>
@@ -439,7 +441,7 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
       <div className={`${commonCard} p-5`}>
         <div className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-[#6EA4FF]">Node Library</div>
         {["API", "Database", "Queue", "Worker", "Webhook"].map((item) => (
-          <div key={item} className="mb-2 flex items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-[#C3CAD8]">
+          <div key={item} className="mb-2 flex items-center justify-between rounded-md border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-sm text-[#C3CAD8] transition hover:border-[#2F7BFF]/45 hover:bg-[#2F7BFF]/10 hover:text-white hover:shadow-[0_0_22px_rgba(47,123,255,0.14)]">
             <span>{item}</span>
             <CircleDot className="size-3 text-[#2F7BFF]" />
           </div>
@@ -471,9 +473,10 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
           ].map(([title, copy, tone]) => (
             <motion.div
               key={title}
-              className="flex items-start gap-3 rounded-lg border border-white/[0.06] bg-[#07101D]/75 p-4"
+              className="flex items-start gap-3 rounded-lg border border-white/[0.06] bg-[#07101D]/75 p-4 shadow-[0_0_20px_rgba(47,123,255,0.04)] transition hover:-translate-y-0.5 hover:border-[#2F7BFF]/35 hover:bg-[#0D1726] hover:shadow-[0_0_28px_rgba(47,123,255,0.16)]"
               initial={{ opacity: 0, x: 14 }}
               animate={{ opacity: 1, x: 0 }}
+              whileHover={{ x: 6 }}
             >
               <span className={tone === "pass" ? "text-emerald-300" : "text-amber-300"}>
                 {tone === "pass" ? <Check className="size-4" /> : <AlertTriangle className="size-4" />}
@@ -513,9 +516,11 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
         ].map(([time, title, copy], index) => (
           <motion.div
             key={title}
-            className="rounded-lg border border-[#78A0FF]/15 bg-[#07101D]/70 p-5"
+            className="rounded-lg border border-[#78A0FF]/15 bg-[#07101D]/70 p-5 shadow-[0_0_20px_rgba(47,123,255,0.05)] transition hover:-translate-y-1 hover:border-[#2F7BFF]/55 hover:bg-[#101A2B] hover:shadow-[0_0_34px_rgba(47,123,255,0.18)]"
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -6 }}
+            whileTap={{ scale: 0.98 }}
             transition={{ delay: index * 0.08 }}
           >
             <div className="mb-8 text-xs font-mono text-[#6EA4FF]">{time}</div>
@@ -572,9 +577,11 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
         ].map(([title, file, Icon]) => (
           <motion.div
             key={title as string}
-            className="rounded-lg border border-[#78A0FF]/15 bg-[#07101D]/80 p-5"
+            className="rounded-lg border border-[#78A0FF]/15 bg-[#07101D]/80 p-5 shadow-[0_0_22px_rgba(47,123,255,0.06)] transition hover:-translate-y-1 hover:border-[#2F7BFF]/55 hover:bg-[#101A2B] hover:shadow-[0_0_36px_rgba(47,123,255,0.2)]"
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ y: -6 }}
+            whileTap={{ scale: 0.98 }}
           >
             <Icon className="mb-10 size-6 text-[#8DB5FF]" />
             <div className="text-sm font-semibold text-white">{title as string}</div>
@@ -801,13 +808,16 @@ export default function LandingPage() {
               {steps.map(([title, copy], index) => (
                 <motion.div
                   key={title}
-                  className="relative rounded-lg border border-[#78A0FF]/15 bg-[#0F1724]/88 p-6"
+                  className="group relative overflow-hidden rounded-lg border border-[#78A0FF]/15 bg-[#0F1724]/88 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.22),0_0_26px_rgba(47,123,255,0.06)] transition hover:border-[#2F7BFF]/60 hover:bg-[#111D30] hover:shadow-[0_26px_70px_rgba(0,0,0,0.28),0_0_44px_rgba(47,123,255,0.22)]"
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -8 }}
+                  whileTap={{ scale: 0.98 }}
                   viewport={{ once: true, margin: "-70px" }}
                   transition={{ delay: index * 0.1 }}
                 >
-                  <div className="mb-8 flex size-10 items-center justify-center rounded-full border border-[#2F7BFF]/35 bg-[#0A0D14] text-sm font-bold text-[#8DB5FF] shadow-[0_0_26px_rgba(47,123,255,0.2)]">
+                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#2F7BFF]/55 to-transparent opacity-0 transition group-hover:opacity-100" />
+                  <div className="mb-8 flex size-10 items-center justify-center rounded-full border border-[#2F7BFF]/35 bg-[#0A0D14] text-sm font-bold text-[#8DB5FF] shadow-[0_0_26px_rgba(47,123,255,0.2)] transition group-hover:border-[#8DB5FF]/70 group-hover:shadow-[0_0_34px_rgba(47,123,255,0.38)]">
                     {index + 1}
                   </div>
                   <h3 className="text-lg font-semibold text-white">{title}</h3>
@@ -927,13 +937,15 @@ export default function LandingPage() {
               {securityItems.map((item, index) => (
                 <motion.div
                   key={item}
-                  className="flex items-start gap-3 rounded-lg border border-[#78A0FF]/15 bg-[#101726]/70 p-4"
+                  className="group flex items-start gap-3 rounded-lg border border-[#78A0FF]/15 bg-[#101726]/70 p-4 shadow-[0_14px_36px_rgba(0,0,0,0.18),0_0_22px_rgba(47,123,255,0.05)] transition hover:border-[#2F7BFF]/55 hover:bg-[#111D30] hover:shadow-[0_22px_56px_rgba(0,0,0,0.25),0_0_34px_rgba(47,123,255,0.18)]"
                   initial={{ opacity: 0, x: 16 }}
                   whileInView={{ opacity: 1, x: 0 }}
+                  whileHover={{ x: 6, y: -3 }}
+                  whileTap={{ scale: 0.98 }}
                   viewport={{ once: true, margin: "-70px" }}
                   transition={{ delay: index * 0.04 }}
                 >
-                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#2F7BFF]/12 text-[#8DB5FF]">
+                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-[#2F7BFF]/12 text-[#8DB5FF] transition group-hover:shadow-[0_0_22px_rgba(47,123,255,0.34)]">
                     <Check className="size-3.5" />
                   </span>
                   <span className="text-sm leading-6 text-[#C3CAD8]">{item}</span>
@@ -950,13 +962,17 @@ export default function LandingPage() {
               {audiences.map(([title, copy], index) => (
                 <motion.div
                   key={title}
-                  className="rounded-lg border border-[#78A0FF]/15 bg-[#0F1724]/76 p-6"
+                  className="group rounded-lg border border-[#78A0FF]/15 bg-[#0F1724]/76 p-6 shadow-[0_18px_48px_rgba(0,0,0,0.2),0_0_24px_rgba(47,123,255,0.05)] transition hover:-translate-y-1 hover:border-[#2F7BFF]/60 hover:bg-[#111D30] hover:shadow-[0_28px_72px_rgba(0,0,0,0.28),0_0_42px_rgba(47,123,255,0.22)]"
                   initial={{ opacity: 0, y: 18 }}
                   whileInView={{ opacity: 1, y: 0 }}
+                  whileHover={{ y: -8 }}
+                  whileTap={{ scale: 0.98 }}
                   viewport={{ once: true, margin: "-70px" }}
                   transition={{ delay: index * 0.07 }}
                 >
-                  <Fingerprint className="mb-5 size-6 text-[#8DB5FF]" />
+                  <div className="mb-5 flex size-11 items-center justify-center rounded-lg border border-[#2F7BFF]/20 bg-[#2F7BFF]/10 text-[#8DB5FF] transition group-hover:shadow-[0_0_28px_rgba(47,123,255,0.34)]">
+                    <Fingerprint className="size-5" />
+                  </div>
                   <h3 className="text-lg font-semibold text-white">{title}</h3>
                   <p className="mt-3 text-sm leading-6 text-[#9CA8BF]">{copy}</p>
                 </motion.div>
