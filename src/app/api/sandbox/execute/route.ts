@@ -2,17 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { runGraph } from "@/lib/runtime/engine";
-import { checkGuestRateLimit, getClientIp, incrementGuestRateLimit } from "@/lib/rate-limit";
+import { checkGuestRateLimit, incrementGuestRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await req.json();
     const { graph, nodes, edges, modelProviderId, modelId, apiKey } = body;
 
-    const userId = session?.user?.id;
-    const isGuest = !userId;
-    const identifier = isGuest ? getClientIp(req) : String(userId);
+    const userId = session.user.id;
+    const isGuest = Boolean(session.user.email?.endsWith("@buildrax.sandbox"));
+    const identifier = String(userId);
 
     if (isGuest) {
       const rateLimit = await checkGuestRateLimit(identifier);

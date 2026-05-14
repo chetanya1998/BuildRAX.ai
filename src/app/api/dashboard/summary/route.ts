@@ -13,6 +13,10 @@ type SessionUser = { id?: string };
 export async function GET() {
   try {
     const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await dbConnect();
 
     // Featured templates are always public, so fetch them for both guest and auth users
@@ -20,43 +24,6 @@ export async function GET() {
       .sort({ clones: -1, createdAt: -1 })
       .limit(3)
       .lean();
-
-    if (!session?.user) {
-      // GUEST DATA: Provide a realistic mockup for new users to see what's possible
-      const demoProgress = getProgressSummary(150); // Start at level 1 with some XP
-      
-      return NextResponse.json({
-        user: {
-          ...demoProgress,
-          badges: ["Early Adopter"],
-          name: "Guest Builder",
-          email: "guest@buildrax.ai",
-          image: "",
-          isGuest: true,
-        },
-        recentWorkflows: [
-          {
-            _id: "demo-1",
-            name: "Resume Analyzer",
-            description: "Extract skills and experience from PDF resumes",
-            updatedAt: new Date(Date.now() - 3600000 * 2), // 2 hours ago
-            isDemo: true,
-          },
-          {
-            _id: "demo-2",
-            name: "Daily Planner Agent",
-            description: "AI-driven schedule optimization",
-            updatedAt: new Date(Date.now() - 86400000), // Yesterday
-            isDemo: true,
-          }
-        ],
-        featuredTemplates: featuredTemplates.length > 0 ? featuredTemplates : [
-          { name: "Research Synthesizer", category: "Memory + LLM" },
-          { name: "Content Generator", category: "Input + LLM" },
-        ],
-        learnProgress: { currentModuleId: "intro-nodes", completedModules: [] },
-      });
-    }
 
     const userId = (session.user as SessionUser).id;
     if (!userId) {

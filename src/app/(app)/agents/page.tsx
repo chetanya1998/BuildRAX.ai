@@ -22,14 +22,16 @@ interface AgentModel {
   capabilities: string[];
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 export default function AgentsPage() {
-  const { data: agents, mutate, isLoading } = useSWR<AgentModel[]>("/api/agents", fetcher);
+  const { data: agents, error, mutate, isLoading } = useSWR<AgentModel[]>("/api/agents", fetcher);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ role: string; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
-
-  const selectedAgent = agents?.find((a) => a._id === selectedAgentId);
 
   const [formData, setFormData] = useState<Partial<AgentModel>>({});
 
@@ -58,8 +60,8 @@ export default function AgentsPage() {
       mutate();
       handleSelectAgent(newAgent);
       toast.success("Agent created");
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to create agent"));
     }
   };
 
@@ -75,8 +77,8 @@ export default function AgentsPage() {
       if (!res.ok) throw new Error("Failed to save agent");
       mutate();
       toast.success("Agent saved");
-    } catch (e: any) {
-      toast.error(e.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error, "Failed to save agent"));
     } finally {
       setIsSaving(false);
     }
@@ -104,13 +106,18 @@ export default function AgentsPage() {
           <h2 className="font-semibold text-sm flex items-center gap-2 text-white">
             <Bot className="w-4 h-4 text-sky-400" /> My Agents
           </h2>
-          <Button variant="ghost" size="icon" onClick={handleCreateAgent} className="w-7 h-7 rounded-lg hover:bg-white/10">
+          <Button variant="ghost" size="icon" onClick={handleCreateAgent} disabled={Boolean(error)} className="w-7 h-7 rounded-lg hover:bg-white/10">
             <Plus className="w-4 h-4" />
           </Button>
         </div>
         <div className="p-3 flex-1 overflow-y-auto space-y-1">
           {isLoading ? (
             <div className="flex items-center justify-center p-4"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
+          ) : error ? (
+            <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-xs leading-5 text-rose-100">
+              <p className="font-semibold">Unable to load agents</p>
+              <p className="mt-1 text-rose-100/70">{error.message}</p>
+            </div>
           ) : agents?.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center p-4">No agents found.</p>
           ) : (
@@ -133,7 +140,13 @@ export default function AgentsPage() {
         </div>
       </aside>
 
-      {selectedAgentId ? (
+      {error ? (
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center text-muted-foreground">
+          <Bot className="w-12 h-12 mb-4 opacity-20" />
+          <p className="text-sm font-medium text-white">Agents are unavailable</p>
+          <p className="mt-2 max-w-sm text-sm">{error.message}</p>
+        </div>
+      ) : selectedAgentId ? (
         <>
           {/* MIDDLE PANE - Agent Config */}
           <section className="flex-1 border-r border-white/10 flex flex-col bg-transparent">

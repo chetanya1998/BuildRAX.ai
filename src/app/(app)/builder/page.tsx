@@ -527,7 +527,7 @@ function BuilderCanvas() {
 
   return (
     <div className="builder-shell flex h-screen min-h-0 flex-col overflow-hidden text-[#F5F7FB]">
-      <header className="flex h-14 shrink-0 items-center justify-between border-b border-white/10 bg-[#0A0D14]/90 px-4 backdrop-blur-xl">
+      <header className="flex h-14 shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-white/10 bg-[#0A0D14]/90 px-4 backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-300" asChild>
             <Link href="/dashboard"><ArrowLeft className="h-4 w-4" /></Link>
@@ -544,7 +544,7 @@ function BuilderCanvas() {
             <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{lastSavedAt}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runReview} disabled={isProcessing}>
             {isProcessing && activeStage === "review" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-2 h-3.5 w-3.5" />} Review
           </Button>
@@ -563,9 +563,10 @@ function BuilderCanvas() {
         </div>
       </header>
 
+      <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
       <div
-        className="grid min-h-0 flex-1 transition-[grid-template-columns]"
-        style={{ gridTemplateColumns: `${isLeftCollapsed ? "52px" : "280px"} minmax(0,1fr) ${isRightCollapsed ? "52px" : "320px"}` }}
+        className="grid min-h-full min-w-[1120px] transition-[grid-template-columns]"
+        style={{ gridTemplateColumns: `${isLeftCollapsed ? "52px" : "280px"} minmax(520px,1fr) ${isRightCollapsed ? "52px" : "320px"}` }}
       >
         <aside className="flex min-h-0 flex-col border-r border-white/10 bg-[#0A0D14]/78">
           <div className="flex items-center justify-between border-b border-white/10 p-3">
@@ -792,6 +793,7 @@ function BuilderCanvas() {
           </ScrollArea>
           )}
         </aside>
+      </div>
       </div>
 
       {activeModal ? (

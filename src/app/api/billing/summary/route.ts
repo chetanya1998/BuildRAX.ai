@@ -25,26 +25,12 @@ export async function GET() {
     const plans = toPlanList();
 
     if (!session?.user) {
-      return NextResponse.json({
-        authenticated: false,
-        plans,
-        currentPlan: "free",
-        recommendedUpgradeTier: "pro_20",
-        subscription: null,
-        credits: null,
-      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = String((session.user as SessionUser).id || "");
     if (!userId) {
-      return NextResponse.json({
-        authenticated: false,
-        plans,
-        currentPlan: "free",
-        recommendedUpgradeTier: "pro_20",
-        subscription: null,
-        credits: null,
-      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!CREDIT_SYSTEM_ENABLED) {

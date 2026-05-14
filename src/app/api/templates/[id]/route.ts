@@ -4,12 +4,19 @@ import { authOptions } from "@/lib/auth";
 import dbConnect from "@/lib/mongodb";
 import { Template } from "@/lib/models/Template";
 
+type SessionUser = { id?: string };
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await dbConnect();
 
     const template = await Template.findById(id).lean();
@@ -18,12 +25,8 @@ export async function GET(
       return NextResponse.json({ error: "Template not found" }, { status: 404 });
     }
 
-    // Optional access control    // Optional: protect private templates
-    if (!template.isPublic) {
-      const session = await getServerSession(authOptions);
-      if (!session?.user || (template.authorId as unknown as string).toString() !== (session.user as any).id) {
-        return NextResponse.json({ error: "Unauthorized access to private template" }, { status: 403 });
-      }
+    if (!template.isPublic && (template.authorId as unknown as string).toString() !== (session.user as SessionUser).id) {
+      return NextResponse.json({ error: "Unauthorized access to private template" }, { status: 403 });
     }
 
     return NextResponse.json(template);
@@ -48,7 +51,7 @@ export async function PUT(
     await dbConnect();
 
     const updated = await Template.findOneAndUpdate(
-      { _id: id, authorId: (session.user as any).id },
+      { _id: id, authorId: (session.user as SessionUser).id },
       { $set: body },
       { returnDocument: "after" }
     );
@@ -79,7 +82,7 @@ export async function DELETE(
 
     const deleted = await Template.findOneAndDelete({
       _id: id,
-      authorId: (session.user as any).id,
+      authorId: (session.user as SessionUser).id,
     });
 
     if (!deleted) {

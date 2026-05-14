@@ -13,6 +13,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const session = await getServerSession(authOptions);
+    const userId = String((session?.user as SessionUser | undefined)?.id || "");
+    if (!session?.user || !userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await dbConnect();
     const workflow = await Workflow.findOne({
       _id: id,
@@ -24,13 +30,8 @@ export async function GET(
       return NextResponse.json({ error: "Workflow not found" }, { status: 404 });
     }
 
-    // Optional: protect private workflows
-    if (!workflow.isPublic) {
-      const session = await getServerSession(authOptions);
-      const userId = String((session?.user as SessionUser | undefined)?.id || "");
-      if (!session?.user || (workflow.creatorId as string).toString() !== userId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-      }
+    if ((workflow.creatorId as string).toString() !== userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     return NextResponse.json({
