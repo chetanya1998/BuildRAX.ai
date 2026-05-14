@@ -147,7 +147,7 @@ export default function NewWorkflowPage() {
                 <Textarea className="min-h-40 rounded-lg border-white/10 bg-black/20 font-mono text-xs" value={importPayload} onChange={(event) => setImportPayload(event.target.value)} />
               </div>
             ) : null}
-            <Button className="w-full rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={createWorkflow} disabled={isCreating}>
+            <Button className="w-full rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={() => createWorkflow()} disabled={isCreating}>
               {isCreating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Continue
             </Button>
             <Button variant="outline" className="w-full rounded-lg border-white/10 bg-white/[0.03]" asChild>
