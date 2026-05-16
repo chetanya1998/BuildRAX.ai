@@ -17,6 +17,8 @@ import {
 import { useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { HelpGuidePanel } from "@/components/guidance/HelpGuidePanel";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -82,12 +84,18 @@ export function Sidebar() {
       </nav>
 
       {!isCollapsed ? (
-        <div className="mx-3 mb-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-          <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-300">
-            <BellRing className="h-3.5 w-3.5 text-[#6EA4FF]" />
-            Non-AI MVP Mode
+        <div className="mx-3 mb-3 space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <HelpGuidePanel compact />
+            <ThemeToggle />
           </div>
-          <p className="text-[11px] leading-relaxed text-slate-500">Review, simulation, Mermaid, and exports run deterministically without provider keys.</p>
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+            <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-300">
+              <BellRing className="h-3.5 w-3.5 text-[#6EA4FF]" />
+              Deterministic MVP Mode
+            </div>
+            <p className="text-[11px] leading-relaxed text-slate-500">Review, simulation, Mermaid, and exports run from workflow data without provider keys.</p>
+          </div>
         </div>
       ) : null}
 

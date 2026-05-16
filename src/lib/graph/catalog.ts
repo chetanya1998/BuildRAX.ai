@@ -3,6 +3,10 @@ import { NodeDefinition, NodeFieldDefinition, NodePack } from "./types";
 
 type RawNode = (typeof BUILD_RAX_NODE_CATALOG)[number];
 
+const UNIQUE_BUILD_RAX_NODE_CATALOG = BUILD_RAX_NODE_CATALOG.filter(
+  (node, index, catalog) => catalog.findIndex((item) => item.id === node.id) === index
+);
+
 const packColors: Record<NodePack, string> = {
   entry_point: "bg-blue-500/12 text-blue-200 border-blue-400/25",
   auth_security: "bg-rose-500/12 text-rose-200 border-rose-400/25",
@@ -120,8 +124,8 @@ function toDefinition(raw: RawNode): NodeDefinition {
   };
 }
 
-export const NODE_DEFINITIONS: NodeDefinition[] = BUILD_RAX_NODE_CATALOG.map(toDefinition);
-export const BACKEND_NODE_TYPES = BUILD_RAX_NODE_CATALOG.map((node) => node.id);
+export const NODE_DEFINITIONS: NodeDefinition[] = UNIQUE_BUILD_RAX_NODE_CATALOG.map(toDefinition);
+export const BACKEND_NODE_TYPES = UNIQUE_BUILD_RAX_NODE_CATALOG.map((node) => node.id);
 export const PRODUCTION_NODE_TYPES = BACKEND_NODE_TYPES;
 export type BackendNodeType = (typeof BACKEND_NODE_TYPES)[number];
 

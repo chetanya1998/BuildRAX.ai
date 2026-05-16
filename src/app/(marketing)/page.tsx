@@ -37,13 +37,16 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { LandingSandboxDemo } from "@/components/landing/LandingSandboxDemo";
+import { PricingTiers } from "@/components/landing/PricingTiers";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 const navLinks = [
-  { label: "Product", href: "#product" },
+  { label: "Product Overview", href: "#product-overview" },
   { label: "Templates", href: "#templates" },
-  { label: "Sandbox", href: "#showcase" },
-  { label: "Pricing", href: "/billing" },
-  { label: "Docs", href: "#exports" },
+  { label: "Sandbox", href: "#sandbox" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "Docs", href: "https://github.com/chetanya1998/BuildRAX.ai" },
 ];
 
 const architectureNodes = [
@@ -153,14 +156,46 @@ const showcaseTabs = [
 ];
 
 const templates = [
-  ["Authentication System", "JWT/session-based backend flow with auth checks, user store, permission handling, and session logic."],
-  ["Payment Flow", "Checkout, payment provider, webhook verification, and idempotent state handling."],
-  ["Webhook Processor", "Receive, verify, queue, retry, and process external event flows safely."],
-  ["Queue + Worker Pipeline", "Model async jobs, retries, dead-letter queues, and worker responsibilities."],
-  ["Multi-Tenant SaaS Backend", "Plan tenants, users, billing, permissions, and data boundaries."],
-  ["File Upload and Processing", "Validate upload flow, storage, background jobs, and notification paths."],
-  ["Notification Pipeline", "Coordinate email, push, retries, preferences, and delivery observability."],
-  ["Creator Marketplace Backend", "Map profiles, purchases, payouts, moderation, and event-driven workflows."],
+  {
+    title: "Authentication System",
+    copy: "Plan signup, login, sessions, permissions, and audit records before engineering starts.",
+    bestFor: "SaaS apps, dashboards, portals",
+  },
+  {
+    title: "Payment Flow",
+    copy: "Map checkout, payment provider calls, webhook verification, retries, and safe order updates.",
+    bestFor: "Subscriptions, wallets, commerce",
+  },
+  {
+    title: "Webhook Processor",
+    copy: "Receive third-party events, verify signatures, queue processing, retry failures, and log outcomes.",
+    bestFor: "Stripe, GitHub, CRM, partner events",
+  },
+  {
+    title: "Queue + Worker Pipeline",
+    copy: "Move slow work into background jobs with retry rules, worker capacity, and dead-letter handling.",
+    bestFor: "Imports, emails, file jobs",
+  },
+  {
+    title: "Multi-Tenant SaaS Backend",
+    copy: "Design tenants, teams, billing access, role boundaries, and shared data rules.",
+    bestFor: "B2B SaaS, team workspaces",
+  },
+  {
+    title: "File Upload and Processing",
+    copy: "Validate files, store objects, trigger background processing, and notify users when complete.",
+    bestFor: "Media, documents, onboarding",
+  },
+  {
+    title: "Notification Pipeline",
+    copy: "Coordinate email, push, preferences, retry paths, and delivery observability.",
+    bestFor: "Product alerts, lifecycle messages",
+  },
+  {
+    title: "Creator Marketplace Backend",
+    copy: "Map profiles, purchases, payouts, moderation, disputes, and event-driven workflows.",
+    bestFor: "Marketplaces, creator tools",
+  },
 ];
 
 const securityItems = [
@@ -402,7 +437,7 @@ function HeroMock() {
 }
 
 function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
-  const commonCard = "group rounded-lg border border-[#78A0FF]/15 bg-[#0D1421]/75 shadow-[0_24px_70px_rgba(0,0,0,0.28),0_0_42px_rgba(47,123,255,0.07)] transition duration-300 hover:-translate-y-1 hover:border-[#2F7BFF]/55 hover:bg-[#101A2B]/90 hover:shadow-[0_30px_90px_rgba(0,0,0,0.34),0_0_48px_rgba(47,123,255,0.22)]";
+  const commonCard = "group rounded-lg border border-[#78A0FF]/15 bg-[#0D1421]/75 shadow-[0_14px_34px_rgba(0,0,0,0.16)] transition duration-300 hover:-translate-y-0.5 hover:border-[#2F7BFF]/45 hover:bg-[#101A2B]/90 hover:shadow-[0_18px_44px_rgba(15,23,42,0.20)]";
 
   const builderVisual = (
     <div className="grid min-h-[360px] gap-5 lg:grid-cols-[1fr_260px]">
@@ -452,12 +487,12 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
 
   const reviewVisual = (
     <div className="grid min-h-[360px] gap-5 lg:grid-cols-[320px_1fr]">
-      <div className={`${commonCard} flex flex-col items-center justify-center p-8 text-center`}>
-        <div className="relative flex size-40 items-center justify-center rounded-full border border-[#2F7BFF]/25 bg-[#2F7BFF]/10 shadow-[0_0_50px_rgba(47,123,255,0.16)]">
-          <div className="absolute inset-3 rounded-full border-8 border-[#2F7BFF]" />
-          <div>
-            <div className="text-5xl font-semibold text-white">82</div>
-            <div className="mt-1 text-xs uppercase tracking-[0.18em] text-[#9CA8BF]">Architecture score</div>
+      <div className={`${commonCard} flex min-h-[360px] flex-col items-center justify-center p-8 text-center`}>
+        <div className="relative mx-auto flex size-44 items-center justify-center rounded-full border border-[#2F7BFF]/20 bg-[#2F7BFF]/8">
+          <div className="absolute inset-4 rounded-full border-[10px] border-[#2F7BFF]/35" />
+          <div className="relative flex flex-col items-center justify-center text-center">
+            <div className="text-5xl font-semibold leading-none text-white">82</div>
+            <div className="mt-3 max-w-24 text-center text-[10px] uppercase leading-4 tracking-[0.18em] text-[#9CA8BF]">Architecture Score</div>
           </div>
         </div>
         <p className="mt-6 text-sm leading-6 text-[#9CA8BF]">{tab.copy}</p>
@@ -478,7 +513,7 @@ function ShowcaseMock({ tab }: { tab: (typeof showcaseTabs)[number] }) {
               animate={{ opacity: 1, x: 0 }}
               whileHover={{ x: 6 }}
             >
-              <span className={tone === "pass" ? "text-emerald-300" : "text-amber-300"}>
+              <span className={tone === "pass" ? "text-emerald-400" : "text-amber-400"}>
                 {tone === "pass" ? <Check className="size-4" /> : <AlertTriangle className="size-4" />}
               </span>
               <div>
@@ -615,7 +650,7 @@ export default function LandingPage() {
   const [activeTab, setActiveTab] = useState(showcaseTabs[0]);
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#0A0D14] text-[#F5F7FB]">
+    <div className="landing-page min-h-screen overflow-hidden bg-[#0A0D14] text-[#F5F7FB]">
       <div className="fixed inset-0 -z-10">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(47,123,255,0.20),transparent_32%),radial-gradient(circle_at_80%_12%,rgba(81,120,255,0.12),transparent_28%),linear-gradient(180deg,#0A0D14_0%,#090D15_48%,#070A10_100%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(rgba(120,150,255,0.035)_1px,transparent_1px),linear-gradient(90deg,rgba(120,150,255,0.035)_1px,transparent_1px)] bg-[size:44px_44px] [mask-image:radial-gradient(ellipse_75%_55%_at_50%_20%,black,transparent)]" />
@@ -638,14 +673,18 @@ export default function LandingPage() {
           </Link>
 
           <nav className="hidden items-center gap-7 text-sm font-medium text-[#9CA8BF] md:flex">
-            {navLinks.map((link) => (
-              <Link key={link.label} href={link.href} className="transition hover:text-white">
-                {link.label}
-              </Link>
-            ))}
+            {navLinks.map((link) => {
+              const external = link.href.startsWith("http");
+              return (
+                <Link key={link.label} href={link.href} className="transition hover:text-white" target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined}>
+                  {link.label}
+                </Link>
+              );
+            })}
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
+            <ThemeToggle compact />
             <Button variant="ghost" size="sm" className="h-9 px-4 text-[#9CA8BF] hover:bg-white/[0.04] hover:text-white" asChild>
               <Link href="/login">Log in</Link>
             </Button>
@@ -674,12 +713,16 @@ export default function LandingPage() {
             exit={{ opacity: 0, y: -10 }}
           >
             <div className="flex flex-col gap-4">
-              {navLinks.map((link) => (
-                <Link key={link.label} href={link.href} className="text-sm font-medium text-[#C3CAD8]" onClick={() => setMobileOpen(false)}>
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link) => {
+                const external = link.href.startsWith("http");
+                return (
+                  <Link key={link.label} href={link.href} className="text-sm font-medium text-[#C3CAD8]" target={external ? "_blank" : undefined} rel={external ? "noreferrer" : undefined} onClick={() => setMobileOpen(false)}>
+                    {link.label}
+                  </Link>
+                );
+              })}
               <div className="grid grid-cols-2 gap-3 border-t border-white/[0.06] pt-4">
+                <ThemeToggle className="h-10" />
                 <Button variant="outline" className="h-10 border-[#78A0FF]/15 bg-white/[0.03]" asChild>
                   <Link href="/login">Log in</Link>
                 </Button>
@@ -741,8 +784,30 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="product" className="px-5 py-24 sm:px-6 lg:px-10">
+        <section id="product-overview" className="px-5 py-24 sm:px-6 lg:px-10">
           <div className="mx-auto max-w-7xl">
+            <SectionHeading
+              eyebrow="Product overview"
+              title="Describe your backend before writing code."
+              copy="BuildRAX turns a product idea into a backend blueprint. You can see how requests move, catch missing auth, rate limits, queues, and failure handling, then export diagrams and developer handoff docs."
+            />
+            <div className="mb-10 grid gap-4 lg:grid-cols-2">
+              {[
+                ["Non-technical reading mode", "Start with the product outcome, choose a template, then follow guided explanations for each backend part, expected behavior, and exact simulation result."],
+                ["Technical reading mode", "Work with a graph-based deterministic architecture workspace: node roles, contracts, review rules, simulations, Mermaid diagrams, and exportable handoff artifacts."],
+              ].map(([title, copy]) => (
+                <motion.div
+                  key={title}
+                  className="rounded-lg border border-[#78A0FF]/15 bg-[#101726]/70 p-6"
+                  initial={{ opacity: 0, y: 18 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-70px" }}
+                >
+                  <h3 className="text-lg font-semibold text-white">{title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#9CA8BF]">{copy}</p>
+                </motion.div>
+              ))}
+            </div>
             <SectionHeading
               eyebrow="The problem"
               title="Most teams move from idea to code too fast."
@@ -896,18 +961,42 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section id="sandbox" className="px-5 py-24 sm:px-6 lg:px-10">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading
+              eyebrow="Interactive sandbox"
+              title="Watch backend behavior before anything is built."
+              copy="Toggle a landing-page simulation, see nodes light up step by step, read terminal logs, and understand the plain-English meaning of each backend action."
+            />
+            <LandingSandboxDemo />
+          </div>
+        </section>
+
         <section id="templates" className="px-5 py-24 sm:px-6 lg:px-10">
           <div className="mx-auto max-w-7xl">
             <SectionHeading
               eyebrow="Templates"
-              title="Start with proven backend patterns"
-              copy="Choose a starting point instead of beginning from scratch."
+              title="Choose a backend use case and see how it should work."
+              copy="Templates are backend blueprints for common product flows. Pick the flow closest to your idea, see the required backend parts, customize the nodes, simulate behavior, and export a developer handoff."
             />
+            <div className="mb-8 grid gap-3 md:grid-cols-3">
+              {[
+                ["100", "backend templates", "SaaS auth, subscription billing, RAG chatbot, marketplace escrow, wallet, approval workflows, and CI/CD pipelines."],
+                ["10", "template categories", "SaaS, fintech, ecommerce, marketplaces, AI/RAG, education, health, mobility, operations, and consumer apps."],
+                ["60", "backend node types", "APIs, webhooks, auth, RBAC, queues, workers, cache, storage, alerts, metrics, payments, and custom nodes."],
+              ].map(([number, title, copy]) => (
+                <div key={title} className="rounded-lg border border-[#78A0FF]/15 bg-[#101726]/70 p-5">
+                  <p className="text-3xl font-semibold text-white">{number}</p>
+                  <p className="mt-1 text-sm font-semibold text-[#B8D2FF]">{title}</p>
+                  <p className="mt-3 text-xs leading-5 text-[#9CA8BF]">{copy}</p>
+                </div>
+              ))}
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              {templates.map(([title, copy], index) => (
+              {templates.map((template, index) => (
                 <motion.div
-                  key={title}
-                  className="rounded-lg border border-[#78A0FF]/15 bg-[#0F1724]/72 p-5 transition hover:border-[#2F7BFF]/55 hover:shadow-[0_0_32px_rgba(47,123,255,0.14)]"
+                  key={template.title}
+                  className="flex min-h-[260px] flex-col rounded-lg border border-[#78A0FF]/15 bg-[#0F1724]/72 p-5 transition hover:border-[#2F7BFF]/45 hover:bg-[#101A2B]/80"
                   initial={{ opacity: 0, y: 18 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-70px" }}
@@ -917,10 +1006,27 @@ export default function LandingPage() {
                     <ScrollText className="size-5 text-[#8DB5FF]" />
                     <ArrowRight className="size-4 text-[#4F5D75]" />
                   </div>
-                  <h3 className="font-semibold text-white">{title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[#9CA8BF]">{copy}</p>
+                  <h3 className="font-semibold text-white">{template.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#9CA8BF]">{template.copy}</p>
+                  <div className="mt-auto pt-5">
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-[#6EA4FF]">Best for</p>
+                    <p className="mt-1 text-xs leading-5 text-[#9CA8BF]">{template.bestFor}</p>
+                  </div>
                 </motion.div>
               ))}
+            </div>
+            <div className="mt-8 grid gap-3 md:grid-cols-4">
+              {["Pick the closest use case", "Edit the included nodes", "Add your custom services", "Simulate and export handoff"].map((item, index) => (
+                <div key={item} className="flex min-h-24 flex-col justify-between rounded-lg border border-white/[0.06] bg-black/20 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#6EA4FF]">Step {index + 1}</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{item}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-8 flex justify-center">
+              <Button className="h-11 rounded-lg bg-[#2F7BFF] px-6 text-sm font-semibold text-white hover:bg-[#4D8EFF]" asChild>
+                <Link href="/templates">Open full template catalog</Link>
+              </Button>
             </div>
           </div>
         </section>
@@ -981,6 +1087,17 @@ export default function LandingPage() {
           </div>
         </section>
 
+        <section id="pricing" className="px-5 py-24 sm:px-6 lg:px-10">
+          <div className="mx-auto max-w-7xl">
+            <SectionHeading
+              eyebrow="Pricing"
+              title="Try first. Paid plans are coming later."
+              copy="BuildRAX is focused on the deterministic MVP today. Billing is informational only until saved workspaces, team features, and AI-assisted architecture are ready."
+            />
+            <PricingTiers />
+          </div>
+        </section>
+
         <section id="exports" className="px-5 py-24 sm:px-6 lg:px-10">
           <div className="mx-auto max-w-5xl overflow-hidden rounded-xl border border-[#78A0FF]/15 bg-[#101726]/78 p-8 text-center shadow-[0_0_70px_rgba(47,123,255,0.12)] sm:p-12">
             <div className="mx-auto mb-6 flex size-12 items-center justify-center rounded-lg bg-[#2F7BFF]/12 text-[#8DB5FF]">
@@ -1016,8 +1133,17 @@ export default function LandingPage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-[#9CA8BF]">
-            {["Product", "Templates", "Sandbox", "Docs", "Pricing", "Privacy", "Terms", "Contact"].map((item) => (
-              <Link key={item} href={item === "Pricing" ? "/billing" : `#${item.toLowerCase()}`} className="hover:text-white">
+            {[
+              ["Product", "#product-overview"],
+              ["Templates", "#templates"],
+              ["Sandbox", "#sandbox"],
+              ["Docs", "https://github.com/chetanya1998/BuildRAX.ai"],
+              ["Pricing", "#pricing"],
+              ["Privacy", "#privacy"],
+              ["Terms", "#terms"],
+              ["Contact", "#contact"],
+            ].map(([item, href]) => (
+              <Link key={item} href={href} className="hover:text-white" target={href.startsWith("http") ? "_blank" : undefined} rel={href.startsWith("http") ? "noreferrer" : undefined}>
                 {item}
               </Link>
             ))}

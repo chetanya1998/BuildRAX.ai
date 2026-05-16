@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import * as LucideIcons from "lucide-react";
 import {
   addEdge,
   Background,
@@ -14,6 +15,7 @@ import {
   MiniMap,
   Node,
   ReactFlow,
+  ReactFlowInstance,
   useEdgesState,
   useNodesState,
 } from "@xyflow/react";
@@ -50,11 +52,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
+import { ExpectedVsExactReport as ExpectedVsExactReportView } from "@/components/guidance/ExpectedVsExactReport";
+import { HelpGuidePanel } from "@/components/guidance/HelpGuidePanel";
+import { NodeEducationPopover } from "@/components/guidance/NodeEducationPopover";
+import { PlainLanguageExplanationPanel } from "@/components/guidance/PlainLanguageExplanationPanel";
+import { TermTooltip } from "@/components/guidance/TermTooltip";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useTheme } from "@/components/theme/ThemeProvider";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
 import { ExportType, generateExport } from "@/lib/backend/exports";
 import { generateMermaid, validateMermaid } from "@/lib/backend/mermaid";
 import { runWorkflowReview } from "@/lib/backend/review";
 import { runWorkflowSimulation } from "@/lib/backend/simulation";
+import {
+  BeginnerNodeExplanation,
+  buildExpectedFlow,
+  compareExpectedToActual,
+  explainNodeForBeginner,
+  explainReviewRun,
+  explainSimulationRun,
+  formatExpectedVsExactReport,
+} from "@/lib/guidance/explanations";
 import { getDefaultNodeData, getNodePackLabel, NODE_DEFINITIONS, NODE_PACK_ORDER } from "@/lib/graph/catalog";
 import { nodeTypes } from "@/components/nodes";
 import { ReviewResult, SimulationResult, WorkflowGraph } from "@/lib/graph/types";
@@ -62,6 +80,7 @@ import { cn } from "@/lib/utils";
 
 type FlowNode = Node<Record<string, unknown>, string>;
 type FlowEdge = Edge;
+type FlowInstance = ReactFlowInstance<FlowNode, FlowEdge>;
 type BuilderStage = "build" | "review" | "simulate" | "mermaid" | "export";
 type ConsoleLevel = "info" | "success" | "warning" | "error";
 
@@ -89,6 +108,14 @@ const starterEdges: FlowEdge[] = [
   { id: "db-logger", source: "db-1", target: "logger-1", animated: true },
 ];
 
+function BuilderNodeLibraryIcon({ iconName }: { iconName?: string }) {
+  const Icon = iconName
+    ? (LucideIcons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[iconName]
+    : TerminalSquare;
+  const SafeIcon = Icon || TerminalSquare;
+  return <SafeIcon className="h-4 w-4" />;
+}
+
 function makeGraph(name: string, description: string, nodes: FlowNode[], edges: FlowEdge[]): WorkflowGraph {
   return {
     version: "1.0",
@@ -115,6 +142,7 @@ function BuilderCanvas() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
+  const { theme } = useTheme();
   const workflowIdFromUrl = searchParams.get("id") || "";
   const [workflowId, setWorkflowId] = useState(workflowIdFromUrl);
   const [workflowName, setWorkflowName] = useState("Backend Workflow");
@@ -140,12 +168,15 @@ function BuilderCanvas() {
   const [isRightCollapsed, setIsRightCollapsed] = useState(false);
   const [isTerminalCollapsed, setIsTerminalCollapsed] = useState(false);
   const [isCustomNodeOpen, setIsCustomNodeOpen] = useState(false);
+  const [flowInstance, setFlowInstance] = useState<FlowInstance | null>(null);
+  const [isCanvasDragActive, setIsCanvasDragActive] = useState(false);
   const [customNodeName, setCustomNodeName] = useState("");
   const [customNodeRole, setCustomNodeRole] = useState("custom_operation");
   const [customNodeDescription, setCustomNodeDescription] = useState("");
   const [customNodeDependencies, setCustomNodeDependencies] = useState("");
   const [customNodeOutputs, setCustomNodeOutputs] = useState("");
   const [customNodeFailureModes, setCustomNodeFailureModes] = useState("validation_error\ntimeout\ndependency_error");
+  const [nodeGuide, setNodeGuide] = useState<BeginnerNodeExplanation | null>(null);
   const [consoleEntries, setConsoleEntries] = useState<ConsoleEntry[]>([
     {
       id: "boot",
@@ -168,6 +199,10 @@ function BuilderCanvas() {
   }, []);
 
   const graph = useMemo(() => makeGraph(workflowName, workflowDescription, nodes, edges), [workflowName, workflowDescription, nodes, edges]);
+  const expectedFlow = useMemo(() => buildExpectedFlow(graph, "happy_path"), [graph]);
+  const expectedVsExactReport = useMemo(() => compareExpectedToActual(expectedFlow, simulationResult), [expectedFlow, simulationResult]);
+  const reviewExplanation = useMemo(() => explainReviewRun(graph, reviewResult), [graph, reviewResult]);
+  const simulationExplanation = useMemo(() => explainSimulationRun(graph, simulationResult), [graph, simulationResult]);
   const validation = useMemo(() => {
     const problems: string[] = [];
     if (nodes.length === 0) problems.push("Add at least one backend node.");
@@ -231,21 +266,50 @@ function BuilderCanvas() {
     setEdges((current) => addEdge({ ...connection, animated: true }, current));
   }, [setEdges]);
 
-  const addNode = (type: string) => {
+  const addNode = useCallback((type: string, position?: { x: number; y: number }, source: "click" | "drop" = "click") => {
     const definition = NODE_DEFINITIONS.find((item) => item.type === type);
     const id = `${type}-${Date.now()}`;
     const column = nodes.length % 4;
     const row = Math.floor(nodes.length / 4);
-    setNodes((current) => [
-      ...current,
-      {
-        id,
-        type,
-        position: { x: 80 + column * 320, y: 80 + row * 180 },
-        data: { ...getDefaultNodeData(type), label: definition?.title || type },
-      },
-    ]);
+    const newNode: FlowNode = {
+      id,
+      type,
+      position: position || { x: 80 + column * 320, y: 80 + row * 180 },
+      data: { ...getDefaultNodeData(type), label: definition?.title || type },
+    };
+    setNodes((current) => [...current, newNode]);
+    setSelectedNode(newNode);
+    logToConsole("info", `${definition?.title || type} ${source === "drop" ? "dropped on the canvas" : "added"}. Open the node guide from the inspector whenever you want role, input, output, and failure details.`);
+  }, [logToConsole, nodes.length, setNodes]);
+
+  const startNodeDrag = (event: DragEvent<HTMLButtonElement>, type: string) => {
+    event.dataTransfer.setData("application/buildrax-node", type);
+    event.dataTransfer.setData("text/plain", type);
+    event.dataTransfer.effectAllowed = "move";
+    setIsCanvasDragActive(true);
   };
+
+  const onCanvasDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setIsCanvasDragActive(true);
+  }, []);
+
+  const onCanvasDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+      setIsCanvasDragActive(false);
+      const type = event.dataTransfer.getData("application/buildrax-node") || event.dataTransfer.getData("text/plain");
+      if (!type || !NODE_DEFINITIONS.some((definition) => definition.type === type)) return;
+
+      const position = flowInstance?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) || {
+        x: 120 + (nodes.length % 4) * 280,
+        y: 120 + Math.floor(nodes.length / 4) * 160,
+      };
+      addNode(type, position, "drop");
+    },
+    [addNode, flowInstance, nodes.length]
+  );
 
   const addCustomNode = () => {
     const label = customNodeName.trim() || "Custom Backend Node";
@@ -253,24 +317,23 @@ function BuilderCanvas() {
     const id = `custom-${Date.now()}`;
     const column = nodes.length % 4;
     const row = Math.floor(nodes.length / 4);
-    setNodes((current) => [
-      ...current,
-      {
-        id,
-        type: "custom",
-        position: { x: 80 + column * 320, y: 80 + row * 180 },
-        data: {
-          label,
-          description,
-          node_role: customNodeRole.trim() || "custom_operation",
-          inputs: "default",
-          outputs: customNodeOutputs.trim() || "default",
-          dependencies: customNodeDependencies.trim(),
-          failure_modes: customNodeFailureModes.trim() || "validation_error\ntimeout\ndependency_error",
-          review_rules: "Document ownership, retries, idempotency, observability, and data contracts.",
-        },
+    const newNode: FlowNode = {
+      id,
+      type: "custom",
+      position: { x: 80 + column * 320, y: 80 + row * 180 },
+      data: {
+        label,
+        description,
+        node_role: customNodeRole.trim() || "custom_operation",
+        inputs: "default",
+        outputs: customNodeOutputs.trim() || "default",
+        dependencies: customNodeDependencies.trim(),
+        failure_modes: customNodeFailureModes.trim() || "validation_error\ntimeout\ndependency_error",
+        review_rules: "Document ownership, retries, idempotency, observability, and data contracts.",
       },
-    ]);
+    };
+    setNodes((current) => [...current, newNode]);
+    setSelectedNode(newNode);
     setCustomNodeName("");
     setCustomNodeDescription("");
     setCustomNodeDependencies("");
@@ -442,7 +505,10 @@ function BuilderCanvas() {
     const label = type === "developer_handoff" ? "Developer handoff" : type === "workflow_json" ? "Workflow JSON" : type === "simulation_report" ? "Simulation report" : type;
     logToConsole("info", `${label} export started. Compiling deterministic graph artifacts.`);
     try {
-      const content = generateExport(graph, type);
+      let content = generateExport(graph, type);
+      if (type === "simulation_report" || type === "developer_handoff") {
+        content = `${content}\n\n${formatExpectedVsExactReport(expectedVsExactReport)}`;
+      }
       setExportContent(content);
 
       if (workflowId) {
@@ -545,6 +611,8 @@ function BuilderCanvas() {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <HelpGuidePanel compact onOpen={() => setNodeGuide(null)} />
+          <ThemeToggle compact />
           <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runReview} disabled={isProcessing}>
             {isProcessing && activeStage === "review" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-2 h-3.5 w-3.5" />} Review
           </Button>
@@ -565,7 +633,7 @@ function BuilderCanvas() {
 
       <div className="min-h-0 flex-1 overflow-x-auto overflow-y-hidden">
       <div
-        className="grid min-h-full min-w-[1120px] transition-[grid-template-columns]"
+        className="grid h-full min-h-0 min-w-[1120px] transition-[grid-template-columns]"
         style={{ gridTemplateColumns: `${isLeftCollapsed ? "52px" : "280px"} minmax(520px,1fr) ${isRightCollapsed ? "52px" : "320px"}` }}
       >
         <aside className="flex min-h-0 flex-col border-r border-white/10 bg-[#0A0D14]/78">
@@ -611,8 +679,11 @@ function BuilderCanvas() {
                   ))}
                 </div>
               </div>
-              <ScrollArea className="min-h-0 flex-1">
+              <ScrollArea className="min-h-0 flex-1 overflow-hidden">
                 <div className="space-y-2 p-3">
+                  <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-[11px] leading-5 text-slate-400">
+                    Drag or click nodes to model an <TermTooltip term="API" />, <TermTooltip term="queue" />, <TermTooltip term="cache" />, or worker-based backend path.
+                  </div>
                   <div className="rounded-lg border border-[#2F7BFF]/25 bg-[#2F7BFF]/10">
                     <button
                       type="button"
@@ -642,17 +713,41 @@ function BuilderCanvas() {
                   {filteredDefinitions.map((definition) => (
                     <button
                       key={definition.type}
+                      type="button"
+                      draggable
+                      onDragStart={(event) => startNodeDrag(event, definition.type)}
+                      onDragEnd={() => setIsCanvasDragActive(false)}
                       onClick={() => addNode(definition.type)}
-                      className="w-full rounded-lg border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-[#2F7BFF]/35 hover:bg-[#2F7BFF]/10"
+                      className="builder-node-card group w-full cursor-grab rounded-xl border p-3 text-left transition active:cursor-grabbing"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-xs font-semibold text-white">{definition.title}</p>
-                          <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">{definition.description}</p>
+                      <div className="flex items-start gap-3">
+                        <div className={cn("builder-node-card__icon mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border", definition.colorClass)}>
+                          <BuilderNodeLibraryIcon iconName={definition.icon} />
                         </div>
-                        <Plus className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#6EA4FF]" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-white">{definition.title}</p>
+                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                                  {getNodePackLabel(definition.pack)}
+                                </span>
+                              </div>
+                              <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-400">{definition.description}</p>
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end gap-2">
+                              <Plus className="h-3.5 w-3.5 text-[#6EA4FF]" />
+                              <span className="rounded-md border border-white/10 bg-white/[0.03] px-1.5 py-0.5 text-[9px] uppercase tracking-[0.16em] text-slate-500">
+                                Drag
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <p className="truncate text-[10px] uppercase tracking-[0.18em] text-slate-600">{definition.category}</p>
+                            <p className="text-[10px] font-medium text-slate-500 transition group-hover:text-[#8DB5FF]">Click to add</p>
+                          </div>
+                        </div>
                       </div>
-                      <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-slate-600">{definition.category}</p>
                     </button>
                   ))}
                 </div>
@@ -661,7 +756,15 @@ function BuilderCanvas() {
           )}
         </aside>
 
-        <main className="relative min-h-0">
+        <main
+          className="buildrax-canvas-shell relative min-h-0 bg-[#080C14]"
+          onDragOver={onCanvasDragOver}
+          onDrop={onCanvasDrop}
+          onDragLeave={(event) => {
+            if (event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) return;
+            setIsCanvasDragActive(false);
+          }}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -670,14 +773,28 @@ function BuilderCanvas() {
             onConnect={onConnect}
             nodeTypes={nodeTypes}
             fitView
-            onNodeClick={(_, node) => setSelectedNode(node)}
-            onPaneClick={() => setSelectedNode(null)}
-            className="bg-[#080C14]"
+            onInit={setFlowInstance}
+            colorMode={theme}
+            onDragOver={onCanvasDragOver}
+            onDrop={onCanvasDrop}
+            onNodeClick={(_, node) => {
+              setSelectedNode(node);
+            }}
+            onPaneClick={() => {
+              setSelectedNode(null);
+              setNodeGuide(null);
+            }}
+            className="buildrax-builder-flow bg-[#080C14]"
           >
             <Background variant={BackgroundVariant.Dots} gap={28} size={1} color="rgba(120,150,255,0.16)" />
             <MiniMap pannable zoomable className="!bg-[#101726] !border !border-white/10" />
             <Controls className="!border-white/10 !bg-[#101726] !text-white" />
           </ReactFlow>
+          {isCanvasDragActive ? (
+            <div className="pointer-events-none absolute inset-4 z-10 flex items-center justify-center rounded-xl border border-dashed border-[#2F7BFF]/70 bg-[#2F7BFF]/10 text-sm font-semibold text-[#B8D2FF] shadow-[0_0_0_1px_rgba(47,123,255,0.25)] backdrop-blur-[1px]">
+              Drop node on the canvas
+            </div>
+          ) : null}
           <div className={cn("absolute bottom-4 left-4 right-4 rounded-lg border border-white/10 bg-[#0A0D14]/92 backdrop-blur-xl", isTerminalCollapsed ? "p-2" : "p-3")}>
             <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-2">
               <div>
@@ -740,13 +857,29 @@ function BuilderCanvas() {
               </Button>
             </div>
           ) : (
-          <ScrollArea className="min-h-0 flex-1">
+          <ScrollArea className="min-h-0 flex-1 overflow-hidden">
             <div className="space-y-4 p-3">
               <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                 <Label className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Description</Label>
                 <Textarea className="mt-2 min-h-24 rounded-lg border-white/10 bg-black/20 text-xs" value={workflowDescription} onChange={(event) => setWorkflowDescription(event.target.value)} />
               </div>
-              <NodePropertiesPanel selectedNode={selectedNode} updateNodeData={updateNodeData} />
+              <NodePropertiesPanel
+                selectedNode={selectedNode}
+                updateNodeData={updateNodeData}
+                onOpenGuide={
+                  selectedNode
+                    ? () =>
+                        setNodeGuide(
+                          explainNodeForBeginner({
+                            id: selectedNode.id,
+                            type: selectedNode.type || "custom",
+                            position: selectedNode.position,
+                            data: selectedNode.data || {},
+                          })
+                        )
+                    : undefined
+                }
+              />
               <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
@@ -815,6 +948,7 @@ function BuilderCanvas() {
               <div className="min-h-0 overflow-y-auto p-5">
                 {activeModal === "review" ? (
                   <div className="space-y-4">
+                    <PlainLanguageExplanationPanel explanation={reviewExplanation} />
                     <div className="grid gap-3 md:grid-cols-4">
                       {[
                         ["Overall", reviewResult?.scores.overall ?? 0],
@@ -848,6 +982,7 @@ function BuilderCanvas() {
 
                 {activeModal === "simulate" ? (
                   <div className="space-y-4">
+                    <PlainLanguageExplanationPanel explanation={simulationExplanation} />
                     <div className="grid gap-3 md:grid-cols-4">
                       <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
                         <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Status</p>
@@ -871,6 +1006,7 @@ function BuilderCanvas() {
                       <p className="mt-2 text-xs leading-relaxed text-slate-400">{simulationResult?.summary || "Run simulation to generate the overall report."}</p>
                       <p className="mt-2 text-xs leading-relaxed text-slate-500">{simulationResult?.bottleneckEstimate || "No bottleneck estimate yet."}</p>
                     </div>
+                    <ExpectedVsExactReportView report={expectedVsExactReport} />
                     <div className="space-y-2">
                       {(simulationResult?.trace || []).map((step) => (
                         <div key={`${step.nodeId}-${step.label}`} className="rounded-md border border-white/10 bg-black/20 p-3">
@@ -931,6 +1067,7 @@ function BuilderCanvas() {
                         </button>
                       ))}
                     </div>
+                    <ExpectedVsExactReportView report={expectedVsExactReport} />
                     <div className="rounded-lg border border-white/10 bg-black/30">
                       <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
                         <div>
@@ -969,9 +1106,10 @@ function BuilderCanvas() {
                   ))}
                 </div>
               </div>
-            </div>
+          </div>
         </div>
       ) : null}
+      <NodeEducationPopover explanation={nodeGuide} onClose={() => setNodeGuide(null)} />
     </div>
   );
 }

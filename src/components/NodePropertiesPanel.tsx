@@ -1,5 +1,5 @@
 import { Node } from "@xyflow/react";
-import { Settings } from "lucide-react";
+import { HelpCircle, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,9 +11,10 @@ import { getNodeDefinition } from "@/lib/graph/catalog";
 interface NodePropertiesPanelProps {
   selectedNode: Node<Record<string, unknown>, string> | null;
   updateNodeData: (id: string, data: Record<string, unknown>) => void;
+  onOpenGuide?: () => void;
 }
 
-export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodePropertiesPanelProps) {
+export function NodePropertiesPanel({ selectedNode, updateNodeData, onOpenGuide }: NodePropertiesPanelProps) {
   if (!selectedNode) {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.02] px-4 text-center">
@@ -67,8 +68,22 @@ export function NodePropertiesPanel({ selectedNode, updateNodeData }: NodeProper
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-white/8 bg-white/[0.03] p-3">
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Selected node</p>
-        <h3 className="mt-1 text-sm font-semibold text-white">{definition.title}</h3>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Selected node</p>
+            <h3 className="mt-1 text-sm font-semibold text-white">{definition.title}</h3>
+          </div>
+          {onOpenGuide ? (
+            <button
+              type="button"
+              onClick={onOpenGuide}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-[11px] font-medium text-[#B8D2FF] transition hover:border-[#2F7BFF]/40 hover:bg-[#2F7BFF]/10 hover:text-white"
+            >
+              <HelpCircle className="h-3.5 w-3.5" />
+              Open guide
+            </button>
+          ) : null}
+        </div>
         <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">{definition.description}</p>
       </div>
 

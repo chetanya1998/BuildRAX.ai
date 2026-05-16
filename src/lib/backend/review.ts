@@ -24,6 +24,22 @@ function issue(args: Omit<ReviewIssue, "id">, index: number): ReviewIssue {
   return { id: `${args.category}-${index + 1}`, ...args };
 }
 
+function severityPenalty(issue: ReviewIssue) {
+  if (issue.severity === "critical") return 28;
+  if (issue.severity === "high") return 18;
+  if (issue.severity === "medium") return 10;
+  if (issue.severity === "low") return 4;
+  return 2;
+}
+
+function categoryScore(issues: ReviewIssue[], categories: ReviewIssue["category"][], baselinePenalty = 0) {
+  const categoryPenalty = issues
+    .filter((item) => categories.includes(item.category))
+    .reduce((total, item) => total + severityPenalty(item), baselinePenalty);
+
+  return Math.max(0, Math.min(100, Math.round(100 - categoryPenalty)));
+}
+
 export function runWorkflowReview(graph: WorkflowGraph): ReviewResult {
   const issues: ReviewIssue[] = [];
   const nodes = graph.nodes || [];
@@ -252,17 +268,26 @@ export function runWorkflowReview(graph: WorkflowGraph): ReviewResult {
 
   const critical = issues.filter((item) => item.severity === "critical").length;
   const high = issues.filter((item) => item.severity === "high").length;
-  const medium = issues.filter((item) => item.severity === "medium").length;
-  const penalty = critical * 18 + high * 10 + medium * 5 + Math.max(0, issues.length - critical - high - medium);
-  const overall = Math.max(0, Math.min(100, 100 - penalty));
+  const architectureScore = categoryScore(issues, ["architecture_completeness", "data_flow", "api_design"], nodes.length === 0 ? 72 : 0);
+  const securityScore = categoryScore(issues, ["security"], entryNodes.length > 0 && !roleSet.has("guard") ? 8 : 0);
+  const reliabilityScore = categoryScore(issues, ["reliability", "failure_handling", "scalability", "cost_awareness"], 0);
+  const observabilityScore = categoryScore(issues, ["observability", "operational_readiness"], observabilityCount === 0 ? 14 : 0);
+  const weightedOverall = Math.round(
+    architectureScore * 0.3 +
+      securityScore * 0.3 +
+      reliabilityScore * 0.25 +
+      observabilityScore * 0.15
+  );
+  const riskCap = nodes.length === 0 ? 0 : critical > 0 ? 64 : high > 0 ? 82 : 100;
+  const overall = Math.max(0, Math.min(riskCap, weightedOverall));
 
   return {
     status: critical > 0 ? "blocked" : issues.length > 0 ? "needs_attention" : "passed",
     scores: {
-      architecture: Math.max(0, 100 - issues.filter((item) => item.category === "architecture_completeness" || item.category === "data_flow").length * 12),
-      security: Math.max(0, 100 - issues.filter((item) => item.category === "security").length * 16),
-      reliability: Math.max(0, 100 - issues.filter((item) => item.category === "reliability" || item.category === "failure_handling").length * 12),
-      observability: Math.max(0, 100 - issues.filter((item) => item.category === "observability").length * 20),
+      architecture: architectureScore,
+      security: securityScore,
+      reliability: reliabilityScore,
+      observability: observabilityScore,
       overall,
     },
     issues,

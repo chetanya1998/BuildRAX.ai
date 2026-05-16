@@ -48,7 +48,43 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root, .dark {
+:root {
+  --background: oklch(0.975 0.012 245);
+  --foreground: oklch(0.22 0.035 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.035 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.035 250);
+  --primary: oklch(0.58 0.18 250);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.63 0.16 285);
+  --secondary-foreground: oklch(0.98 0 0);
+  --muted: oklch(0.94 0.014 245);
+  --muted-foreground: oklch(0.46 0.035 250);
+  --accent: oklch(0.93 0.03 250);
+  --accent-foreground: oklch(0.22 0.035 250);
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(0.98 0 0);
+  --border: oklch(0.82 0.035 250 / 0.75);
+  --input: oklch(0.82 0.035 250 / 0.75);
+  --ring: oklch(0.58 0.18 250);
+  --chart-1: oklch(0.58 0.18 250);
+  --chart-2: oklch(0.63 0.16 285);
+  --chart-3: oklch(0.55 0.16 150);
+  --chart-4: oklch(0.76 0.16 82);
+  --chart-5: oklch(0.62 0.18 25);
+  --radius: 0.875rem;
+  --sidebar: oklch(0.985 0.008 245);
+  --sidebar-foreground: oklch(0.24 0.035 250);
+  --sidebar-primary: oklch(0.58 0.18 250);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent: oklch(0.93 0.03 250);
+  --sidebar-accent-foreground: oklch(0.24 0.035 250);
+  --sidebar-border: oklch(0.82 0.035 250 / 0.7);
+  --sidebar-ring: oklch(0.58 0.18 250);
+}
+
+.dark {
   --background: oklch(0.11 0.015 250);    /* deep navy #080d18 */
   --foreground: oklch(0.95 0.01 240);     /* near-white with blue tint */
   --card: oklch(0.14 0.018 250);          /* slightly lighter navy */
@@ -136,6 +172,290 @@
     radial-gradient(ellipse at top right, rgba(37, 99, 235, 0.08), transparent 50%),
     radial-gradient(ellipse at bottom left, rgba(99, 102, 241, 0.06), transparent 50%),
     var(--background);
+}
+
+/* Light mode compatibility for dark-first product screens. New UI should prefer semantic tokens,
+   while these overrides keep existing fixed-color surfaces readable in light mode. */
+.light body {
+  background: #f5f7fb;
+  color: #172033;
+}
+
+.light .app-page-bg,
+.light .builder-shell {
+  background:
+    radial-gradient(900px 420px at 20% -8%, rgba(47, 123, 255, 0.12), transparent 64%),
+    radial-gradient(760px 380px at 86% 8%, rgba(14, 165, 233, 0.10), transparent 64%),
+    linear-gradient(180deg, #fbfdff 0%, #f4f8ff 44%, #eef4fb 100%);
+}
+
+.light .landing-page {
+  background:
+    radial-gradient(900px 430px at 50% -10%, rgba(47, 123, 255, 0.13), transparent 62%),
+    linear-gradient(180deg, #fbfdff 0%, #f6f9fe 46%, #eef4fb 100%) !important;
+  color: #142034 !important;
+}
+
+.light .landing-page > .fixed {
+  opacity: 0.28;
+  filter: saturate(0.85);
+}
+
+.light .landing-page [class*="shadow-"]:not(button):not(a) {
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.08) !important;
+}
+
+.light .landing-page .text-emerald-300,
+.light .landing-page .text-emerald-400 {
+  color: #059669 !important;
+}
+
+.light .landing-page .text-amber-200,
+.light .landing-page .text-amber-300,
+.light .landing-page .text-amber-400 {
+  color: #d97706 !important;
+}
+
+.light .landing-page [class*="bg-amber-300/10"] {
+  background-color: rgba(245, 158, 11, 0.12) !important;
+}
+
+.light .landing-page [class*="bg-emerald-300/10"] {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+}
+
+.light [class*="bg-[#0A0D14"],
+.light [class*="bg-[#080C14"],
+.light [class*="bg-[#050812"],
+.light [class*="bg-[#060A11"],
+.light [class*="bg-[#07101D"],
+.light [class*="bg-[#0B111D"],
+.light [class*="bg-[#0F1724"],
+.light [class*="bg-[#101726"],
+.light [class*="bg-[#111D30"],
+.light [class*="bg-[#0D1421"],
+.light [class*="bg-[#0D1726"],
+.light [class*="bg-black"] {
+  background-color: rgba(255, 255, 255, 0.84) !important;
+}
+
+.light [class*="bg-white/"],
+.light [class*="bg-white\\["] {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.light [class*="border-white/"],
+.light [class*="border-[#78A0FF"],
+.light [class*="border-[#2F7BFF"] {
+  border-color: rgba(37, 99, 235, 0.18) !important;
+}
+
+.light .text-white,
+.light [class*="text-[#F5F7FB"],
+.light [class*="text-[#C3CAD8"] {
+  color: #152033 !important;
+}
+
+.light .text-slate-300,
+.light .text-slate-400,
+.light [class*="text-[#9CA8BF"] {
+  color: #44536a !important;
+}
+
+.light [class*="text-[#9EC0FF"],
+.light [class*="text-[#B8D2FF"],
+.light [class*="text-[#8DB5FF"],
+.light [class*="text-[#6EA4FF"] {
+  color: #2563eb !important;
+}
+
+.light .text-slate-500,
+.light .text-slate-600,
+.light [class*="text-[#778398"],
+.light [class*="text-[#6F7B91"],
+.light [class*="text-[#4F5D75"] {
+  color: #69758a !important;
+}
+
+.light input,
+.light textarea,
+.light select {
+  color: #172033 !important;
+  background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #7a879b !important;
+}
+
+.light .bg-primary,
+.light [class*="bg-primary"],
+.light button[class*="bg-[#2F7BFF"],
+.light a[class*="bg-[#2F7BFF"],
+.light button[class*="bg-blue-"],
+.light a[class*="bg-blue-"] {
+  background-color: #2f7bff !important;
+  color: #ffffff !important;
+  border-color: #2f7bff !important;
+  box-shadow: 0 12px 26px rgba(47, 123, 255, 0.20);
+}
+
+.light .bg-primary *,
+.light [class*="bg-primary"] *,
+.light button[class*="bg-[#2F7BFF"] *,
+.light a[class*="bg-[#2F7BFF"] *,
+.light button[class*="bg-blue-"] *,
+.light a[class*="bg-blue-"] * {
+  color: #ffffff !important;
+}
+
+.light button,
+.light a,
+.light [role="button"] {
+  text-decoration-color: transparent;
+}
+
+.light button:focus-visible,
+.light a:focus-visible,
+.light [role="button"]:focus-visible {
+  outline: 3px solid rgba(47, 123, 255, 0.28);
+  outline-offset: 2px;
+}
+
+.light .react-flow__pane,
+.light .react-flow__renderer {
+  background:
+    radial-gradient(700px 360px at 20% 0%, rgba(47, 123, 255, 0.10), transparent 62%),
+    radial-gradient(620px 340px at 88% 18%, rgba(14, 165, 233, 0.08), transparent 62%),
+    linear-gradient(180deg, #f8fbff 0%, #eef4fb 100%) !important;
+}
+
+.light .builder-shell header,
+.light .builder-shell aside {
+  background: rgba(255, 255, 255, 0.86) !important;
+  color: #172033 !important;
+  border-color: rgba(37, 99, 235, 0.16) !important;
+  box-shadow: 0 16px 48px rgba(15, 23, 42, 0.06);
+}
+
+.light .builder-shell .react-flow__background pattern circle {
+  fill: rgba(47, 123, 255, 0.20) !important;
+}
+
+.light .builder-shell .react-flow__edge-path {
+  stroke: rgba(37, 99, 235, 0.60) !important;
+}
+
+.light .builder-shell .react-flow__node {
+  color: #172033 !important;
+}
+
+.light .buildrax-flow-node {
+  background: linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(247,250,255,0.96) 100%) !important;
+  border-color: rgba(37, 99, 235, 0.18) !important;
+  box-shadow: 0 20px 52px rgba(15, 23, 42, 0.14) !important;
+}
+
+.light .buildrax-flow-node [class*="bg-black"] {
+  background-color: rgba(239, 246, 255, 0.72) !important;
+}
+
+.light .builder-shell .react-flow__handle {
+  background: #2f7bff !important;
+  border-color: #ffffff !important;
+}
+
+.light .react-flow__controls,
+.light .react-flow__minimap {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-color: rgba(37, 99, 235, 0.16) !important;
+  color: #172033 !important;
+}
+
+.builder-node-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.builder-node-card:hover {
+  background: rgba(47, 123, 255, 0.1);
+  border-color: rgba(47, 123, 255, 0.35);
+  transform: translateY(-1px);
+}
+
+.builder-node-card__icon {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.light .builder-node-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(247, 250, 255, 0.96) 100%) !important;
+  border-color: rgba(37, 99, 235, 0.16) !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+}
+
+.light .builder-node-card:hover {
+  background: linear-gradient(180deg, rgba(243, 248, 255, 1) 0%, rgba(236, 244, 255, 1) 100%) !important;
+  border-color: rgba(47, 123, 255, 0.28) !important;
+  box-shadow: 0 16px 34px rgba(37, 99, 235, 0.12);
+}
+
+.light .builder-node-card__icon {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.light [data-slot="tooltip-content"] {
+  background: rgba(255, 255, 255, 0.98) !important;
+  color: #172033 !important;
+  border-color: rgba(37, 99, 235, 0.18) !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
+}
+
+.light [data-slot="tooltip-content"] svg {
+  background: rgba(255, 255, 255, 0.98) !important;
+  fill: rgba(255, 255, 255, 0.98) !important;
+}
+
+.dark .buildrax-canvas-shell,
+.dark .buildrax-builder-flow.react-flow,
+.dark .buildrax-builder-flow.dark,
+.dark .buildrax-builder-flow,
+.dark .buildrax-builder-flow .react-flow__container,
+.dark .buildrax-builder-flow .react-flow__pane,
+.dark .buildrax-builder-flow .react-flow__renderer,
+.dark .buildrax-builder-flow .react-flow__viewport {
+  background:
+    radial-gradient(780px 420px at 20% 4%, rgba(47, 123, 255, 0.12), transparent 66%),
+    radial-gradient(680px 360px at 88% 16%, rgba(14, 165, 233, 0.08), transparent 64%),
+    linear-gradient(180deg, #080c14 0%, #050810 100%) !important;
+}
+
+.dark .buildrax-builder-flow.light {
+  background:
+    radial-gradient(780px 420px at 20% 4%, rgba(47, 123, 255, 0.12), transparent 66%),
+    radial-gradient(680px 360px at 88% 16%, rgba(14, 165, 233, 0.08), transparent 64%),
+    linear-gradient(180deg, #080c14 0%, #050810 100%) !important;
+}
+
+.dark .buildrax-builder-flow .react-flow__background pattern circle {
+  fill: rgba(120, 150, 255, 0.18) !important;
+}
+
+.dark .buildrax-builder-flow .react-flow__edge-path {
+  stroke: rgba(110, 164, 255, 0.72) !important;
+}
+
+.dark .buildrax-builder-flow .react-flow__controls,
+.dark .buildrax-builder-flow .react-flow__minimap {
+  background: #101726 !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+  color: #f8fafc !important;
+}
+
+.dark .buildrax-builder-flow .react-flow__controls button {
+  background: #101726 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #f8fafc !important;
 }
 
 .builder-accent-ring {

@@ -48,7 +48,7 @@ export function BaseNode({
   return (
     <div
       className={cn(
-        "min-w-[278px] max-w-sm overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96)_0%,rgba(9,12,19,0.92)_100%)] shadow-[0_22px_60px_rgba(0,0,0,0.36)] backdrop-blur-2xl transition-all duration-300",
+        "buildrax-flow-node min-w-[278px] max-w-sm overflow-hidden rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,20,30,0.96)_0%,rgba(9,12,19,0.92)_100%)] shadow-[0_22px_60px_rgba(0,0,0,0.36)] backdrop-blur-2xl transition-all duration-300",
         selected
           ? "border-sky-400/30 shadow-[0_0_0_1px_rgba(56,189,248,0.18),0_26px_70px_rgba(2,132,199,0.2)] -translate-y-0.5"
           : "hover:-translate-y-0.5 hover:border-white/20 hover:shadow-[0_26px_70px_rgba(0,0,0,0.42)]",

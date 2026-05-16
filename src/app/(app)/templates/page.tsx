@@ -24,7 +24,9 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TemplateIntroModal } from "@/components/guidance/TemplateIntroModal";
 import { BUILD_RAX_TEMPLATE_CATALOG } from "@/lib/data/buildraxCatalog";
+import { explainTemplateForBeginner } from "@/lib/guidance/explanations";
 import { getDefaultNodeData, getNodeDefinition, LAUNCH_TEMPLATE_COUNT, MVP_TEMPLATE_IDS } from "@/lib/graph/catalog";
 import { WorkflowGraph } from "@/lib/graph/types";
 
@@ -96,6 +98,7 @@ export default function TemplatesPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
   const [creating, setCreating] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<TemplateRecord | null>(null);
 
   const categories = useMemo(() => ["all", ...Array.from(new Set(BUILD_RAX_TEMPLATE_CATALOG.map((template) => template.category)))], []);
   const filtered = useMemo(() => {
@@ -140,6 +143,7 @@ export default function TemplatesPage() {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || "Failed to use template");
       toast.success("Template opened in builder");
+      setSelectedTemplate(null);
       router.push(`/builder?id=${payload._id}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to use template");
@@ -209,14 +213,20 @@ export default function TemplatesPage() {
                 ) : null}
               </div>
               <div className="mt-auto pt-5">
-                <Button className="w-full rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={() => createFromTemplate(template)} disabled={creating === template.id}>
-                  {creating === template.id ? "Creating..." : "Use template"}
+                <Button className="w-full rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={() => setSelectedTemplate(template)} disabled={creating === template.id}>
+                  {creating === template.id ? "Creating..." : "Preview and use"}
                 </Button>
               </div>
             </div>
           );
         })}
       </div>
+      <TemplateIntroModal
+        intro={selectedTemplate ? explainTemplateForBeginner(selectedTemplate) : null}
+        onClose={() => setSelectedTemplate(null)}
+        onUseTemplate={() => selectedTemplate && createFromTemplate(selectedTemplate)}
+        isCreating={creating === selectedTemplate?.id}
+      />
     </div>
   );
 }
