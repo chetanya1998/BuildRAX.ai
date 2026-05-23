@@ -641,6 +641,7 @@ function BuilderCanvas() {
           arrowColor: "#101726",
           showProgress: true,
           buttons: ["back", "close", "primary", "skip"],
+          zIndex: 10000,
         }}
         styles={{
           tooltipContainer: {
