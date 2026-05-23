@@ -60,6 +60,7 @@ import { TermTooltip } from "@/components/guidance/TermTooltip";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
+import Joyride, { Step, CallBackProps, STATUS } from "react-joyride";
 import { ExportType, generateExport } from "@/lib/backend/exports";
 import { generateMermaid, validateMermaid } from "@/lib/backend/mermaid";
 import { runWorkflowReview } from "@/lib/backend/review";
@@ -106,6 +107,26 @@ const starterEdges: FlowEdge[] = [
   { id: "validator-auth", source: "validator-1", target: "auth-1", animated: true },
   { id: "auth-db", source: "auth-1", target: "db-1", animated: true },
   { id: "db-logger", source: "db-1", target: "logger-1", animated: true },
+];
+
+const TOUR_STEPS: Step[] = [
+  {
+    target: ".builder-node-library",
+    content: "Welcome to the Canvas! This is the Node Library where you can find APIs, auth, databases, and third-party integrations.",
+    disableBeacon: true,
+  },
+  {
+    target: ".buildrax-canvas-shell",
+    content: "Drag nodes from the library onto the canvas to design your backend architecture.",
+  },
+  {
+    target: "#tour-review-btn",
+    content: "Run deterministic reviews to catch security, logic, and completeness issues in your architecture.",
+  },
+  {
+    target: "#tour-export-btn",
+    content: "Generate developer-ready Markdown handoffs, AI agent skills, and full workflows directly from your graph.",
+  },
 ];
 
 function BuilderNodeLibraryIcon({ iconName }: { iconName?: string }) {
@@ -185,6 +206,7 @@ function BuilderCanvas() {
       timestamp: "ready",
     },
   ]);
+  const [runTour, setRunTour] = useState(false);
 
   const logToConsole = useCallback((level: ConsoleLevel, message: string) => {
     setConsoleEntries((current) => [
@@ -261,6 +283,20 @@ function BuilderCanvas() {
       localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({ name: workflowName, description: workflowDescription, nodes, edges }));
     }
   }, [edges, nodes, workflowDescription, workflowId, workflowName]);
+
+  useEffect(() => {
+    if (!localStorage.getItem("buildrax:hasSeenCanvasTour")) {
+      setRunTour(true);
+    }
+  }, []);
+
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { status } = data;
+    if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
+      setRunTour(false);
+      localStorage.setItem("buildrax:hasSeenCanvasTour", "true");
+    }
+  };
 
   const onConnect = useCallback((connection: Connection) => {
     setEdges((current) => addEdge({ ...connection, animated: true }, current));
@@ -593,6 +629,37 @@ function BuilderCanvas() {
 
   return (
     <div className="builder-shell flex h-screen min-h-0 flex-col overflow-hidden text-[#F5F7FB]">
+      <Joyride
+        steps={TOUR_STEPS}
+        run={runTour}
+        continuous
+        showSkipButton
+        showProgress
+        callback={handleJoyrideCallback}
+        styles={{
+          options: {
+            primaryColor: "#2F7BFF",
+            backgroundColor: "#101726",
+            textColor: "#F5F7FB",
+            arrowColor: "#101726",
+          },
+          tooltipContainer: {
+            textAlign: "left",
+          },
+          buttonNext: {
+            borderRadius: "6px",
+            fontSize: "12px",
+          },
+          buttonBack: {
+            color: "#9EC0FF",
+            fontSize: "12px",
+          },
+          buttonSkip: {
+            color: "#94a3b8",
+            fontSize: "12px",
+          },
+        }}
+      />
       <header className="flex h-14 shrink-0 items-center justify-between gap-3 overflow-x-auto border-b border-white/10 bg-[#0A0D14]/90 px-4 backdrop-blur-xl">
         <div className="flex min-w-0 items-center gap-3">
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg text-slate-300" asChild>
@@ -613,7 +680,7 @@ function BuilderCanvas() {
         <div className="flex shrink-0 items-center gap-2">
           <HelpGuidePanel compact onOpen={() => setNodeGuide(null)} />
           <ThemeToggle compact />
-          <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runReview} disabled={isProcessing}>
+          <Button id="tour-review-btn" variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runReview} disabled={isProcessing}>
             {isProcessing && activeStage === "review" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="mr-2 h-3.5 w-3.5" />} Review
           </Button>
           <Button variant="outline" size="sm" className="h-8 rounded-lg border-white/10 bg-white/[0.03]" onClick={runSimulation} disabled={isProcessing}>
@@ -622,7 +689,7 @@ function BuilderCanvas() {
           <Button variant="outline" size="sm" className="hidden h-8 rounded-lg border-white/10 bg-white/[0.03] md:inline-flex" onClick={generateBuilderMermaid} disabled={isProcessing}>
             {isProcessing && activeStage === "mermaid" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <GitBranch className="mr-2 h-3.5 w-3.5" />} Mermaid
           </Button>
-          <Button variant="outline" size="sm" className="hidden h-8 rounded-lg border-white/10 bg-white/[0.03] md:inline-flex" onClick={() => generateBuilderExport("developer_handoff")} disabled={isProcessing}>
+          <Button id="tour-export-btn" variant="outline" size="sm" className="hidden h-8 rounded-lg border-white/10 bg-white/[0.03] md:inline-flex" onClick={() => generateBuilderExport("developer_handoff")} disabled={isProcessing}>
             {isProcessing && activeStage === "export" ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Download className="mr-2 h-3.5 w-3.5" />} Export
           </Button>
           <Button size="sm" className="h-8 rounded-lg bg-[#2F7BFF] text-white hover:bg-[#5B96FF]" onClick={saveWorkflow} disabled={isSaving}>
@@ -636,7 +703,7 @@ function BuilderCanvas() {
         className="grid h-full min-h-0 min-w-[1120px] transition-[grid-template-columns]"
         style={{ gridTemplateColumns: `${isLeftCollapsed ? "52px" : "280px"} minmax(520px,1fr) ${isRightCollapsed ? "52px" : "320px"}` }}
       >
-        <aside className="flex min-h-0 flex-col border-r border-white/10 bg-[#0A0D14]/78">
+        <aside className="builder-node-library flex min-h-0 flex-col border-r border-white/10 bg-[#0A0D14]/78">
           <div className="flex items-center justify-between border-b border-white/10 p-3">
             {!isLeftCollapsed ? <p className="text-xs font-semibold text-white">Node Library</p> : null}
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-slate-400 hover:text-white" onClick={() => setIsLeftCollapsed((value) => !value)}>

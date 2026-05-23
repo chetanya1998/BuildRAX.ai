@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import type { CSSProperties } from "react";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { Providers } from "@/components/Providers";
-import NextTopLoader from "nextjs-toploader";
 import "./globals.css";
 
 const FONT_VARIABLES: CSSProperties = {
@@ -31,8 +29,6 @@ export const metadata: Metadata = {
   },
 };
 
-import { Toaster } from "sonner";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -53,19 +49,8 @@ export default function RootLayout({
               "try{var t=localStorage.getItem('buildrax:theme')==='light'?'light':'dark';document.documentElement.classList.remove('dark','light');document.documentElement.classList.add(t);document.documentElement.style.colorScheme=t;document.body.removeAttribute('data-new-gr-c-s-check-loaded');document.body.removeAttribute('data-gr-ext-installed');}catch(e){}",
           }}
         />
-        <NextTopLoader color="#22d3ee" showSpinner={false} height={3} shadow="0 0 10px #22d3ee,0 0 5px #22d3ee" />
-        <Toaster position="top-right" richColors toastOptions={{
-          style: {
-            background: 'rgba(9, 9, 11, 0.8)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            color: '#fff',
-          },
-        }} />
         <Providers>
-          <TooltipProvider>
-            {children}
-          </TooltipProvider>
+          {children}
         </Providers>
       </body>
     </html>

@@ -666,7 +666,7 @@ export default function LandingPage() {
               <div>
                 <div className="text-base font-bold tracking-tight text-white">BuildRAX.ai</div>
                 <div className="hidden text-[10px] font-medium text-[#6F7B91] sm:block">
-                  Design backend systems before building them
+                  Design reliable architectures & generate skills for AI Agents
                 </div>
               </div>
             </div>
@@ -752,7 +752,7 @@ export default function LandingPage() {
                 Design backend workflows before writing code.
               </h1>
               <p className="mx-auto mt-6 max-w-2xl text-base leading-8 text-[#9CA8BF] sm:text-lg">
-                BuildRAX helps founders, product teams, and engineers visually map backend systems, run workflow checks, simulate behavior, and generate developer-ready architecture outputs.
+                BuildRAX helps you visually map systems, simulate behavior, and automatically generate reliable architectures, .md artifacts, and actionable skills for AI Agents and IDEs.
               </p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Button size="lg" className="h-12 rounded-lg bg-[#2F7BFF] px-6 text-base font-semibold text-white shadow-[0_0_32px_rgba(47,123,255,0.35)] hover:bg-[#4D8EFF]" asChild>

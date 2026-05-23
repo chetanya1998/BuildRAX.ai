@@ -10,9 +10,9 @@ BuildRAX.ai is designed around a simple belief: AI systems should not feel like 
 
 ## Product Summary
 
-**BuildRAX.ai** is a visual AI workflow builder for creating agents, automations, and AI-powered systems through a drag-and-drop canvas.
+**BuildRAX.ai** is a visual AI workflow builder designed primarily to generate reliable backend architectures, `.md` files, and skills for AI Agents and IDEs.
 
-Instead of writing every workflow manually in code, I can describe what I want to build, generate an architecture, customize it visually, test it, and save it as a reusable workflow or template.
+Instead of writing every architecture manually in code, I can design visually using drag-and-drop nodes, generate architecture specs, configure them, and export them as reusable skills and developer-ready markdown artifacts.
 
 The product combines:
 

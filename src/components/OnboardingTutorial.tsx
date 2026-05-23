@@ -9,14 +9,19 @@ import {
   Sparkles, 
   BrainCircuit, 
   PlusCircle, 
-  GraduationCap 
+  GraduationCap,
+  Briefcase,
+  Code2,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
+type Persona = "Founder" | "Backend Engineer" | "AI Agent Developer" | null;
+
 interface Step {
-  title: string;
-  description: string;
+  title: string | ((persona: Persona) => string);
+  description: string | ((persona: Persona) => string);
   icon: React.ElementType;
   color: string;
 }
@@ -24,25 +29,33 @@ interface Step {
 const steps: Step[] = [
   {
     title: "Welcome to BuildRAX.ai",
-    description: "Your workspace for building AI agents and automated workflows without writing a single line of code.",
+    description: "Before we begin, tell us what brings you here so we can tailor your experience.",
     icon: Sparkles,
     color: "text-yellow-500 bg-yellow-500/10",
   },
   {
-    title: "Visual Builder",
-    description: "Create complex logic using our drag-and-drop node interface. Connect prompts, tools, and memory effortlessly.",
+    title: (p) => {
+      if (p === "Founder") return "Blueprint Your Product";
+      if (p === "AI Agent Developer") return "Generate AI Agent Skills";
+      return "Visual Backend Builder";
+    },
+    description: (p) => {
+      if (p === "Founder") return "Turn your ideas into backend architectures quickly using our visual drag-and-drop interface. No coding required.";
+      if (p === "AI Agent Developer") return "Design reliable architectures visually and export them as .md files and actionable skills for your AI Agents.";
+      return "Map out your APIs, services, databases, and queues with our visual interface. Run deterministic checks before writing code.";
+    },
     icon: PlusCircle,
     color: "text-primary bg-primary/10",
   },
   {
     title: "Learn & Level Up",
-    description: "Complete interactive lessons in 'Learn Mode' to earn XP, unlock new nodes, and become an AI Architect.",
+    description: "Complete interactive lessons to earn XP, unlock new nodes, and master backend design.",
     icon: GraduationCap,
     color: "text-green-500 bg-green-500/10",
   },
   {
     title: "Ready to Build?",
-    description: "Start with a template or create a new project from scratch. Your journey into the future of AI starts now.",
+    description: "Start with a template or create a new project from a blank canvas. Your architecture journey starts now.",
     icon: BrainCircuit,
     color: "text-blue-500 bg-blue-500/10",
   },
@@ -51,14 +64,18 @@ const steps: Step[] = [
 export function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
+  const [persona, setPersona] = useState<Persona>(null);
 
   useEffect(() => {
-    // Small delay to ensure smooth entry after page load
     const timer = setTimeout(() => setIsVisible(true), 500);
     return () => clearTimeout(timer);
   }, []);
 
   const handleNext = () => {
+    if (currentStep === 0 && !persona) {
+      // Must select a persona before continuing
+      return;
+    }
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
@@ -79,6 +96,8 @@ export function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
 
   const step = steps[currentStep];
   const Icon = step.icon;
+  const title = typeof step.title === "function" ? step.title(persona) : step.title;
+  const description = typeof step.description === "function" ? step.description(persona) : step.description;
 
   return (
     <AnimatePresence>
@@ -120,11 +139,40 @@ export function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
                 </motion.div>
 
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold tracking-tight">{step.title}</h2>
+                  <h2 className="text-2xl font-bold tracking-tight">{title}</h2>
                   <p className="text-muted-foreground leading-relaxed">
-                    {step.description}
+                    {description}
                   </p>
                 </div>
+
+                {currentStep === 0 && (
+                  <div className="flex flex-col gap-3 w-full pt-2">
+                    <Button 
+                      variant={persona === "Founder" ? "default" : "outline"}
+                      className="justify-start h-12 px-4"
+                      onClick={() => setPersona("Founder")}
+                    >
+                      <Briefcase className="w-4 h-4 mr-3 text-yellow-500" />
+                      Founder / Product Manager
+                    </Button>
+                    <Button 
+                      variant={persona === "Backend Engineer" ? "default" : "outline"}
+                      className="justify-start h-12 px-4"
+                      onClick={() => setPersona("Backend Engineer")}
+                    >
+                      <Code2 className="w-4 h-4 mr-3 text-blue-500" />
+                      Backend Engineer
+                    </Button>
+                    <Button 
+                      variant={persona === "AI Agent Developer" ? "default" : "outline"}
+                      className="justify-start h-12 px-4"
+                      onClick={() => setPersona("AI Agent Developer")}
+                    >
+                      <Bot className="w-4 h-4 mr-3 text-emerald-500" />
+                      AI Agent Developer
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 w-full pt-4">
                   {currentStep > 0 && (
@@ -139,6 +187,7 @@ export function OnboardingTutorial({ onComplete }: { onComplete: () => void }) {
                   <Button 
                     className="flex-[2] rounded-xl h-12 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20"
                     onClick={handleNext}
+                    disabled={currentStep === 0 && !persona}
                   >
                     {currentStep === steps.length - 1 ? "Get Started" : "Continue"}
                     <ChevronRight className="w-4 h-4 ml-2" />
