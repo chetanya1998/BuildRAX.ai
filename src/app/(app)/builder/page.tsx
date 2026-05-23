@@ -60,7 +60,7 @@ import { TermTooltip } from "@/components/guidance/TermTooltip";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useTheme } from "@/components/theme/ThemeProvider";
 import { NodePropertiesPanel } from "@/components/NodePropertiesPanel";
-import Joyride, { Step, CallBackProps, STATUS } from "react-joyride";
+import { Joyride, Step, EventData, STATUS } from "react-joyride";
 import { ExportType, generateExport } from "@/lib/backend/exports";
 import { generateMermaid, validateMermaid } from "@/lib/backend/mermaid";
 import { runWorkflowReview } from "@/lib/backend/review";
@@ -113,7 +113,7 @@ const TOUR_STEPS: Step[] = [
   {
     target: ".builder-node-library",
     content: "Welcome to the Canvas! This is the Node Library where you can find APIs, auth, databases, and third-party integrations.",
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: ".buildrax-canvas-shell",
@@ -290,7 +290,7 @@ function BuilderCanvas() {
     }
   }, []);
 
-  const handleJoyrideCallback = (data: CallBackProps) => {
+  const handleJoyrideCallback = (data: EventData) => {
     const { status } = data;
     if (([STATUS.FINISHED, STATUS.SKIPPED] as string[]).includes(status)) {
       setRunTour(false);
@@ -633,20 +633,20 @@ function BuilderCanvas() {
         steps={TOUR_STEPS}
         run={runTour}
         continuous
-        showSkipButton
-        showProgress
-        callback={handleJoyrideCallback}
+        onEvent={handleJoyrideCallback}
+        options={{
+          primaryColor: "#2F7BFF",
+          backgroundColor: "#101726",
+          textColor: "#F5F7FB",
+          arrowColor: "#101726",
+          showProgress: true,
+          buttons: ["back", "close", "primary", "skip"],
+        }}
         styles={{
-          options: {
-            primaryColor: "#2F7BFF",
-            backgroundColor: "#101726",
-            textColor: "#F5F7FB",
-            arrowColor: "#101726",
-          },
           tooltipContainer: {
             textAlign: "left",
           },
-          buttonNext: {
+          buttonPrimary: {
             borderRadius: "6px",
             fontSize: "12px",
           },
