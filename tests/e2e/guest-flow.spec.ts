@@ -72,7 +72,8 @@ test("landing navigation adapts without losing the core sections", async ({ page
     await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Sandbox" })).toBeVisible();
   } else {
-    await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Sandbox" })).toBeVisible();
+    const primaryNavigation = page.getByRole("navigation", { name: "Primary" });
+    await expect(primaryNavigation).toBeVisible();
+    await expect(primaryNavigation.getByRole("link", { name: "Sandbox" })).toBeVisible();
   }
 });

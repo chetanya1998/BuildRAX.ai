@@ -29,9 +29,9 @@ values (
 );
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
-select owner_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'day1-owner@example.test', '', now(), '{}'::jsonb, '{}'::jsonb, now(), now() from test_ids
+select owner_id, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated', 'authenticated', 'day1-owner@example.test', '', now(), '{}'::jsonb, '{}'::jsonb, now(), now() from test_ids
 union all
-select outsider_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'day1-outsider@example.test', '', now(), '{}'::jsonb, '{}'::jsonb, now(), now() from test_ids;
+select outsider_id, '00000000-0000-0000-0000-000000000000'::uuid, 'authenticated', 'authenticated', 'day1-outsider@example.test', '', now(), '{}'::jsonb, '{}'::jsonb, now(), now() from test_ids;
 
 update test_ids set
   workspace_id = (select workspace_id from public.workspace_members where user_id = owner_id),
