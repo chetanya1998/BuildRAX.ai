@@ -1,7 +1,10 @@
 import { ArchitectureEditor } from "@/components/editor/architecture-editor";
-import { getProjectFixture } from "@/lib/domain/project-fixture";
+import { loadProjectDiagram } from "@/lib/supabase/projects";
+import { notFound } from "next/navigation";
 
 export default async function ProjectCanvasPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  return <ArchitectureEditor initialDiagram={getProjectFixture(projectId)} persisted />;
+  const diagram = await loadProjectDiagram(projectId);
+  if (!diagram) notFound();
+  return <ArchitectureEditor initialDiagram={diagram} persisted projectId={projectId} />;
 }

@@ -39,6 +39,7 @@ import {
   Save,
   Search,
   Send,
+  Share2,
   ShieldCheck,
   Sparkles,
   Square,
@@ -94,7 +95,7 @@ function bump(diagram: Diagram): Diagram {
   return { ...diagram, version: diagram.version + 1, updatedAt: new Date().toISOString() };
 }
 
-function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted = false }: { initialDiagram: Diagram; readOnly?: boolean; persisted?: boolean }) {
+function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted = false, projectId }: { initialDiagram: Diagram; readOnly?: boolean; persisted?: boolean; projectId?: string }) {
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>("select");
@@ -115,7 +116,11 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   const [changePlan, setChangePlan] = useState<ChangePlan | null>(null);
   const [message, setMessage] = useState("");
   const [aiExpanded, setAiExpanded] = useState(false);
+  const [shareLink, setShareLink] = useState<{ id: string; url: string } | null>(null);
   const latest = useRef(diagram);
+  const editRevision = useRef(0);
+  const savedRevision = useRef(0);
+  const saveInFlight = useRef(false);
   latest.current = diagram;
 
   const selectedNode = diagram.nodes.find((node) => node.id === selectedId);
@@ -128,9 +133,10 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
       const resolved = typeof next === "function" ? next(current) : next;
       setPast((items) => [...items.slice(-49), current]);
       setFuture([]);
-      return diagramSchema.parse(bump(resolved));
+      editRevision.current += 1;
+      return diagramSchema.parse(persisted ? { ...resolved, updatedAt: new Date().toISOString() } : bump(resolved));
     });
-  }, [readOnly]);
+  }, [persisted, readOnly]);
 
   const resizeItem = useCallback((id: string, width: number, height: number) => {
     if (readOnly) return;
@@ -150,13 +156,45 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   const edges = useMemo(() => flowEdges(diagram), [diagram]);
 
   useEffect(() => {
-    if (persisted || readOnly) return;
+    if (readOnly || persisted) return;
     const timer = window.setInterval(async () => {
       setSaveState(navigator.onLine ? "saving" : "offline");
       const current = latest.current;
       await saveDraft({ id: current.id, diagram: current, status: "ready", createdAt: current.createdAt, updatedAt: current.updatedAt });
       setSaveState(navigator.onLine ? "saved" : "offline");
     }, 6000);
+    return () => window.clearInterval(timer);
+  }, [persisted, readOnly]);
+
+  useEffect(() => {
+    if (!persisted || readOnly) return;
+    const timer = window.setInterval(async () => {
+      if (saveInFlight.current || editRevision.current === savedRevision.current) return;
+      const revisionAtStart = editRevision.current;
+      const snapshot = latest.current;
+      saveInFlight.current = true;
+      setSaveState(navigator.onLine ? "saving" : "offline");
+      try {
+        const response = await fetch(`/api/v1/diagrams/${snapshot.id}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ baseVersion: snapshot.version, diagram: snapshot }),
+        });
+        const body = await response.json();
+        if (response.status === 409) throw new Error("A newer version exists. Reload the project before saving again.");
+        if (!response.ok) throw new Error(body.error ?? "Project save failed.");
+        const saved = body.saved?.[0];
+        if (!saved?.version) throw new Error("Project save did not return a version.");
+        savedRevision.current = revisionAtStart;
+        setDiagram((current) => current.version === snapshot.version ? { ...current, version: saved.version, updatedAt: new Date().toISOString() } : current);
+        setSaveState("saved");
+      } catch (error) {
+        setSaveState("offline");
+        setMessage(error instanceof Error ? error.message : "Project save is queued locally. Try again when online.");
+      } finally {
+        saveInFlight.current = false;
+      }
+    }, 5000);
     return () => window.clearInterval(timer);
   }, [persisted, readOnly]);
 
@@ -197,7 +235,8 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
     if (!dragSnapshot || readOnly) return;
     setPast((items) => [...items.slice(-49), dragSnapshot]);
     setFuture([]);
-    setDiagram((current) => diagramSchema.parse(bump(current)));
+    editRevision.current += 1;
+    setDiagram((current) => diagramSchema.parse(persisted ? { ...current, updatedAt: new Date().toISOString() } : bump(current)));
     setDragSnapshot(null);
   }
 
@@ -308,6 +347,26 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not prepare the change."); }
   }
 
+  async function toggleShareLink() {
+    if (!projectId) return;
+    try {
+      if (shareLink) {
+        const response = await fetch("/api/v1/share-links", { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ id: shareLink.id }) });
+        if (!response.ok) throw new Error((await response.json()).error ?? "Could not revoke the share link.");
+        setShareLink(null);
+        setMessage("Read-only share link revoked.");
+        return;
+      }
+      const response = await fetch("/api/v1/share-links", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ projectId, expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }) });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error ?? "Could not create a share link.");
+      const url = `${location.origin}${body.url}`;
+      setShareLink({ id: body.id, url });
+      await navigator.clipboard?.writeText(url);
+      setMessage("Read-only link copied. It expires in seven days.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Share link action failed."); }
+  }
+
   function applyChangePlan() {
     if (!changePlan || changePlan.baseVersion !== diagram.version) { setMessage("The diagram changed. Request a fresh preview."); setChangePlan(null); return; }
     commit((current) => ({ ...current, nodes: [...current.nodes.filter((node) => !changePlan.removedNodeIds.includes(node.id)).map((node) => changePlan.changedNodes.find((change) => change.before.id === node.id)?.after ?? node), ...changePlan.addedNodes], connectors: [...current.connectors.filter((edge) => !changePlan.removedConnectorIds.includes(edge.id) && !changePlan.removedNodeIds.includes(edge.source) && !changePlan.removedNodeIds.includes(edge.target)), ...changePlan.addedConnectors] }));
@@ -345,7 +404,7 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   return <div className={styles.screen}>
     <header className={styles.topbar}>
       <Brand /><span>/</span><div className={styles.crumb}><input aria-label="Diagram title" value={diagram.title} readOnly={readOnly} onChange={(event) => setDiagram((current) => ({ ...current, title: event.target.value }))} onBlur={() => commit((current) => current)} /><span className={styles.status}><span className={styles.statusDot} />{saveState === "saved" ? persisted ? "Saved" : "Saved locally" : saveState === "saving" ? "Saving…" : "Offline · queued"}</span></div>
-      <div className={styles.topActions}><button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={generateDocs}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button><ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Project saved.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
+      <div className={styles.topActions}><button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={generateDocs}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Project is saved automatically.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
     </header>
     <main className={styles.workspace}>
       <div className={`${styles.canvas} ${selectedNode && panel === null ? styles.canvasWithInspector : ""}`} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
@@ -369,6 +428,6 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   </div>;
 }
 
-export function ArchitectureEditor(props: { initialDiagram: Diagram; readOnly?: boolean; persisted?: boolean }) {
+export function ArchitectureEditor(props: { initialDiagram: Diagram; readOnly?: boolean; persisted?: boolean; projectId?: string }) {
   return <ReactFlowProvider><ArchitectureEditorInner {...props} /></ReactFlowProvider>;
 }

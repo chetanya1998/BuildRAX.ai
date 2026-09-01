@@ -2,6 +2,9 @@
 .header { height: 72px; padding: 0 28px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: var(--surface); }
 .actions { display: flex; align-items: center; gap: 8px; }
 .main { width: min(1120px, calc(100% - 40px)); margin: 0 auto; padding: 64px 0; }
+.sectionHeading { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; margin: 42px 0 14px; }
+.sectionHeading h2 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+.sectionHeading span { color: var(--text-muted); font-size: 12px; }
 .headline { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 30px; gap: 20px; }
 .headline span { color: var(--text-secondary); font-size: 13px; }
 .headline h1 { margin: 8px 0 0; font-size: 44px; letter-spacing: -.05em; }
