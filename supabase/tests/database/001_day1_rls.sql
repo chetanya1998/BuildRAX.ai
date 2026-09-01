@@ -17,6 +17,8 @@ create temp table test_ids (
   document_id uuid not null
 );
 
+grant select on test_ids to authenticated;
+
 insert into test_ids(owner_id, outsider_id, project_id, outsider_project_id, diagram_id, review_id, document_id)
 values (
   '11111111-1111-1111-1111-111111111111',
