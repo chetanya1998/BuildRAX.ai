@@ -1,0 +1,18 @@
+.page { min-height: 100vh; padding: 0 24px 56px; background: var(--bg); }
+.header { width: min(1160px, 100%); height: 76px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+.header > div { display: flex; align-items: center; gap: 9px; }
+.card { width: min(470px, 100%); margin: clamp(64px, 12vh, 136px) auto 0; padding: 34px; border: 1px solid var(--border); border-radius: 24px; background: var(--surface); box-shadow: var(--shadow-lg); }
+.card > span { color: var(--accent); font-size: 11px; font-weight: 750; letter-spacing: .13em; }
+.card h1 { margin: 12px 0 10px; font-size: clamp(34px, 5vw, 48px); line-height: 1; letter-spacing: -.045em; }
+.card > p { margin: 0; color: var(--text-secondary); line-height: 1.55; }
+.providers { display: grid; gap: 9px; margin-top: 28px; }
+.providers button { justify-content: center; }
+.divider { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; margin: 24px 0; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+.divider span { height: 1px; background: var(--border); }
+.card label { display: grid; gap: 7px; margin-bottom: 12px; color: var(--text-secondary); font-size: 12px; font-weight: 650; }
+.card input { width: 100%; height: 44px; border: 1px solid var(--border); border-radius: 12px; padding: 0 12px; background: var(--bg); color: var(--text); outline: 0; }
+.card input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.card > button { width: 100%; justify-content: center; }
+.notice { margin-top: 14px!important; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; font-size: 12px; }
+.footnote { margin-top: 22px!important; font-size: 12px; }
+@media (max-width: 620px) { .page { padding-inline: 14px; } .header { height: 68px; } .card { margin-top: 48px; padding: 24px; } }

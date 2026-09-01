@@ -1,0 +1,57 @@
+@import "@fontsource-variable/caveat";
+
+:root {
+  color-scheme: light;
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --surface-subtle: #f1f2f4;
+  --surface-inverse: #0a0a0a;
+  --text: #0a0a0a;
+  --text-secondary: #646970;
+  --text-muted: #8b9098;
+  --text-inverse: #ffffff;
+  --border: #e5e7eb;
+  --border-strong: #c7cbd1;
+  --accent: #ff5530;
+  --accent-soft: #fff0ec;
+  --success: #0f9f75;
+  --warning: #b77900;
+  --danger: #d43d2b;
+  --shadow-sm: 0 1px 2px rgba(10, 10, 10, 0.06), 0 8px 24px rgba(10, 10, 10, 0.04);
+  --shadow-lg: 0 20px 70px rgba(10, 10, 10, 0.12);
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --font: "DM Sans", "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-hand: "Caveat Variable", "Comic Sans MS", cursive;
+}
+
+[data-theme="dark"] {
+  --bg: #0f1012;
+  --surface: #17181b;
+  --surface-subtle: #202226;
+  --surface-inverse: #ffffff;
+  --text: #f7f7f5;
+  --text-secondary: #b1b5bc;
+  --text-muted: #858a93;
+  --text-inverse: #0a0a0a;
+  --border: #2c2f35;
+  --border-strong: #454950;
+  --accent-soft: #3a201a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28), 0 10px 28px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 24px 80px rgba(0, 0, 0, 0.45);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg); color: var(--text); scroll-behavior: smooth; scroll-padding-top: 88px; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+button, input, textarea, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; text-decoration: none; }
+button { color: inherit; }
+::selection { background: #ffb49f; color: #0a0a0a; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.skip-link { position: fixed; left: 16px; top: -80px; z-index: 9999; background: var(--surface-inverse); color: var(--text-inverse); padding: 10px 16px; border-radius: 999px; }
+.skip-link:focus { top: 16px; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { scroll-behavior: auto!important; animation-duration: .01ms!important; animation-iteration-count: 1!important; transition-duration: .01ms!important; } }

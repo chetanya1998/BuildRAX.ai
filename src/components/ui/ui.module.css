@@ -1,0 +1,12 @@
+.logo { display: inline-flex; align-items: center; gap: 9px; font-weight: 750; letter-spacing: -0.04em; font-size: 20px; }
+.logoMark { width: 24px; height: 24px; border-radius: 7px; background: var(--surface-inverse); color: var(--text-inverse); display: grid; place-items: center; font-size: 11px; letter-spacing: -0.08em; }
+.button { min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid transparent; cursor: pointer; font-weight: 650; font-size: 14px; transition: background .18s ease, border-color .18s ease, transform .18s ease; white-space: nowrap; }
+.button:hover { transform: translateY(-1px); }
+.primary { background: var(--surface-inverse); color: var(--text-inverse); }
+.primary:hover { background: var(--accent); color: #fff; }
+.secondary { background: var(--surface); color: var(--text); border-color: var(--border); }
+.secondary:hover { border-color: var(--border-strong); }
+.tertiary { background: var(--surface-subtle); color: var(--text); }
+.button:disabled { opacity: .42; cursor: not-allowed; transform: none; }
+.iconButton { width: 40px; height: 40px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); display: grid; place-items: center; cursor: pointer; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 12px; font-weight: 650; }

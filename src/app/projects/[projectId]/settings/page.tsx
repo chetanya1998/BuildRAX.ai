@@ -1,0 +1,5 @@
+import styles from "@/components/project/project.module.css";
+
+export default function ProjectSettingsPage() {
+  return <main className={styles.section}><header className={styles.sectionHeader}><div><span>Project controls</span><h1>Settings</h1></div></header><div className={styles.settings}><section className={styles.settingCard}><h2>Project name</h2><p>Shown in the dashboard, exports and share views.</p><input defaultValue="Multi-tenant SaaS" aria-label="Project name" /></section><section className={styles.settingCard}><h2>Default theme</h2><p>Exports inherit this theme unless explicitly overridden.</p><select defaultValue="system" aria-label="Default theme"><option value="system">Follow system</option><option value="light">Light</option><option value="dark">Dark</option></select></section><section className={styles.settingCard}><h2>Danger zone</h2><p>Projects are soft-deleted and recoverable by an administrator during the retention window.</p><button disabled>Delete project</button></section></div></main>;
+}
