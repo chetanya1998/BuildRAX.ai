@@ -11,7 +11,9 @@ test("landing keeps the prompt out of the hero and routes into onboarding", asyn
 
 test("a template can create a recoverable guest canvas", async ({ page }) => {
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  const generateButton = page.getByRole("button", { name: /generate architecture/i });
+  await expect(generateButton).toBeEnabled();
+  await generateButton.click();
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   await expect(page.getByLabel("Canvas tools")).toBeVisible();
   await expect(page.getByText("Tenant service")).toBeVisible();
@@ -24,7 +26,8 @@ test("template library opens a populated canvas directly", async ({ page }) => {
   await expect(page.getByText("Tenant service")).toBeVisible();
 });
 
-test("the editor only reveals its inspector for a selected item and can delete it", async ({ page }) => {
+test("the desktop editor only reveals its inspector for a selected item and can delete it", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Mobile intentionally does not expose the full drawing inspector.");
   await page.goto("/start?template=multi-tenant-saas");
   await page.getByRole("button", { name: /generate architecture/i }).click();
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
@@ -70,7 +73,7 @@ test("landing navigation adapts without losing the core sections", async ({ page
   if (testInfo.project.name === "mobile") {
     await page.getByRole("button", { name: "Open navigation" }).click();
     await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Sandbox" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Sandbox" })).toBeVisible();
   } else {
     const primaryNavigation = page.getByRole("navigation", { name: "Primary" });
     await expect(primaryNavigation).toBeVisible();

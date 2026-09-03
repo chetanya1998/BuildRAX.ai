@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, auth;
 
-select plan(10);
+select plan(13);
 
 create temp table test_ids (
   owner_id uuid not null,
@@ -73,6 +73,11 @@ select throws_ok(
   'Diagram payload does not match target diagram',
   'diagram RPC rejects a payload for another diagram'
 );
+select lives_ok(
+  $$insert into public.ai_runs(user_id, kind, provider, model, status, request_id, prompt_version, attempts)
+    values ('11111111-1111-1111-1111-111111111111', 'generation', 'mock', 'test-model', 'completed', '12121212-1212-4121-8121-121212121212', 'architecture-v1', 1)$$,
+  'user can record their own privacy-safe AI run'
+);
 
 reset role;
 set local role authenticated;
@@ -98,6 +103,18 @@ select results_eq(
   $$with attempted as (update public.projects set name = 'Attempted takeover' where id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' returning id) select count(*)::bigint from attempted$$,
   array[0::bigint],
   'non-member cannot update another workspace project'
+);
+select results_eq(
+  $$select count(*)::bigint from public.ai_runs where user_id = '11111111-1111-1111-1111-111111111111'$$,
+  array[0::bigint],
+  'a user cannot read another user''s AI run metadata'
+);
+select throws_ok(
+  $$insert into public.ai_runs(user_id, kind, provider, model, status, request_id, prompt_version, attempts)
+    values ('11111111-1111-1111-1111-111111111111', 'generation', 'mock', 'test-model', 'completed', '13131313-1313-4131-8131-131313131313', 'architecture-v1', 1)$$,
+  '42501',
+  'new row violates row-level security policy for table "ai_runs"',
+  'a user cannot forge another user''s AI run metadata'
 );
 select throws_ok(
   $$select * from public.save_diagram_version('cccccccc-cccc-cccc-cccc-cccccccccccc', 2, jsonb_build_object('id', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'title', 'Attempted takeover'), '0123456789abcdef')$$,

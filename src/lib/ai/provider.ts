@@ -1,8 +1,12 @@
 import { templates, getTemplate } from "@/lib/domain/templates";
 import { diagramSchema, generationRequestSchema, type Diagram, type GenerationRequest, type ReviewFinding } from "@/lib/domain/schema";
+import type { GenerationContext } from "./generation";
 
 export interface ArchitectureAIProvider {
-  generate(request: GenerationRequest): Promise<Diagram>;
+  id: string;
+  model: string;
+  generate(request: GenerationRequest, context: GenerationContext): Promise<Diagram>;
+  repair(request: GenerationRequest, context: GenerationContext): Promise<Diagram>;
 }
 
 function cloneTemplate(templateId?: string) {
@@ -15,7 +19,11 @@ function cloneTemplate(templateId?: string) {
 }
 
 export class MockArchitectureProvider implements ArchitectureAIProvider {
-  async generate(input: GenerationRequest) {
+  readonly id = "mock";
+  readonly model = "deterministic-fixture-v1";
+
+  async generate(input: GenerationRequest, context?: GenerationContext) {
+    void context;
     const request = generationRequestSchema.parse(input);
     const prompt = request.prompt.toLowerCase();
     const templateId = request.templateId
@@ -38,6 +46,10 @@ export class MockArchitectureProvider implements ArchitectureAIProvider {
       edited: false,
     });
     return diagramSchema.parse(diagram);
+  }
+
+  async repair(input: GenerationRequest, context: GenerationContext) {
+    return this.generate(input, context);
   }
 }
 
