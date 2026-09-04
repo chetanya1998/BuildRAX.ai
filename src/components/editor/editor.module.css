@@ -66,11 +66,12 @@
 .primitive_text { border-color: transparent; background: transparent; font-size: 15px; }
 .primitiveTextInput { width: 100%; height: 100%; min-height: 28px; border: 0; outline: 0; resize: none; overflow: hidden; background: transparent; color: var(--text); font: inherit; line-height: 1.35; }
 .primitiveTextInput::placeholder { color: var(--text-muted); opacity: 1; }
-.primitive_line { height: 2px!important; padding: 0; background: var(--text-secondary); border: 0; }
-.primitive_arrow { height: 2px!important; padding: 0; background: var(--text-secondary); border: 0; }
-.primitive_arrow::after { content: ""; position: absolute; right: -1px; width: 8px; height: 8px; border-top: 2px solid var(--text-secondary); border-right: 2px solid var(--text-secondary); transform: rotate(45deg); }
-.primitive_freehand { border: 0; background: transparent; font-size: 34px; }
-.scribble { transform: rotate(-8deg); }
+.primitive_line, .primitive_arrow { padding: 0; border: 0; background: transparent; overflow: visible; }
+.primitive_line::before, .primitive_arrow::before { content: ""; position: absolute; inset: 50% 0 auto; height: 2px; transform: translateY(-50%); background: var(--text-secondary); }
+.primitive_arrow::after { content: ""; position: absolute; top: 50%; right: -1px; width: 8px; height: 8px; border-top: 2px solid var(--text-secondary); border-right: 2px solid var(--text-secondary); transform: translateY(-50%) rotate(45deg); }
+.primitive_freehand { border: 0; background: transparent; padding: 0; }
+.freehandSvg { width: 100%; height: 100%; overflow: visible; }
+.freehandSvg polyline { fill: none; stroke: var(--text); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
 .reactFlow :global(.react-flow__attribution) { display: none; }
 .reactFlow :global(.react-flow__controls) { overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-sm); }
 .reactFlow :global(.react-flow__controls-button) { width: 32px; height: 32px; border-bottom: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); }
@@ -111,8 +112,5 @@
 .diffRow:last-child { border-bottom: 0; }
 .assumptions { position: absolute; z-index: 10; left: 74px; bottom: 14px; max-width: 260px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); padding: 10px 12px; color: var(--text-secondary); font-size: 10px; box-shadow: var(--shadow-sm); }
 .mobileNotice { display: none; }
-.canvasCoach { position: absolute; z-index: 13; left: 82px; top: 22px; display: grid; gap: 8px; color: var(--text-muted); pointer-events: none; }
-.canvasCoach > div { display: flex; align-items: center; gap: 4px; font-family: var(--font-hand); font-size: 19px; line-height: .95; transform: rotate(-2deg); }
-.canvasCoach > div:nth-child(2) { margin-left: 115px; transform: rotate(2deg); }
-@media (max-width: 1050px) { .canvas, .canvasWithInspector { right: 0; } .inspector { display: none; } .aiBar { width: min(560px, calc(100% - 160px)); min-width: 0; } .aiBarWithInspector, .aiLauncherWithInspector { right: 28px; } .topButton span { display: none; } .canvasCoach { display: none; } }
+@media (max-width: 1050px) { .canvas, .canvasWithInspector { right: 0; } .inspector { display: none; } .aiBar { width: min(560px, calc(100% - 160px)); min-width: 0; } .aiBarWithInspector, .aiLauncherWithInspector { right: 28px; } .topButton span { display: none; } }
 @media (max-width: 700px) { .screen { grid-template-rows: 58px minmax(0, 1fr) 54px; } .topbar { padding: 0 9px; } .topActions .topButton:nth-child(-n+3) { display: none; } .canvas { left: 0; } .toolbar { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; height: 46px; flex-direction: row; overflow-x: auto; } .toolDivider { height: 26px; width: 1px; margin: 4px 3px; flex: 0 0 auto; } .bottomBar, .assumptions, .aiBar, .aiLauncher { display: none; } .drawer { left: 8px; right: 8px; top: 8px; bottom: 62px; width: auto; } .sidePanel { left: 8px; right: 8px; top: 8px; bottom: 62px; width: auto; } .mobileNotice { display: block; position: absolute; left: 10px; right: 10px; top: 10px; z-index: 9; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; color: var(--text-secondary); font-size: 10px; text-align: center; } }

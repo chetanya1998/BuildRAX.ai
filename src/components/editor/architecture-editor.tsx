@@ -1,13 +1,8 @@
 "use client";
 
 import {
-  ArrowBendLeftUp,
-  ArrowBendRightDown,
-} from "@phosphor-icons/react";
-import {
   Background,
   BackgroundVariant,
-  Controls,
   MarkerType,
   MiniMap,
   ReactFlow,
@@ -20,7 +15,6 @@ import {
 import {
   ArrowRight,
   Bot,
-  Box,
   Boxes,
   Circle,
   Diamond,
@@ -59,7 +53,7 @@ import { downloadText, safeFilename, toMermaid } from "@/lib/domain/export";
 import { createConnector, createNode } from "@/lib/domain/factory";
 import { autoLayout } from "@/lib/domain/layout";
 import { diagramSchema, type ChangePlan, type Diagram, type ReviewFinding } from "@/lib/domain/schema";
-import { saveDraft } from "@/lib/storage/drafts";
+import { clearQueuedProjectSave, loadQueuedProjectSave, queueProjectSave, saveDraft } from "@/lib/storage/drafts";
 import { PrimitiveNode, type PrimitiveFlowNode } from "./primitive-node";
 import { SemanticNode, type SemanticFlowNode } from "./semantic-node";
 import styles from "./editor.module.css";
@@ -67,12 +61,60 @@ import styles from "./editor.module.css";
 type EditorNode = SemanticFlowNode | PrimitiveFlowNode;
 type Tool = "select" | "pan" | "rectangle" | "ellipse" | "diamond" | "frame" | "line" | "arrow" | "text" | "freehand" | "eraser";
 type Panel = "components" | "review" | "docs" | "export" | null;
+type PrimitiveTool = Exclude<Tool, "select" | "pan" | "eraser">;
+type CanvasPoint = { x: number; y: number };
+type DrawDraft = { kind: PrimitiveTool; start: CanvasPoint; current: CanvasPoint; points: CanvasPoint[] };
+
+const drawableTools: PrimitiveTool[] = ["rectangle", "ellipse", "diamond", "frame", "line", "arrow", "text", "freehand"];
+
+function defaultPrimitiveDimensions(kind: PrimitiveTool) {
+  if (kind === "text") return { width: 180, height: 48 };
+  if (kind === "freehand") return { width: 120, height: 70 };
+  if (kind === "frame") return { width: 360, height: 240 };
+  if (kind === "line" || kind === "arrow") return { width: 180, height: 20 };
+  return { width: 150, height: 90 };
+}
+
+function draftBounds(draft: DrawDraft) {
+  const points = draft.kind === "freehand" ? draft.points : [draft.start, draft.current];
+  const minX = Math.min(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y));
+  const maxX = Math.max(...points.map((point) => point.x));
+  const maxY = Math.max(...points.map((point) => point.y));
+  const fallback = defaultPrimitiveDimensions(draft.kind);
+  const moved = Math.abs(draft.current.x - draft.start.x) > 5 || Math.abs(draft.current.y - draft.start.y) > 5;
+  return {
+    position: moved ? { x: minX, y: minY } : draft.start,
+    dimensions: moved ? { width: Math.max(draft.kind === "line" || draft.kind === "arrow" ? 80 : 40, maxX - minX), height: Math.max(draft.kind === "line" || draft.kind === "arrow" ? 20 : 28, maxY - minY) } : fallback,
+  };
+}
 
 const nodeTypes = { semantic: SemanticNode, primitive: PrimitiveNode };
 
-function flowNodes(diagram: Diagram, onResize: (id: string, width: number, height: number) => void, onTextChange: (id: string, text: string) => void): EditorNode[] {
+function flowNodes(
+  diagram: Diagram,
+  onResize: (id: string, width: number, height: number) => void,
+  onTextEditStart: () => void,
+  onTextChange: (id: string, text: string) => void,
+  onTextEditEnd: () => void,
+  preview: DrawDraft | null,
+): EditorNode[] {
   const semantic: SemanticFlowNode[] = diagram.nodes.map((component) => ({ id: component.id, type: "semantic", position: component.position, data: { component, onResize: (width, height) => onResize(component.id, width, height) }, width: component.dimensions.width, height: component.dimensions.height }));
-  const primitives: PrimitiveFlowNode[] = diagram.primitives.map((primitive) => ({ id: primitive.id, type: "primitive", position: primitive.position, data: { primitive, onResize: (width, height) => onResize(primitive.id, width, height), onTextChange: (text) => onTextChange(primitive.id, text) }, width: primitive.dimensions.width, height: primitive.dimensions.height }));
+  const primitives: PrimitiveFlowNode[] = diagram.primitives.map((primitive) => ({ id: primitive.id, type: "primitive", position: primitive.position, data: { primitive, onResize: (width, height) => onResize(primitive.id, width, height), onTextEditStart, onTextChange: (text) => onTextChange(primitive.id, text), onTextEditEnd }, width: primitive.dimensions.width, height: primitive.dimensions.height }));
+  if (preview) {
+    const bounds = draftBounds(preview);
+    const relativePoints = preview.points.map((point) => ({ x: point.x - bounds.position.x, y: point.y - bounds.position.y }));
+    primitives.push({
+      id: "drawing-preview",
+      type: "primitive",
+      position: bounds.position,
+      width: bounds.dimensions.width,
+      height: bounds.dimensions.height,
+      draggable: false,
+      selectable: false,
+      data: { primitive: { id: "drawing-preview", kind: preview.kind, position: bounds.position, dimensions: bounds.dimensions, text: "", style: preview.kind === "freehand" ? { points: JSON.stringify(relativePoints) } : { preview: "true" } } },
+    });
+  }
   return [...semantic, ...primitives];
 }
 
@@ -87,7 +129,7 @@ function flowEdges(diagram: Diagram): Edge[] {
     type: "smoothstep",
     animated: connector.type === "event-stream",
     style: { stroke: "#8b9098", strokeWidth: 1.5, strokeDasharray: connector.style === "dashed" ? "5 5" : undefined },
-    markerEnd: { type: MarkerType.ArrowClosed, color: "#8b9098", width: 14, height: 14 },
+    markerEnd: connector.type === "control-plane" ? undefined : { type: MarkerType.ArrowClosed, color: "#8b9098", width: 14, height: 14 },
   }));
 }
 
@@ -116,14 +158,19 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   const [changePlan, setChangePlan] = useState<ChangePlan | null>(null);
   const [message, setMessage] = useState("");
   const [aiExpanded, setAiExpanded] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [drawDraft, setDrawDraft] = useState<DrawDraft | null>(null);
   const [shareLink, setShareLink] = useState<{ id: string; url: string } | null>(null);
   const latest = useRef(diagram);
   const editRevision = useRef(0);
   const savedRevision = useRef(0);
   const saveInFlight = useRef(false);
+  const textEditSnapshot = useRef<Diagram | null>(null);
+  const ignoreNextPaneClick = useRef(false);
   latest.current = diagram;
 
   const selectedNode = diagram.nodes.find((node) => node.id === selectedId);
+  const selectedConnector = diagram.connectors.find((connector) => connector.id === selectedId);
   const categories = ["all", ...Object.keys(categoryMeta)];
   const filteredCatalog = nodeCatalog.filter((item) => (category === "all" || item.category === category) && `${item.name} ${item.description}`.toLowerCase().includes(search.toLowerCase()));
 
@@ -147,12 +194,26 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
     }));
   }, [commit, readOnly]);
 
+  const beginPrimitiveTextEdit = useCallback(() => {
+    if (!readOnly && !textEditSnapshot.current) textEditSnapshot.current = structuredClone(latest.current);
+  }, [readOnly]);
+
   const updatePrimitiveText = useCallback((id: string, text: string) => {
     if (readOnly) return;
-    commit((current) => ({ ...current, primitives: current.primitives.map((item) => item.id === id ? { ...item, text } : item) }));
-  }, [commit, readOnly]);
+    setDiagram((current) => ({ ...current, primitives: current.primitives.map((item) => item.id === id ? { ...item, text } : item) }));
+  }, [readOnly]);
 
-  const nodes = useMemo(() => flowNodes(diagram, resizeItem, updatePrimitiveText), [diagram, resizeItem, updatePrimitiveText]);
+  const finishPrimitiveTextEdit = useCallback(() => {
+    const snapshot = textEditSnapshot.current;
+    if (readOnly || !snapshot) return;
+    textEditSnapshot.current = null;
+    setPast((items) => [...items.slice(-49), snapshot]);
+    setFuture([]);
+    editRevision.current += 1;
+    setDiagram((current) => diagramSchema.parse(persisted ? { ...current, updatedAt: new Date().toISOString() } : bump(current)));
+  }, [persisted, readOnly]);
+
+  const nodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, drawDraft), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, drawDraft]);
   const edges = useMemo(() => flowEdges(diagram), [diagram]);
 
   useEffect(() => {
@@ -185,12 +246,15 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
         if (!response.ok) throw new Error(body.error ?? "Project save failed.");
         const saved = body.saved?.[0];
         if (!saved?.version) throw new Error("Project save did not return a version.");
+        await clearQueuedProjectSave(snapshot.id);
         savedRevision.current = revisionAtStart;
         setDiagram((current) => current.version === snapshot.version ? { ...current, version: saved.version, updatedAt: new Date().toISOString() } : current);
         setSaveState("saved");
       } catch (error) {
+        const isConflict = error instanceof Error && error.message.includes("newer version");
+        if (!isConflict) await queueProjectSave({ diagramId: snapshot.id, baseVersion: snapshot.version, diagram: snapshot });
         setSaveState("offline");
-        setMessage(error instanceof Error ? error.message : "Project save is queued locally. Try again when online.");
+        setMessage(isConflict && error instanceof Error ? error.message : "Saved on this device. We will retry when you are back online.");
       } finally {
         saveInFlight.current = false;
       }
@@ -199,12 +263,67 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   }, [persisted, readOnly]);
 
   useEffect(() => {
+    if (!persisted || readOnly) return;
+    async function flushQueuedSave() {
+      if (!navigator.onLine || saveInFlight.current) return;
+      const queued = await loadQueuedProjectSave(latest.current.id);
+      if (!queued) return;
+      saveInFlight.current = true;
+      setSaveState("saving");
+      try {
+        const response = await fetch(`/api/v1/diagrams/${queued.diagramId}`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ baseVersion: queued.baseVersion, diagram: queued.diagram }),
+        });
+        const body = await response.json();
+        if (response.status === 409) throw new Error("A newer version exists. Your local changes remain on this device.");
+        if (!response.ok) throw new Error(body.error ?? "Project save failed.");
+        await clearQueuedProjectSave(queued.diagramId);
+        setSaveState("saved");
+        setMessage("Saved queued changes.");
+      } catch (error) {
+        setSaveState("offline");
+        setMessage(error instanceof Error ? error.message : "Your changes remain saved on this device.");
+      } finally {
+        saveInFlight.current = false;
+      }
+    }
     const onOffline = () => setSaveState("offline");
-    const onOnline = () => setSaveState("saving");
+    const onOnline = () => { setSaveState("saving"); void flushQueuedSave(); };
     window.addEventListener("offline", onOffline);
     window.addEventListener("online", onOnline);
+    void flushQueuedSave();
     return () => { window.removeEventListener("offline", onOffline); window.removeEventListener("online", onOnline); };
-  }, []);
+  }, [persisted, readOnly]);
+
+  useEffect(() => {
+    function isTypingTarget(target: EventTarget | null) {
+      return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (readOnly || isTypingTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "z") { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return; }
+      if ((event.metaKey || event.ctrlKey) && key === "y") { event.preventDefault(); redo(); return; }
+      if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelected(); return; }
+      if (key === "v") setTool("select");
+      if (key === "h") setTool("pan");
+      if (key === "c") setPanel((current) => current === "components" ? null : "components");
+      if (key === "enter" && (selectedNode || selectedConnector)) setInspectorOpen(true);
+      if (key === "r") setTool("rectangle");
+      if (key === "o") setTool("ellipse");
+      if (key === "d") setTool("diamond");
+      if (key === "f") setTool("frame");
+      if (key === "l") setTool("line");
+      if (key === "a") setTool("arrow");
+      if (key === "t") setTool("text");
+      if (key === "p") setTool("freehand");
+      if (key === "escape") { setTool("select"); setPanel(null); setInspectorOpen(false); setSelectedId(null); }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   function undo() {
     const previous = past.at(-1);
@@ -247,7 +366,8 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
     if (!source || !target) return;
     const validation = validateConnection(source, target);
     if (!validation.valid) { setMessage(validation.reason); return; }
-    const connector = createConnector(crypto.randomUUID(), source.id, target.id, "http-rest", "HTTPS");
+    const connectorType = tool === "line" ? "control-plane" : "http-rest";
+    const connector = createConnector(crypto.randomUUID(), source.id, target.id, connectorType, connectorType === "control-plane" ? "relationship" : "HTTPS");
     commit((current) => ({ ...current, connectors: [...current.connectors, connector] }));
     setMessage(validation.reason);
   }
@@ -261,21 +381,59 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
     setPanel(null);
   }
 
-  function addPrimitive(kind: Exclude<Tool, "select" | "pan" | "eraser">, position: { x: number; y: number }) {
-    if (readOnly || kind === "line" || kind === "arrow") return;
+  function addPrimitive(kind: PrimitiveTool, position: CanvasPoint, dimensions = defaultPrimitiveDimensions(kind), style: Record<string, string> = {}) {
+    if (readOnly) return;
     const id = crypto.randomUUID();
-    const dimensions = kind === "text" ? { width: 180, height: 48 } : kind === "freehand" ? { width: 120, height: 70 } : kind === "frame" ? { width: 360, height: 240 } : { width: 150, height: 90 };
-    commit((current) => ({ ...current, primitives: [...current.primitives, { id, kind, position, dimensions, text: "", style: {} }] }));
+    commit((current) => ({ ...current, primitives: [...current.primitives, { id, kind, position, dimensions, text: "", style }] }));
     setSelectedId(id);
     setTool("select");
   }
 
   function onPaneClick(event: React.MouseEvent) {
+    if (ignoreNextPaneClick.current) { ignoreNextPaneClick.current = false; return; }
     setSelectedId(null);
-    if (["rectangle", "ellipse", "diamond", "frame", "text", "freehand"].includes(tool)) {
+    setInspectorOpen(false);
+    if (drawableTools.includes(tool as PrimitiveTool)) {
       const position = instance?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? { x: 200, y: 200 };
-      addPrimitive(tool as Exclude<Tool, "select" | "pan" | "eraser">, position);
+      addPrimitive(tool as PrimitiveTool, position);
     }
+  }
+
+  function canvasPoint(event: React.MouseEvent) {
+    return instance?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? { x: event.clientX, y: event.clientY };
+  }
+
+  function isPaneEvent(event: React.MouseEvent) {
+    return event.target instanceof HTMLElement && Boolean(event.target.closest(".react-flow__pane"));
+  }
+
+  function startDrawing(event: React.MouseEvent) {
+    if (readOnly || !drawableTools.includes(tool as PrimitiveTool) || !isPaneEvent(event)) return;
+    const point = canvasPoint(event);
+    setDrawDraft({ kind: tool as PrimitiveTool, start: point, current: point, points: [point] });
+  }
+
+  function updateDrawing(event: React.MouseEvent) {
+    if (!drawDraft || !isPaneEvent(event)) return;
+    const point = canvasPoint(event);
+    setDrawDraft((current) => {
+      if (!current) return current;
+      if (current.kind !== "freehand") return { ...current, current: point };
+      const previous = current.points.at(-1);
+      if (previous && Math.hypot(previous.x - point.x, previous.y - point.y) < 3) return current;
+      return { ...current, current: point, points: [...current.points, point] };
+    });
+  }
+
+  function finishDrawing() {
+    if (!drawDraft) return;
+    ignoreNextPaneClick.current = true;
+    const draft = drawDraft;
+    setDrawDraft(null);
+    if (draft.kind === "freehand" && draft.points.length < 2) { setMessage("Drag to draw freehand ink."); return; }
+    const bounds = draftBounds(draft);
+    const relativePoints = draft.points.map((point) => ({ x: Math.round(point.x - bounds.position.x), y: Math.round(point.y - bounds.position.y) }));
+    addPrimitive(draft.kind, bounds.position, bounds.dimensions, draft.kind === "freehand" ? { points: JSON.stringify(relativePoints) } : {});
   }
 
   function onCanvasDragOver(event: React.DragEvent) {
@@ -294,8 +452,9 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
 
   function removeById(id: string) {
     if (readOnly) return;
-    commit((current) => ({ ...current, nodes: current.nodes.filter((node) => node.id !== id), primitives: current.primitives.filter((item) => item.id !== id), connectors: current.connectors.filter((edge) => edge.source !== id && edge.target !== id) }));
+    commit((current) => ({ ...current, nodes: current.nodes.filter((node) => node.id !== id), primitives: current.primitives.filter((item) => item.id !== id), connectors: current.connectors.filter((edge) => edge.id !== id && edge.source !== id && edge.target !== id) }));
     setSelectedId(null);
+    setInspectorOpen(false);
     setTool("select");
   }
 
@@ -307,6 +466,11 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   function updateSelected(patch: Record<string, string>) {
     if (!selectedId) return;
     commit((current) => ({ ...current, nodes: current.nodes.map((node) => node.id === selectedId ? { ...node, ...patch } : node), primitives: current.primitives.map((item) => item.id === selectedId ? { ...item, text: patch.text ?? item.text } : item) }));
+  }
+
+  function updateSelectedConnector(patch: Partial<Diagram["connectors"][number]>) {
+    if (!selectedConnector) return;
+    commit((current) => ({ ...current, connectors: current.connectors.map((connector) => connector.id === selectedConnector.id ? { ...connector, ...patch } : connector) }));
   }
 
   async function runLayout() {
@@ -397,7 +561,7 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
   const toolbar: Array<{ tool: Exclude<Tool, "select" | "pan">; label: string; icon: React.ReactNode }> = [
     { tool: "rectangle", label: "Rectangle (R)", icon: <Square size={17} /> }, { tool: "ellipse", label: "Ellipse (O)", icon: <Circle size={17} /> },
     { tool: "diamond", label: "Diamond (D)", icon: <Diamond size={17} /> }, { tool: "frame", label: "Frame (F)", icon: <Frame size={17} /> },
-    { tool: "line", label: "Line (L) — drag between ports", icon: <Minus size={17} /> }, { tool: "arrow", label: "Arrow (A) — drag between ports", icon: <ArrowRight size={17} /> },
+    { tool: "line", label: "Line (L) — place a relationship", icon: <Minus size={17} /> }, { tool: "arrow", label: "Arrow (A) — place a directional arrow", icon: <ArrowRight size={17} /> },
     { tool: "text", label: "Text (T)", icon: <Type size={17} /> }, { tool: "freehand", label: "Freehand (P)", icon: <Pencil size={17} /> }, { tool: "eraser", label: "Delete selected", icon: <Eraser size={17} /> },
   ];
 
@@ -407,19 +571,18 @@ function ArchitectureEditorInner({ initialDiagram, readOnly = false, persisted =
       <div className={styles.topActions}><button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={generateDocs}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Project is saved automatically.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
     </header>
     <main className={styles.workspace}>
-      <div className={`${styles.canvas} ${selectedNode && panel === null ? styles.canvasWithInspector : ""}`} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
-        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onNodeClick={(_, node) => tool === "eraser" ? removeById(node.id) : setSelectedId(node.id)} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onMove={(_, viewport) => setZoom(Math.round(viewport.zoom * 100))} panOnDrag={tool === "pan" || readOnly} nodesDraggable={!readOnly && tool === "select"} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} deleteKeyCode={null} fitView minZoom={.15} maxZoom={2.5}>
-          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" /><MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} /><Controls showInteractive={false} />
+      <div className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop}>
+        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onNodeClick={(_, node) => { if (tool === "eraser") removeById(node.id); else { setSelectedId(node.id); setInspectorOpen(false); } }} onNodeDoubleClick={(_, node) => { setSelectedId(node.id); setInspectorOpen(true); }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id); else { setSelectedId(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { setSelectedId(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom(Math.round(viewport.zoom * 100))} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select"} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={tool === "select"} selectionKeyCode="Shift" multiSelectionKeyCode="Shift" deleteKeyCode={null} fitView minZoom={.15} maxZoom={2.5}>
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" /><MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />
         </ReactFlow>
       </div>
       <div className={styles.mobileNotice}>Mobile light-edit mode: pan, zoom, select and edit labels. Use desktop for drawing and connection creation.</div>
-      {!readOnly && <aside className={styles.canvasCoach} aria-label="Canvas quick guidance"><div><ArrowBendLeftUp size={31} weight="light" /><span>pick a tool, then shape the system</span></div><div><span>AI changes always arrive as a preview</span><ArrowBendRightDown size={31} weight="light" /></div></aside>}
       {!readOnly && <div className={styles.toolbar} aria-label="Canvas tools">{toolbar.map((item, index) => <span key={item.tool} style={{ display: "contents" }}>{index === 2 || index === 6 || index === 8 ? <span className={styles.toolDivider} /> : null}<button className={`${styles.tool} ${tool === item.tool ? styles.toolActive : ""}`} title={item.label} data-tooltip={item.label} aria-label={item.label} onClick={() => item.tool === "eraser" ? removeSelected() : setTool(item.tool)}>{item.icon}</button></span>)}<span className={styles.toolDivider} /><button className={`${styles.tool} ${panel === "components" ? styles.toolActive : ""}`} title="Components (C)" data-tooltip="Components (C)" aria-label="Open semantic components" onClick={() => setPanel(panel === "components" ? null : "components")}><Boxes size={18} /></button></div>}
       <div className={styles.bottomBar}><button className={tool === "select" ? styles.bottomToolActive : ""} title="Pointer / select (V)" data-tooltip="Pointer / select (V)" aria-label="Pointer / select" onClick={() => setTool("select")}><MousePointer2 size={15} /></button><button className={tool === "pan" ? styles.bottomToolActive : ""} title="Hand / pan (H)" data-tooltip="Hand / pan (H)" aria-label="Hand / pan" onClick={() => setTool("pan")}><Hand size={15} /></button><span className={styles.bottomDivider} /><button title="Undo" data-tooltip="Undo" aria-label="Undo" onClick={undo} disabled={!past.length}><Undo2 size={15} /></button><button title="Redo" data-tooltip="Redo" aria-label="Redo" onClick={redo} disabled={!future.length}><Redo2 size={15} /></button><span className={styles.bottomDivider} /><button title="Zoom out" data-tooltip="Zoom out" aria-label="Zoom out" onClick={() => instance?.zoomOut()}><ZoomOut size={15} /></button><button className={styles.zoom} title="Fit canvas" data-tooltip="Fit canvas" onClick={() => instance?.fitView({ padding: .18 })}>{zoom}%</button><button title="Zoom in" data-tooltip="Zoom in" aria-label="Zoom in" onClick={() => instance?.zoomIn()}><ZoomIn size={15} /></button></div>
       {diagram.assumptions.length > 0 && <div className={styles.assumptions}><strong>{diagram.assumptions.length} assumptions</strong><br />{diagram.assumptions[0].text}</div>}
-      {!readOnly && (aiExpanded ? <div className={`${styles.aiBar} ${selectedNode && panel === null ? styles.aiBarWithInspector : ""}`}><Sparkles size={14} /><input autoFocus value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") requestChange(); if (event.key === "Escape") setAiExpanded(false); }} placeholder="Describe an architecture change…" aria-label="AI architecture change" /><button className={styles.aiSend} onClick={requestChange} aria-label="Preview AI change"><Send size={14} /></button><button className={styles.aiClose} onClick={() => setAiExpanded(false)} aria-label="Collapse AI change input"><X size={14} /></button></div> : <button className={`${styles.aiLauncher} ${selectedNode && panel === null ? styles.aiLauncherWithInspector : ""}`} onClick={() => setAiExpanded(true)} aria-label="Open AI architecture change" aria-expanded="false"><Sparkles size={15} /><span>Ask AI</span></button>)}
+      {!readOnly && (aiExpanded ? <div className={`${styles.aiBar} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.aiBarWithInspector : ""}`}><Sparkles size={14} /><input autoFocus value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") requestChange(); if (event.key === "Escape") setAiExpanded(false); }} placeholder="Describe an architecture change…" aria-label="AI architecture change" /><button className={styles.aiSend} onClick={requestChange} aria-label="Preview AI change"><Send size={14} /></button><button className={styles.aiClose} onClick={() => setAiExpanded(false)} aria-label="Collapse AI change input"><X size={14} /></button></div> : <button className={`${styles.aiLauncher} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.aiLauncherWithInspector : ""}`} onClick={() => setAiExpanded(true)} aria-label="Open AI architecture change" aria-expanded="false"><Sparkles size={15} /><span>Ask AI</span></button>)}
       {panel === "components" && <aside className={styles.drawer} aria-label="Semantic Components"><div className={styles.panelHead}><strong>Components</strong><button className={styles.close} onClick={() => setPanel(null)} aria-label="Close"><X size={14} /></button></div><div className={styles.search}><Search size={14} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search components" /></div><div className={styles.categories}>{categories.map((item) => <button key={item} className={category === item ? styles.categoryActive : ""} onClick={() => setCategory(item)}>{item === "all" ? "All" : categoryMeta[item as keyof typeof categoryMeta].label}</button>)}</div><div className={styles.componentList}>{filteredCatalog.map((item) => <button key={item.semanticType} draggable className={styles.componentItem} title={`Drag ${item.name} onto the canvas`} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/buildrax-component", item.semanticType); }} onClick={() => addComponent(item.semanticType)}><span className={styles.componentCode} style={{ "--item-color": categoryMeta[item.category].color } as React.CSSProperties}>{item.shortCode}</span><span className={styles.componentText}><strong>{item.name}</strong><span>{item.description}</span></span><Plus size={14} /></button>)}</div></aside>}
-      {panel === null && selectedNode && <aside className={styles.inspector}><div className={styles.panelHead}><strong>Inspector</strong><Box size={15} /></div><div className={styles.inspectorBody}><div className={styles.metaCard}>{categoryMeta[selectedNode.category].label} · {selectedNode.semanticType}<br />Version {diagram.version}</div><label className={styles.field}><span>Name</span><input value={selectedNode.name} onChange={(event) => updateSelected({ name: event.target.value })} /></label><label className={styles.field}><span>Description</span><textarea value={selectedNode.description} onChange={(event) => updateSelected({ description: event.target.value })} /></label><label className={styles.field}><span>Technology</span><input value={selectedNode.technology} onChange={(event) => updateSelected({ technology: event.target.value })} placeholder="Provider-neutral" /></label><label className={styles.field}><span>Provider</span><input value={selectedNode.provider} onChange={(event) => updateSelected({ provider: event.target.value })} placeholder="Not selected" /></label><button className={styles.dangerButton} onClick={removeSelected}>Delete component</button></div></aside>}
+      {panel === null && (selectedNode || selectedConnector) && inspectorOpen && <aside className={styles.inspector}><div className={styles.panelHead}><strong>{selectedConnector ? "Connection" : "Inspector"}</strong><button className={styles.close} onClick={() => setInspectorOpen(false)} aria-label="Close inspector"><X size={14} /></button></div><div className={styles.inspectorBody}>{selectedNode ? <><div className={styles.metaCard}>{categoryMeta[selectedNode.category].label} · {selectedNode.semanticType}<br />Version {diagram.version}</div><label className={styles.field}><span>Name</span><input value={selectedNode.name} onChange={(event) => updateSelected({ name: event.target.value })} /></label><label className={styles.field}><span>Description</span><textarea value={selectedNode.description} onChange={(event) => updateSelected({ description: event.target.value })} /></label><label className={styles.field}><span>Technology</span><input value={selectedNode.technology} onChange={(event) => updateSelected({ technology: event.target.value })} placeholder="Provider-neutral" /></label><label className={styles.field}><span>Provider</span><input value={selectedNode.provider} onChange={(event) => updateSelected({ provider: event.target.value })} placeholder="Not selected" /></label><button className={styles.dangerButton} onClick={removeSelected}>Delete component</button></> : selectedConnector ? <><div className={styles.metaCard}>{selectedConnector.source} → {selectedConnector.target}<br />Version {diagram.version}</div><label className={styles.field}><span>Connection type</span><select value={selectedConnector.type} onChange={(event) => updateSelectedConnector({ type: event.target.value as Diagram["connectors"][number]["type"] })}>{["http-rest", "grpc", "websocket", "async-message", "pub-sub", "event-stream", "database-read-write", "cache", "object-transfer", "model-inference", "vector-retrieval", "tool-call", "control-plane"].map((type) => <option key={type} value={type}>{type}</option>)}</select></label><label className={styles.field}><span>Label</span><input value={selectedConnector.label} onChange={(event) => updateSelectedConnector({ label: event.target.value })} placeholder="Describe the relationship" /></label><label className={styles.field}><span>Protocol</span><input value={selectedConnector.protocol} onChange={(event) => updateSelectedConnector({ protocol: event.target.value })} placeholder="HTTPS, gRPC, AMQP…" /></label><label className={styles.field}><span>Authentication</span><input value={selectedConnector.authentication} onChange={(event) => updateSelectedConnector({ authentication: event.target.value })} placeholder="OAuth, mTLS, API key…" /></label><label className={styles.field}><span>Encryption</span><input value={selectedConnector.encryption} onChange={(event) => updateSelectedConnector({ encryption: event.target.value })} placeholder="TLS 1.3" /></label><button className={styles.dangerButton} onClick={removeSelected}>Delete connection</button></> : null}</div></aside>}
       {(panel === "review" || panel === "docs" || panel === "export") && <aside className={styles.sidePanel}><div className={styles.panelHead}><strong>{panel === "review" ? "Architecture review" : panel === "docs" ? "Documentation" : "Export"}</strong><button className={styles.close} onClick={() => setPanel(null)} aria-label="Close"><X size={14} /></button></div><div className={styles.sidePanelBody}>{loadingPanel ? <p>Preparing version {diagram.version}…</p> : panel === "review" ? <><p>Advisory findings for version {diagram.version}. Validate recommendations with your engineering and security teams.</p>{reviews.length ? reviews.map((finding) => <article className={styles.finding} key={finding.id}><div className={`${styles.findingTop} ${styles[`severity_${finding.severity}`]}`}><span>{finding.lens}</span><span>{finding.severity}</span></div><p>{finding.rationale}</p><strong>{finding.recommendation}</strong></article>) : <p>No review has been run for this version.</p>}</> : panel === "docs" ? <pre className={styles.docs}>{docs || "Generate documentation to create a version-bound implementation brief."}</pre> : <><p>Guest exports contain only the diagram model and visible content.</p>{(["png", "svg", "json", "mermaid", "markdown"] as const).map((format) => <button className={styles.componentItem} key={format} onClick={() => exportFile(format)}><span className={styles.componentCode} style={{ "--item-color": "var(--text-secondary)" } as React.CSSProperties}>{format.slice(0, 3).toUpperCase()}</span><span className={styles.componentText}><strong>{format.toUpperCase()}</strong><span>{format === "png" || format === "svg" ? "Current canvas view" : "Validated semantic model"}</span></span><Download size={14} /></button>)}</>}</div></aside>}
       {message && <button className={styles.assumptions} onClick={() => setMessage("")} role="status">{message}</button>}
     </main>

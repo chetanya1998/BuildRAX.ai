@@ -13,12 +13,22 @@ export type DraftRecord = {
   syncedAt?: string;
 };
 
+export type PendingProjectSave = {
+  diagramId: string;
+  baseVersion: number;
+  diagram: Diagram;
+  queuedAt: string;
+  attempts: number;
+};
+
 class BuildRaxDatabase extends Dexie {
   drafts!: EntityTable<DraftRecord, "id">;
+  pendingProjectSaves!: EntityTable<PendingProjectSave, "diagramId">;
 
   constructor() {
     super("buildrax-guest");
     this.version(1).stores({ drafts: "id, updatedAt, status" });
+    this.version(2).stores({ drafts: "id, updatedAt, status", pendingProjectSaves: "diagramId, queuedAt" });
   }
 }
 
@@ -46,4 +56,25 @@ export async function listDrafts() {
 
 export async function deleteDraft(id: string) {
   await db().drafts.delete(id);
+}
+
+export async function queueProjectSave(record: Omit<PendingProjectSave, "queuedAt" | "attempts">) {
+  const diagram = diagramSchema.parse(record.diagram);
+  const existing = await db().pendingProjectSaves.get(record.diagramId);
+  await db().pendingProjectSaves.put({
+    ...record,
+    diagram,
+    queuedAt: new Date().toISOString(),
+    attempts: (existing?.attempts ?? 0) + 1,
+  });
+}
+
+export async function loadQueuedProjectSave(diagramId: string) {
+  const record = await db().pendingProjectSaves.get(diagramId);
+  if (!record) return undefined;
+  return { ...record, diagram: diagramSchema.parse(record.diagram) };
+}
+
+export async function clearQueuedProjectSave(diagramId: string) {
+  await db().pendingProjectSaves.delete(diagramId);
 }

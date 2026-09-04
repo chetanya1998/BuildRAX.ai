@@ -26,17 +26,37 @@ test("template library opens a populated canvas directly", async ({ page }) => {
   await expect(page.getByText("Tenant service")).toBeVisible();
 });
 
-test("the desktop editor only reveals its inspector for a selected item and can delete it", async ({ page }, testInfo) => {
+test("the desktop editor selects without disrupting the canvas and opens its inspector on explicit edit", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Mobile intentionally does not expose the full drawing inspector.");
   await page.goto("/start?template=multi-tenant-saas");
   await page.getByRole("button", { name: /generate architecture/i }).click();
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   await expect(page.getByText("Inspector", { exact: true })).toHaveCount(0);
   await page.getByText("Tenant service", { exact: true }).click();
+  await expect(page.getByText("Inspector", { exact: true })).toHaveCount(0);
+  await page.getByText("Tenant service", { exact: true }).dblclick();
   await expect(page.getByText("Inspector", { exact: true })).toBeVisible();
   await expect(page.locator(".react-flow__resize-control").first()).toBeVisible();
-  await page.getByRole("button", { name: "Delete selected" }).click();
+  await page.getByRole("button", { name: "Delete component" }).click();
   await expect(page.getByText("Tenant service", { exact: true })).toHaveCount(0);
+});
+
+test("desktop canvas tools draw a drag-sized primitive", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Drawing remains desktop-only in the MVP.");
+  await page.goto("/templates");
+  await page.getByRole("button", { name: "Use template" }).first().click();
+  await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
+  await page.getByRole("button", { name: /Rectangle \(R\)/i }).click();
+  const pane = page.locator(".react-flow__pane");
+  const box = await pane.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  const before = await page.locator(".react-flow__node-primitive").count();
+  await page.mouse.move(box.x + 360, box.y + 360);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 560, box.y + 470);
+  await page.mouse.up();
+  await expect(page.locator(".react-flow__node-primitive")).toHaveCount(before + 1);
 });
 
 test("the landing sandbox explains security outcomes interactively", async ({ page }) => {
