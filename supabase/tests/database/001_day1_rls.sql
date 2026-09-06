@@ -63,16 +63,8 @@ select results_eq(
   array[1::bigint],
   'workspace owner can read their project'
 );
-select lives_ok(
-  $$select * from public.save_diagram_version('cccccccc-cccc-cccc-cccc-cccccccccccc', 1, jsonb_build_object('id', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'title', 'Saved by owner'), '0123456789abcdef')$$,
-  'workspace owner can create a new version'
-);
-select throws_ok(
-  $$select * from public.save_diagram_version('cccccccc-cccc-cccc-cccc-cccccccccccc', 2, jsonb_build_object('id', 'ffffffff-ffff-ffff-ffff-ffffffffffff', 'title', 'Wrong id'), '0123456789abcdef')$$,
-  '22023',
-  'Diagram payload does not match target diagram',
-  'diagram RPC rejects a payload for another diagram'
-);
+select ok(not has_function_privilege('authenticated', 'public.save_diagram_version(uuid,integer,jsonb,text)', 'EXECUTE'), 'legacy diagram writes are disabled after the IR backfill');
+select ok(not has_function_privilege('authenticated', 'public.migrate_guest_draft(uuid,text,jsonb,text)', 'EXECUTE'), 'legacy guest migrations are disabled after the IR backfill');
 select lives_ok(
   $$insert into public.ai_runs(user_id, kind, provider, model, status, request_id, prompt_version, attempts)
     values ('11111111-1111-1111-1111-111111111111', 'generation', 'mock', 'test-model', 'completed', '12121212-1212-4121-8121-121212121212', 'architecture-v1', 1)$$,
@@ -117,10 +109,10 @@ select throws_ok(
   'a user cannot forge another user''s AI run metadata'
 );
 select throws_ok(
-  $$select * from public.save_diagram_version('cccccccc-cccc-cccc-cccc-cccccccccccc', 2, jsonb_build_object('id', 'cccccccc-cccc-cccc-cccc-cccccccccccc', 'title', 'Attempted takeover'), '0123456789abcdef')$$,
+  $$select * from public.list_architecture_versions('cccccccc-cccc-cccc-cccc-cccccccccccc', 25, null)$$,
   '42501',
   'Diagram not found or access denied',
-  'non-member cannot save another workspace diagram'
+  'non-member cannot read another workspace architecture history'
 );
 
 select * from finish();

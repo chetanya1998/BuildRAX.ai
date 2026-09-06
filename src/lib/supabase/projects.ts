@@ -1,6 +1,8 @@
 import "server-only";
 
 import { diagramSchema, type Diagram } from "@/lib/domain/schema";
+import { architecturePresentationSchema, type ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
+import { migrateArchitectureIR, type ArchitectureIR } from "@/lib/architecture-ir/schema";
 import { createSupabaseServerClient } from "./server";
 
 export type PersistedProjectSummary = {
@@ -18,6 +20,13 @@ type DiagramRow = {
   created_at: string;
   updated_at: string;
   project_id: string;
+};
+
+export type PersistedArchitecture = {
+  diagram: Diagram;
+  ir: ArchitectureIR;
+  presentation: ArchitecturePresentation;
+  irVersion: number;
 };
 
 function normalizeDiagram(payload: unknown, row: DiagramRow): Diagram {
@@ -51,24 +60,34 @@ export async function listPersistedProjects(): Promise<PersistedProjectSummary[]
 }
 
 export async function loadProjectDiagram(projectId: string): Promise<Diagram | null> {
+  return (await loadProjectArchitecture(projectId))?.diagram ?? null;
+}
+
+export async function loadProjectArchitecture(projectId: string): Promise<PersistedArchitecture | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
   const { data: diagram, error: diagramError } = await supabase
     .from("diagrams")
-    .select("id, title, current_version, created_at, updated_at, project_id")
+    .select("id, title, current_version, current_ir_version, created_at, updated_at, project_id")
     .eq("project_id", projectId)
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
   if (diagramError || !diagram) return null;
-  const { data: version, error: versionError } = await supabase
-    .from("diagram_versions")
-    .select("payload")
-    .eq("diagram_id", diagram.id)
-    .eq("version", diagram.current_version)
-    .maybeSingle();
-  if (versionError || !version) return null;
-  return normalizeDiagram(version.payload, diagram as DiagramRow);
+  const { data: artifactRows, error: versionError } = await supabase.rpc("read_architecture_version", {
+    target_diagram: diagram.id,
+    target_version: diagram.current_version,
+  });
+  const version = artifactRows?.[0];
+  if (versionError || !version?.diagram_payload || !version.ir_payload || !version.presentation_payload) return null;
+
+  const normalized = normalizeDiagram(version.diagram_payload, diagram as DiagramRow);
+  return {
+    diagram: normalized,
+    ir: migrateArchitectureIR(version.ir_payload),
+    presentation: architecturePresentationSchema.parse(version.presentation_payload),
+    irVersion: Number(version.ir_version),
+  };
 }
 
 export async function loadSharedDiagram(tokenHash: string): Promise<Diagram | null> {

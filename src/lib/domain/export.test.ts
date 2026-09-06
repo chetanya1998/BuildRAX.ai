@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createConnector, createDiagram, createNode } from "./factory";
-import { safeFilename, toMermaid } from "./export";
+import { buildArchitectureIR } from "@/lib/architecture-ir/compiler";
+import { architectureIRToMermaid, safeFilename, toMermaid } from "./export";
 
 describe("exports", () => {
   it("creates safe bounded filenames", () => {
@@ -14,4 +15,16 @@ describe("exports", () => {
     expect(output).toContain("flowchart LR");
     expect(output).toContain('browser -->|"HTTPS"| api');
   });
+
+  it("exports semantic Mermaid directly from Architecture IR", () => {
+    const ir = buildArchitectureIR({ prompt: "Build a secure multi-tenant SaaS with asynchronous jobs." });
+    const output = architectureIRToMermaid(ir);
+    expect(output).toContain("flowchart LR");
+    expect(output).toContain(ir.components[0].name);
+    expect(output).toContain(mermaidSafe(ir.flows[0].source));
+  });
 });
+
+function mermaidSafe(value: string) {
+  return value.replace(/[^a-zA-Z0-9_]/g, "_");
+}

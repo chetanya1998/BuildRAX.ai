@@ -6,8 +6,11 @@ export async function readJson(request: Request) {
   const length = Number(request.headers.get("content-length") || 0);
   if (length > MAX_JSON_BYTES) throw new HttpError(413, "Request body is too large.");
   try {
-    return await request.json();
-  } catch {
+    const raw = await request.text();
+    if (new TextEncoder().encode(raw).byteLength > MAX_JSON_BYTES) throw new HttpError(413, "Request body is too large.");
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
     throw new HttpError(400, "Request body must be valid JSON.");
   }
 }

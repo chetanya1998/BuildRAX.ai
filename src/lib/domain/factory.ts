@@ -40,6 +40,7 @@ export function createConnector(id: string, source: string, target: string, type
     dataClassification: "internal",
     label,
     style: type.includes("message") || type.includes("stream") ? "dashed" : "solid",
+    routing: "orthogonal",
   };
 }
 

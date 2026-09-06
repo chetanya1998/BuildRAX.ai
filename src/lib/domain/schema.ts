@@ -71,15 +71,18 @@ export const connectorSchema = z.object({
   dataClassification: z.enum(["public", "internal", "confidential", "restricted", "unspecified"]).default("unspecified"),
   label: safeText(120).default(""),
   style: z.enum(["solid", "dashed", "dotted"]).default("solid"),
+  routing: z.enum(["orthogonal", "curved", "straight"]).default("orthogonal"),
 }).strict().refine((connector) => connector.source !== connector.target, "Self-referencing connectors are not supported");
 
 export const primitiveSchema = z.object({
   id: z.string().min(1).max(120),
-  kind: z.enum(["rectangle", "ellipse", "diamond", "frame", "line", "arrow", "text", "freehand"]),
+  kind: z.enum(["rectangle", "ellipse", "diamond", "frame", "line", "arrow", "text", "freehand", "image"]),
   position: z.object({ x: z.number().finite(), y: z.number().finite() }).strict(),
   dimensions: z.object({ width: z.number().min(1), height: z.number().min(1) }).strict(),
   text: safeText(1000).default(""),
-  style: z.record(z.string(), z.string()).default({}),
+  // Image primitives keep a local data URL in style.src. The limit permits a
+  // reasonably sized canvas image while keeping diagram payloads bounded.
+  style: z.record(z.string(), z.string().max(4_500_000)).default({}),
 }).strict();
 
 export const assumptionSchema = z.object({

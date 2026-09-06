@@ -12,4 +12,9 @@ describe("connector compatibility", () => {
     expect(result.valid).toBe(false);
     expect(result.reason).toMatch(/do not normally connect/i);
   });
+
+  it("accepts trusted event ingestion paths", () => {
+    expect(validateConnection(createNode("api-gateway", "gateway", "Gateway", 0, 0), createNode("event-broker", "events", "Events", 0, 0)).valid).toBe(true);
+    expect(validateConnection(createNode("external-client", "producer", "Producer", 0, 0), createNode("event-stream", "stream", "Stream", 0, 0)).valid).toBe(true);
+  });
 });

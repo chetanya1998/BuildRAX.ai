@@ -9,6 +9,13 @@
 .headline span { color: var(--text-secondary); font-size: 13px; }
 .headline h1 { margin: 8px 0 0; font-size: 44px; letter-spacing: -.05em; }
 .notice { margin-bottom: 20px; padding: 13px 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text-secondary); font-size: 12px; }
+.notificationStack { display: grid; gap: 10px; margin: 0 0 24px; }
+.archiveNotice { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.archiveNotice strong { font-size: 13px; }
+.archiveNotice p { margin: 3px 0; color: var(--text-secondary); font-size: 12px; }
+.archiveNotice small { color: var(--text-muted); font-size: 10px; }
+.archiveNotice button { width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 999px; background: transparent; color: var(--text); cursor: pointer; }
+.archiveIcon { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 10px; background: var(--surface-subtle); color: var(--text-secondary); }
 .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 .card { min-height: 250px; padding: 20px; border: 1px solid var(--border); background: var(--surface); border-radius: 20px; display: flex; flex-direction: column; justify-content: space-between; }
 .thumb { height: 120px; border-radius: 13px; background-image: radial-gradient(var(--border-strong) 1px, transparent 1px); background-size: 14px 14px; border: 1px solid var(--border); position: relative; overflow: hidden; }

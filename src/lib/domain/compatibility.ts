@@ -1,8 +1,8 @@
 import type { ArchitectureNode, Connector } from "./schema";
 
 const allowedTargets: Record<ArchitectureNode["category"], ArchitectureNode["category"][]> = {
-  client: ["networking", "compute", "security"],
-  networking: ["compute", "security", "networking"],
+  client: ["networking", "compute", "messaging", "security"],
+  networking: ["compute", "messaging", "security", "networking"],
   compute: ["compute", "data", "messaging", "ai", "security", "devops"],
   data: ["compute", "ai", "devops", "data"],
   messaging: ["compute", "messaging", "devops"],

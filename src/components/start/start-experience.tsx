@@ -8,12 +8,24 @@ import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createDiagram } from "@/lib/domain/factory";
+import type { ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
+import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
+import type { GenerationReceipt } from "@/lib/server/generation-receipt";
 import { getTemplate, templates } from "@/lib/domain/templates";
 import { saveDraft } from "@/lib/storage/drafts";
 import { useHydrated } from "@/lib/ui/use-hydrated";
 import styles from "./start.module.css";
 
 const preferenceOptions = ["Next.js", "Supabase", "AWS", "GCP", "Azure", "High scale", "Multi-tenant", "Sensitive data"];
+const anonymousSessionStorageKey = "buildrax-anonymous-session";
+
+function anonymousSessionId() {
+  const existing = localStorage.getItem(anonymousSessionStorageKey);
+  if (existing) return existing;
+  const created = crypto.randomUUID();
+  localStorage.setItem(anonymousSessionStorageKey, created);
+  return created;
+}
 
 export function StartExperience({ initialTemplate }: { initialTemplate?: string }) {
   const router = useRouter();
@@ -29,9 +41,28 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
     setPreferences((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
   }
 
-  async function openDiagram(diagram: ReturnType<typeof createDiagram>, sourcePrompt?: string) {
+  async function openDiagram(diagram: ReturnType<typeof createDiagram>, sourcePrompt?: string, artifact?: {
+    ir: ArchitectureIR;
+    presentation: ArchitecturePresentation;
+    checksums?: { ir: string; presentation: string; diagram: string };
+    generationReceipt?: GenerationReceipt;
+  }) {
     const draftId = diagram.id;
-    await saveDraft({ id: draftId, diagram, prompt: sourcePrompt, status: "ready", createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
+    await saveDraft({
+      id: draftId,
+      diagram,
+      architecture: artifact ? {
+        ir: artifact.ir,
+        presentation: artifact.presentation,
+        irVersion: 1,
+        checksums: artifact.checksums,
+        generationReceipt: artifact.generationReceipt,
+      } : undefined,
+      prompt: sourcePrompt,
+      status: "ready",
+      createdAt: diagram.createdAt,
+      updatedAt: diagram.updatedAt,
+    });
     sessionStorage.setItem("buildrax-active-draft", draftId);
     router.push(`/draft/${draftId}`);
   }
@@ -48,13 +79,22 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
       const basePrompt = prompt.trim() || selected!.description;
       const response = await fetch("/api/v1/ai/generations", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-buildrax-guest": "true" },
+        headers: {
+          "content-type": "application/json",
+          "x-buildrax-guest": "true",
+          "x-buildrax-anonymous-session": anonymousSessionId(),
+        },
         body: JSON.stringify({ prompt: basePrompt, preferredStack: preferences.join(", ") || undefined, templateId: selected?.id }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error || "Generation failed.");
       setMessage("Laying out validated components and typed connections…");
-      await openDiagram(body.diagram, basePrompt);
+      await openDiagram(body.artifact.diagram, basePrompt, {
+        ir: body.artifact.ir,
+        presentation: body.artifact.presentation,
+        checksums: body.artifact.checksums,
+        generationReceipt: body.artifact.generationReceipt,
+      });
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Could not generate the diagram.");
