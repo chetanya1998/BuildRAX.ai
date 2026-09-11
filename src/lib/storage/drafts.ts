@@ -83,6 +83,7 @@ export type PendingProjectSave = {
   diagram: Diagram;
   queuedAt: string;
   attempts: number;
+  localRevision: number;
 };
 
 class BuildRaxDatabase extends Dexie {
@@ -203,15 +204,13 @@ export async function queueProjectSave(record: Omit<PendingProjectSave, "queuedA
   const ir = architectureIRSchema.parse(record.ir);
   const presentation = architecturePresentationSchema.parse(record.presentation);
   const key = recoveryKey(scope, record.diagramId);
-  const existing = await db().scopedProjectSaves.get(key);
-  await db().scopedProjectSaves.put({
-    ...record,
-    key,
-    diagram,
-    ir,
-    presentation,
-    queuedAt: new Date().toISOString(),
-    attempts: (existing?.attempts ?? 0) + 1,
+  await db().transaction("rw", db().scopedProjectSaves, async () => {
+    const existing = await db().scopedProjectSaves.get(key);
+    if (existing && existing.localRevision > record.localRevision) return;
+    await db().scopedProjectSaves.put({
+      ...record, key, diagram, ir, presentation, queuedAt: new Date().toISOString(),
+      attempts: existing?.idempotencyKey === record.idempotencyKey ? existing.attempts + 1 : 1,
+    });
   });
 }
 
@@ -226,11 +225,17 @@ export async function loadQueuedProjectSave(diagramId: string, scope: RecoverySc
     diagram,
     idempotencyKey: record.idempotencyKey || crypto.randomUUID(),
     baseIrVersion: Number.isInteger(record.baseIrVersion) ? record.baseIrVersion : 0,
+    localRevision: Number.isSafeInteger(record.localRevision) ? record.localRevision : 0,
     ir: record.ir ? architectureIRSchema.parse(record.ir) : architectureIRFromDiagram(diagram, undefined, "legacy-migration"),
     presentation: record.presentation ? architecturePresentationSchema.parse(record.presentation) : presentationFromDiagram(diagram),
   };
 }
 
-export async function clearQueuedProjectSave(diagramId: string, scope: RecoveryScope) {
-  await db().scopedProjectSaves.delete(recoveryKey(scope, diagramId));
+export async function clearQueuedProjectSave(diagramId: string, scope: RecoveryScope, idempotencyKey?: string) {
+  const key = recoveryKey(scope, diagramId);
+  await db().transaction("rw", db().scopedProjectSaves, async () => {
+    const existing = await db().scopedProjectSaves.get(key);
+    if (!existing || (idempotencyKey && existing.idempotencyKey !== idempotencyKey)) return;
+    await db().scopedProjectSaves.delete(key);
+  });
 }

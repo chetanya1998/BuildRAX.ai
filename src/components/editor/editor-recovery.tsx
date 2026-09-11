@@ -114,6 +114,7 @@ export function useEditorRecovery({ initial, diagram, document, getIR, getIrVers
   return {
     status, error,
     retry: () => { void writer.current?.flush(); },
+    flush: async () => { await writer.current?.flush(); return !(writer.current?.dirty ?? false); },
     download: () => { const current = capture.current(); if (current) downloadRecovery(current); },
   };
 }

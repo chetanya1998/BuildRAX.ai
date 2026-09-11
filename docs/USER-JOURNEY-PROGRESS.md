@@ -1,6 +1,63 @@
 # User-journey implementation handoff
 
-## Current chunk: Day 1(a) / 1A — reliable local recovery
+## Current chunk: Day 1(b) / 1B — cloud-save coordinator
+
+Day 1(a) was committed and pushed to `origin/fresh-variant` as `efa75df` before beginning this chunk.
+
+### Day 1(b) implemented
+
+- Cloud saving now runs through one coordinator per authenticated diagram instead of two competing editor effects.
+- Only one request is sent at a time. An edit arriving behind a delayed request remains pending, is rebased on the returned diagram/IR versions, and is sent next.
+- Each request captures its diagram base version, IR base version, local revision, and idempotency key together.
+- Normal scheduling is five seconds after the last edit, with a hard 30-second ceiling during continuous editing.
+- Network, rate-limit, and server failures are queued and retried with the same idempotency key using bounded exponential backoff. `Retry-After` is honored when supplied.
+- Offline work creates a durable scoped retry before waiting for connectivity. Reconnect resumes the exact request.
+- Authentication/authorization failures, validation rejections, and version conflicts stop automatic retries. They preserve both local recovery and the cloud request for explicit resolution.
+- A queued request can replace only an older/equal local revision. Clearing a successful request checks its idempotency key, so an old response cannot delete a newer queued request.
+- Cloud states are distinct from browser recovery states: pending, saving, saved, offline, conflict, sign-in required, and error.
+- Internal editor navigation first confirms the latest browser recovery. It does not block on a possibly slow network request; cloud work can be reconstructed from the scoped local record on reopen.
+- Cloud image upload happens as part of sending; an upload/network failure retains the original request and its local image for retry.
+- Reviews and generated documentation persist only when the current semantic canvas is actually cloud-saved.
+
+### Day 1(b) acceptance coverage
+
+- Five-second idle and 30-second maximum scheduling.
+- Delayed old response with a newer edit waiting.
+- Same-key retry and bounded backoff.
+- Offline durability and reconnect.
+- No automatic retry for conflict, auth, or validation failures.
+- HTTP failure classification.
+- Queue isolation, local-revision ordering, and idempotency-specific clearing.
+- Hook-level delayed HTTP integration proving the next request uses the returned base version and latest edit.
+
+Final verification on 2026-09-11:
+
+```text
+npm test: 62 passed
+npm run typecheck: passed
+npm run lint: passed
+npm run build: passed (23 application routes built)
+Chromium guest + recovery regression: 22 passed, 1 intentionally mobile-only test skipped
+```
+
+The first browser run exposed two existing tests that counted nodes before React Flow finished rendering. They were corrected to wait for the expected 15 initial nodes; the full rerun passed. React Flow still emits its pre-existing “node not initialized” diagnostic during the programmatic multi-node drag test; that test passes, but the diagnostic should be handled in the Day 4 canvas chunk rather than hidden here.
+
+### Day 1(b) remaining limits
+
+- Conflict comparison/merge UI remains Chunk 3B; Day 1(b) deliberately stops and preserves both copies.
+- Session renewal UI remains Chunk 2B. Day 1(b) reports sign-in required without silently retrying forbidden requests.
+- Documents remain browser-recovered but are not yet stored by the cloud diagram endpoint (Chunk 5).
+- Legacy unscoped retry rows remain retained and quarantined because account ownership cannot be proven.
+- A hard browser/OS termination can interrupt work before the 800 ms local checkpoint. No browser application can guarantee an asynchronous final write after process termination.
+- Hosted Supabase/RLS, deployment, and 100–200-user load tests are release work; local coordinator tests do not establish production capacity.
+
+### Next session: Day 2A only
+
+Make signed-in creation produce a real persisted project/diagram while preserving the clear guest path. Do not begin auth-route consolidation, guest migration, or canvas interaction work in the same chunk.
+
+---
+
+## Completed chunk: Day 1(a) / 1A — reliable local recovery
 
 Branch: `fresh-variant`. No production deployment, database migration, or credential change was performed for this chunk.
 

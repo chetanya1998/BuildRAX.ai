@@ -156,6 +156,7 @@ test("desktop canvas places a component at a chosen point and edits its label in
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
 
   const nodes = page.locator(".react-flow__nodes > *");
+  await expect(nodes).toHaveCount(15);
   const before = await nodes.count();
   await page.getByLabel("Open semantic components").click();
   await page.getByRole("button", { name: "Place Web Browser on canvas" }).click();
@@ -221,6 +222,7 @@ test("components palette preserves the component drag payload contract", async (
   await page.getByRole("button", { name: "Use template" }).first().click();
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   const nodes = page.locator(".react-flow__nodes > *");
+  await expect(nodes).toHaveCount(15);
   const before = await nodes.count();
   await page.getByLabel("Open semantic components").click();
   const palette = page.getByRole("complementary", { name: "Semantic components" });

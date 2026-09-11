@@ -114,11 +114,21 @@ describe("browser recovery records", () => {
   it("separates queued cloud requests across users and clears only that user's request", async () => {
     const record = fixture(account);
     const another: RecoveryScope = { kind: "account", userId: "user-b", workspaceId: "workspace-a" };
-    const queued = { diagramId: record.diagram.id, diagram: record.diagram, idempotencyKey: crypto.randomUUID(), baseVersion: 1, baseIrVersion: 1, ir: record.architecture.ir, presentation: record.architecture.presentation };
+    const queued = { diagramId: record.diagram.id, diagram: record.diagram, idempotencyKey: crypto.randomUUID(), baseVersion: 1, baseIrVersion: 1, localRevision: 1, ir: record.architecture.ir, presentation: record.architecture.presentation };
     await queueProjectSave(queued, account);
     expect(await loadQueuedProjectSave(queued.diagramId, another)).toBeUndefined();
     await queueProjectSave({ ...queued, idempotencyKey: "second-user" }, another);
     await clearQueuedProjectSave(queued.diagramId, account);
     expect((await loadQueuedProjectSave(queued.diagramId, another))?.idempotencyKey).toBe("second-user");
+  });
+
+  it("does not let an older failed request replace or clear a newer queued edit", async () => {
+    const record = fixture(account);
+    const base = { diagramId: record.diagram.id, diagram: record.diagram, baseVersion: 1, baseIrVersion: 1, ir: record.architecture.ir, presentation: record.architecture.presentation };
+    await queueProjectSave({ ...base, idempotencyKey: "newer", localRevision: 12 }, account);
+    await queueProjectSave({ ...base, idempotencyKey: "older", localRevision: 11 }, account);
+    expect((await loadQueuedProjectSave(record.diagram.id, account))?.idempotencyKey).toBe("newer");
+    await clearQueuedProjectSave(record.diagram.id, account, "older");
+    expect((await loadQueuedProjectSave(record.diagram.id, account))?.idempotencyKey).toBe("newer");
   });
 });
