@@ -75,7 +75,8 @@ import { architectureIRToMermaid, downloadText, safeFilename } from "@/lib/domai
 import { createConnector, createNode } from "@/lib/domain/factory";
 import { autoLayout } from "@/lib/domain/layout";
 import { diagramSchema, type ChangePlan, type Diagram, type ReviewFinding } from "@/lib/domain/schema";
-import { clearQueuedProjectSave, loadQueuedProjectSave, queueProjectSave, saveDraft } from "@/lib/storage/drafts";
+import { clearQueuedProjectSave, loadQueuedProjectSave, queueProjectSave, recoveryKey, type RecoveryRecord, type RecoveryScope } from "@/lib/storage/drafts";
+import { EditorRecoveryGate, useEditorRecovery } from "./editor-recovery";
 import { persistPrivatePresentationImages } from "@/lib/storage/private-assets";
 import { PrimitiveNode, type PrimitiveFlowNode } from "./primitive-node";
 import { SemanticNode, type SemanticFlowNode } from "./semantic-node";
@@ -303,7 +304,9 @@ function documentBlocks(markdown: string, diagram?: Diagram, onFocusNode: (id: s
   });
 }
 
-function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, readOnly = false, persisted = false, projectId }: { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; readOnly?: boolean; persisted?: boolean; projectId?: string }) {
+type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; readOnly?: boolean; persisted?: boolean; projectId?: string; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
+
+function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, readOnly = false, persisted = false, projectId, initialRecovery, recoveredUnsynced = false }: EditorProps) {
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -318,7 +321,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const [zoom, setZoom] = useState(100);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "offline">("saved");
   const [reviews, setReviews] = useState<ReviewFinding[]>([]);
-  const [docs, setDocs] = useState("");
+  const [docs, setDocs] = useState(initialRecovery?.document ?? "");
   const [versions, setVersions] = useState<VersionSummary[]>([]);
   const [documentMode, setDocumentMode] = useState<"edit" | "preview">("preview");
   const [documentView, setDocumentView] = useState<"document" | "both">("both");
@@ -347,7 +350,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const [draggingComponentPalette, setDraggingComponentPalette] = useState(false);
   const latest = useRef(diagram);
   const selectedNodeIdsRef = useRef<string[]>(selectedNodeIds);
-  const editRevision = useRef(0);
+  const editRevision = useRef(recoveredUnsynced ? 1 : 0);
   const savedRevision = useRef(0);
   const saveInFlight = useRef(false);
   const irBase = useRef<ArchitectureIR>(initialIR ?? architectureIRFromDiagram(initialDiagram));
@@ -362,6 +365,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const componentPaletteDrag = useRef<{ offsetX: number; offsetY: number } | null>(null);
   latest.current = diagram;
   selectedNodeIdsRef.current = selectedNodeIds;
+  const localRecovery = useEditorRecovery({ initial: initialRecovery, diagram, document: docs, getIR: () => irBase.current, getIrVersion: () => Math.max(1, irVersion.current), enabled: !readOnly });
 
   const selectedNode = diagram.nodes.find((node) => node.id === selectedId);
   const selectedConnector = diagram.connectors.find((connector) => connector.id === selectedId);
@@ -472,26 +476,11 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
 
   useEffect(() => { setRenderNodes(modelNodes); }, [modelNodes]);
 
-  // Guest documentation is kept beside its draft, rather than inside the
-  // diagram schema, so documents can evolve independently without invalidating
-  // a versioned architecture snapshot. Persisted projects will graduate this
-  // to the versioned documents API in the backend phase.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const stored = window.localStorage.getItem(`buildrax-document:${diagram.id}`);
-    if (stored) setDocs(stored);
-  }, [diagram.id]);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !docs) return;
-    window.localStorage.setItem(`buildrax-document:${diagram.id}`, docs);
-  }, [diagram.id, docs]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const stored = window.sessionStorage.getItem("buildrax:component-palette-position");
-    if (!stored) return;
     try {
+      const stored = window.sessionStorage.getItem("buildrax:component-palette-position");
+      if (!stored) return;
       const position = JSON.parse(stored) as { x?: unknown; y?: unknown };
       if (typeof position.x === "number" && typeof position.y === "number") setComponentPalettePosition({ x: position.x, y: position.y });
     } catch {
@@ -501,7 +490,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
 
   useEffect(() => {
     if (typeof window === "undefined" || !componentDetached) return;
-    window.sessionStorage.setItem("buildrax:component-palette-position", JSON.stringify(componentPalettePosition));
+    try { window.sessionStorage.setItem("buildrax:component-palette-position", JSON.stringify(componentPalettePosition)); } catch { /* Optional palette preference; recovery reports its own failures. */ }
   }, [componentDetached, componentPalettePosition]);
 
   useEffect(() => {
@@ -533,28 +522,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   }, []);
 
   useEffect(() => {
-    if (readOnly || persisted) return;
-    const timer = window.setTimeout(async () => {
-      setSaveState(navigator.onLine ? "saving" : "offline");
-      const current = latest.current;
-      const ir = architectureIRFromDiagram(current, irBase.current);
-      const presentation = presentationFromDiagram(current);
-      irBase.current = ir;
-      await saveDraft({
-        id: current.id,
-        diagram: current,
-        architecture: { ir, presentation, irVersion: Math.max(1, irVersion.current) },
-        status: "ready",
-        createdAt: current.createdAt,
-        updatedAt: current.updatedAt,
-      });
-      setSaveState(navigator.onLine ? "saved" : "offline");
-    }, 800);
-    return () => window.clearTimeout(timer);
-  }, [diagram, persisted, readOnly]);
-
-  useEffect(() => {
-    if (!persisted || readOnly) return;
+    if (!persisted || readOnly || !initialRecovery) return;
     const timer = window.setTimeout(async () => {
       if (saveInFlight.current || editRevision.current === savedRevision.current) return;
       const revisionAtStart = editRevision.current;
@@ -570,7 +538,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
           ...current,
           primitives: current.primitives.map((primitive) => {
             const persistedPrimitive = presentation.primitives.find((item) => item.id === primitive.id);
-            return persistedPrimitive?.kind === "image" ? { ...primitive, style: persistedPrimitive.style } : primitive;
+            const source = snapshot.primitives.find((item) => item.id === primitive.id);
+            return persistedPrimitive?.kind === "image" && primitive.style.src === source?.style.src ? { ...primitive, style: { ...primitive.style, src: persistedPrimitive.style.src } } : primitive;
           }),
         }));
         const response = await fetch(`/api/v1/diagrams/${snapshot.id}`, {
@@ -583,7 +552,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
         if (!response.ok) throw new Error(body.error ?? "Project save failed.");
         const saved = body.saved?.[0];
         if (!saved?.version) throw new Error("Project save did not return a version.");
-        await clearQueuedProjectSave(snapshot.id);
+        await clearQueuedProjectSave(snapshot.id, initialRecovery.scope);
         savedRevision.current = revisionAtStart;
         irBase.current = body.snapshot?.ir ?? ir;
         irVersion.current = Number(saved.ir_version ?? body.snapshot?.irVersion ?? irVersion.current);
@@ -592,21 +561,27 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
         setSaveState("saved");
       } catch (error) {
         const isConflict = error instanceof Error && error.message.includes("newer version");
-        if (!isConflict) await queueProjectSave({ diagramId: snapshot.id, idempotencyKey, baseVersion: snapshot.version, baseIrVersion: irVersion.current, ir, presentation, diagram: snapshot });
+        if (!isConflict) {
+          try { await queueProjectSave({ diagramId: snapshot.id, idempotencyKey, baseVersion: snapshot.version, baseIrVersion: irVersion.current, ir, presentation, diagram: snapshot }, initialRecovery.scope); }
+          catch { setMessage("Cloud save failed and its retry could not be stored. Check browser recovery and download your work before leaving."); setSaveState("offline"); return; }
+        }
         setSaveState("offline");
-        setMessage(isConflict && error instanceof Error ? error.message : "Saved on this device. We will retry when you are back online.");
+        setMessage(isConflict && error instanceof Error ? error.message : "Cloud save is queued. Check the separate browser recovery status for your latest edits and document.");
       } finally {
         saveInFlight.current = false;
       }
     }, Math.min(5_000, Math.max(0, 30_000 - (Date.now() - lastServerSaveAt.current))));
     return () => window.clearTimeout(timer);
-  }, [diagram, persisted, readOnly]);
+  }, [diagram, persisted, readOnly, initialRecovery]);
 
   useEffect(() => {
-    if (!persisted || readOnly) return;
+    if (!persisted || readOnly || !initialRecovery) return;
     async function flushQueuedSave() {
       if (!navigator.onLine || saveInFlight.current) return;
-      const queued = await loadQueuedProjectSave(latest.current.id);
+      const queued = await loadQueuedProjectSave(latest.current.id, initialRecovery!.scope).catch(() => {
+        setMessage("The cloud retry queue could not be read. Your current canvas is still open; check browser recovery before leaving.");
+        return undefined;
+      });
       if (!queued) return;
       saveInFlight.current = true;
       setSaveState("saving");
@@ -616,7 +591,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
           ...current,
           primitives: current.primitives.map((primitive) => {
             const persistedPrimitive = persistedPresentation.primitives.find((item) => item.id === primitive.id);
-            return persistedPrimitive?.kind === "image" ? { ...primitive, style: persistedPrimitive.style } : primitive;
+            const source = queued.diagram.primitives.find((item) => item.id === primitive.id);
+            return persistedPrimitive?.kind === "image" && primitive.style.src === source?.style.src ? { ...primitive, style: { ...primitive.style, src: persistedPrimitive.style.src } } : primitive;
           }),
         }));
         const response = await fetch(`/api/v1/diagrams/${queued.diagramId}`, {
@@ -633,7 +609,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
         const body = await response.json();
         if (response.status === 409) throw new Error("A newer version exists. Your local changes remain on this device.");
         if (!response.ok) throw new Error(body.error ?? "Project save failed.");
-        await clearQueuedProjectSave(queued.diagramId);
+        await clearQueuedProjectSave(queued.diagramId, initialRecovery!.scope);
         const saved = body.saved?.[0];
         irBase.current = body.snapshot?.ir ?? queued.ir;
         irVersion.current = Number(saved?.ir_version ?? body.snapshot?.irVersion ?? queued.baseIrVersion);
@@ -654,7 +630,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
     window.addEventListener("online", onOnline);
     void flushQueuedSave();
     return () => { window.removeEventListener("offline", onOffline); window.removeEventListener("online", onOnline); };
-  }, [persisted, readOnly]);
+  }, [persisted, readOnly, initialRecovery]);
 
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
@@ -1194,6 +1170,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   }
 
   async function generateDocs() {
+    if (docs && !window.confirm("Replace your current document with a generated draft?")) return;
     setPanel("docs"); setLoadingPanel(true);
     try {
       const ir = architectureIRFromDiagram(diagram, irBase.current);
@@ -1272,12 +1249,17 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
 
   return <div className={styles.screen}>
     <header className={styles.topbar}>
-      <Brand /><span>/</span><div className={styles.crumb}><input aria-label="Diagram title" value={diagram.title} readOnly={readOnly} onChange={(event) => setDiagram((current) => ({ ...current, title: event.target.value }))} onBlur={() => commit((current) => current)} /><span className={styles.status}><span className={styles.statusDot} />{saveState === "saved" ? persisted ? "Saved" : "Saved locally" : saveState === "saving" ? "Saving…" : "Offline · queued"}</span></div>
-      <div className={styles.topActions}><ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink><button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={generateDocs}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && <button className={styles.topButton} onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Project is saved automatically.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
+      <Brand /><span>/</span><div className={styles.crumb}><input aria-label="Diagram title" value={diagram.title} readOnly={readOnly} onChange={(event) => setDiagram((current) => ({ ...current, title: event.target.value }))} onBlur={() => commit((current) => current)} /><span className={styles.status} aria-label="Browser recovery status"><span className={styles.statusDot} />{readOnly ? "Read only" : localRecovery.error ? "Browser recovery failed" : localRecovery.status === "saved" ? "Saved locally" : "Saving locally…"}{persisted && ` · ${saveState === "saved" ? "Canvas in cloud" : saveState === "saving" ? "Cloud saving…" : "Cloud pending"}`}</span></div>
+      <div className={styles.topActions}><ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink><button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={() => setPanel("docs")}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && <button className={styles.topButton} onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Canvas cloud saving runs automatically. Documents are currently recovered on this device only. Check both save indicators before leaving.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
     </header>
     <main className={styles.workspace}>
+      {!readOnly && localRecovery.error && <div className={styles.recoveryWarning} role="alert">
+        <strong>Local recovery needs attention</strong><p>{localRecovery.error}</p>
+        <button onClick={localRecovery.download}>Download recovery copy</button>
+        <button onClick={localRecovery.retry}>Retry local save</button>
+      </div>}
       <div className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-tool={tool} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick}>
-        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={(event, node) => { if (tool === "eraser") removeById(node.id, true); else { if (event.shiftKey || event.metaKey || event.ctrlKey) setSelectedId(node.id); else selectOnly(node.id); setInspectorOpen(false); } }} onNodeDoubleClick={(_, node) => { selectOnly(node.id); if (node.type === "semantic") { setRenamingNodeId(node.id); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={diagram.nodes.length > 0 || diagram.primitives.length > 0} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
+        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={(event, node) => { if (tool === "eraser") removeById(node.id, true); else { if (event.shiftKey || event.metaKey || event.ctrlKey) setSelectedId(node.id); else selectOnly(node.id); setInspectorOpen(false); } }} onNodeDoubleClick={(_, node) => { selectOnly(node.id); if (node.type === "semantic") { setRenamingNodeId(node.id); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>
       </div>
@@ -1321,6 +1303,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
         <div className={styles.panelHead}>
           <div><strong>Documentation</strong><span className={styles.documentStatus}>Local draft · version {diagram.version}</span></div>
           <div className={styles.panelActions}>
+            {!readOnly && <button className={styles.close} title="Generate a document from the canvas" aria-label="Generate document" onClick={() => void generateDocs()} disabled={loadingPanel}><Sparkles size={14} /></button>}
             <button className={styles.close} title="Copy documentation" data-tooltip="Copy document as Markdown" aria-label="Copy documentation" onClick={() => void copyDocumentation()}><Copy size={14} /></button>
             <button className={styles.close} title="Export Markdown" data-tooltip="Download document as Markdown" aria-label="Export Markdown" onClick={() => void exportFile("markdown")}><Download size={14} /></button>
             <button className={styles.close} title="Close documentation" data-tooltip="Close documentation" aria-label="Close documentation" onClick={() => setPanel(null)}><X size={14} /></button>
@@ -1371,6 +1354,11 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   </div>;
 }
 
-export function ArchitectureEditor(props: { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; readOnly?: boolean; persisted?: boolean; projectId?: string }) {
-  return <ReactFlowProvider><ArchitectureEditorInner {...props} /></ReactFlowProvider>;
+export function ArchitectureEditor(props: EditorProps) {
+  if (props.readOnly) return <ReactFlowProvider><ArchitectureEditorInner {...props} /></ReactFlowProvider>;
+  if (props.persisted && props.recoveryScope?.kind !== "account") return <p role="alert">An authenticated workspace is required to open local recovery.</p>;
+  const scope = props.recoveryScope ?? { kind: "guest" as const };
+  return <EditorRecoveryGate key={recoveryKey(scope, props.initialDiagram.id)} diagram={props.initialDiagram} ir={props.initialIR} irVersion={props.initialIrVersion} scope={scope}>
+    {(record) => <ReactFlowProvider><ArchitectureEditorInner {...props} initialDiagram={record.diagram} initialIR={record.architecture.ir} initialIrVersion={record.architecture.irVersion} initialRecovery={record} recoveredUnsynced={props.persisted && JSON.stringify(record.diagram) !== JSON.stringify(props.initialDiagram)} /></ReactFlowProvider>}
+  </EditorRecoveryGate>;
 }

@@ -63,7 +63,7 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
       createdAt: diagram.createdAt,
       updatedAt: diagram.updatedAt,
     });
-    sessionStorage.setItem("buildrax-active-draft", draftId);
+    try { sessionStorage.setItem("buildrax-active-draft", draftId); } catch { /* The IndexedDB draft is already committed. */ }
     router.push(`/draft/${draftId}`);
   }
 
@@ -102,7 +102,8 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
   }
 
   async function blankCanvas() {
-    await openDiagram(createDiagram("Untitled architecture"));
+    try { await openDiagram(createDiagram("Untitled architecture")); }
+    catch { setState("error"); setMessage("Browser storage is unavailable or full. A new draft could not be saved. Enable storage or free space, then retry."); }
   }
 
   return <div className={styles.page}>

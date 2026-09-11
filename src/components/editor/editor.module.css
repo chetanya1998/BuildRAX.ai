@@ -278,3 +278,19 @@
 @media (max-width: 1050px) { .canvas, .canvasWithInspector { right: 0; } .inspector { display: none; } .aiBar { width: min(560px, calc(100% - 160px)); min-width: 0; } .aiBarWithInspector, .aiLauncherWithInspector { right: 28px; } .topButton span { display: none; } }
 @media (max-width: 700px) { .screen { grid-template-rows: 58px minmax(0, 1fr) 54px; } .topbar { padding: 0 9px; } .topActions .topButton:nth-child(-n+3) { display: none; } .canvas { left: 0; } .toolbar { top: auto; left: 8px; right: 8px; bottom: 8px; width: auto; height: 46px; flex-direction: row; overflow-x: auto; } .toolDivider { height: 26px; width: 1px; margin: 4px 3px; flex: 0 0 auto; } .bottomBar, .assumptions, .aiBar, .aiLauncher, .arrowPicker, .textFormatBar, .layerControls { display: none; } .drawer, .drawerDetached { left: 8px; right: 8px; top: 8px; bottom: 62px; width: auto; resize: none; } .componentPalette, .componentPaletteDetached { position: absolute; left: 8px!important; right: 8px; top: 8px!important; bottom: 62px; width: auto; height: auto; min-width: 0; resize: none; } .componentPaletteBody { grid-template-columns: 1fr; } .categoryRail { display: flex; gap: 5px; padding: 8px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; overflow-y: hidden; } .categoryRail button { width: auto; min-width: max-content; grid-template-columns: 7px auto auto; padding: 0 8px; } .componentResult { grid-template-columns: 38px minmax(0, 1fr) auto; } .componentDragGrip { display: none; } .componentResultMain small { display: none; } .paletteMoveHandle { display: none; } .sidePanel, .documentWorkspace { left: 8px; right: 8px; top: 8px; bottom: 62px; width: auto; min-width: 0; resize: none; } .documentToolbar { align-items: flex-start; flex-direction: column; } .documentQuickActions { max-height: 74px; overflow: auto; flex-wrap: nowrap; } .mobileNotice { display: block; position: absolute; left: 10px; right: 10px; top: 10px; z-index: 9; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 9px 12px; color: var(--text-secondary); font-size: 10px; text-align: center; } }
 @media (prefers-reduced-motion: reduce) { .toolDrawing { animation: none; } }
+.recoveryWarning {
+  position: absolute;
+  z-index: 100;
+  top: 12px;
+  left: 80px;
+  width: min(480px, calc(100% - 100px));
+  padding: 16px;
+  border: 2px solid var(--accent, #ff542d);
+  border-radius: 12px;
+  background: var(--surface, #17191b);
+  color: var(--text);
+  box-shadow: 0 8px 24px #0003;
+}
+.recoveryWarning p { margin: 8px 0; }
+.recoveryWarning button { padding: 8px; margin: 4px 8px 0 0; border: 1px solid currentColor; border-radius: 6px; }
+.recoveryWarning button:focus-visible { outline: 2px solid var(--accent, #ff542d); outline-offset: 3px; }

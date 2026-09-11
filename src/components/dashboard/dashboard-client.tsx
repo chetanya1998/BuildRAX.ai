@@ -18,7 +18,7 @@ export function DashboardClient({ authenticated, projects, notifications: initia
   const [email, setEmail] = useState("");
   const [notice, setNotice] = useState(authenticated ? "Your workspace is ready." : "Connect Supabase credentials to enable persistent projects. Local drafts remain available below.");
   const [notifications, setNotifications] = useState(initialNotifications);
-  useEffect(() => { listDrafts().then(setDrafts); }, []);
+  useEffect(() => { listDrafts().then(setDrafts).catch(() => setNotice("Local drafts could not be read. Browser storage may be blocked; your drafts have not been deleted.")); }, []);
 
   async function oauth(provider: "google" | "github") {
     const supabase = createSupabaseBrowserClient();

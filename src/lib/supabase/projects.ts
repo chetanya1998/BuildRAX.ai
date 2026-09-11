@@ -27,6 +27,7 @@ export type PersistedArchitecture = {
   ir: ArchitectureIR;
   presentation: ArchitecturePresentation;
   irVersion: number;
+  recoveryScope: { kind: "account"; userId: string; workspaceId: string };
 };
 
 function normalizeDiagram(payload: unknown, row: DiagramRow): Diagram {
@@ -66,6 +67,11 @@ export async function loadProjectDiagram(projectId: string): Promise<Diagram | n
 export async function loadProjectArchitecture(projectId: string): Promise<PersistedArchitecture | null> {
   const supabase = await createSupabaseServerClient();
   if (!supabase) return null;
+  const [{ data: { user } }, { data: project }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase.from("projects").select("workspace_id").eq("id", projectId).is("deleted_at", null).maybeSingle(),
+  ]);
+  if (!user || !project) return null;
   const { data: diagram, error: diagramError } = await supabase
     .from("diagrams")
     .select("id, title, current_version, current_ir_version, created_at, updated_at, project_id")
@@ -87,6 +93,7 @@ export async function loadProjectArchitecture(projectId: string): Promise<Persis
     ir: migrateArchitectureIR(version.ir_payload),
     presentation: architecturePresentationSchema.parse(version.presentation_payload),
     irVersion: Number(version.ir_version),
+    recoveryScope: { kind: "account", userId: user.id, workspaceId: project.workspace_id },
   };
 }
 
