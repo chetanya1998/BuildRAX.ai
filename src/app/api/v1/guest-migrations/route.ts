@@ -33,6 +33,10 @@ const migrationRequest = z.object({
 const legacyMigrationRequest = z.object({ idempotencyKey: z.string().uuid(), diagram: diagramSchema }).strict();
 
 export async function POST(request: Request) {
+  return persistArchitectureProject(request, "migration");
+}
+
+export async function persistArchitectureProject(request: Request, responseKey: "migration" | "project") {
   try {
     const raw = await readJson(request);
     const modern = migrationRequest.safeParse(raw);
@@ -136,7 +140,8 @@ export async function POST(request: Request) {
     if (persisted.checksums.ir !== snapshot.checksums.ir || persisted.checksums.presentation !== snapshot.checksums.presentation || persisted.checksums.diagram !== snapshot.checksums.diagram) {
       throw new HttpError(500, "Persisted architecture failed read-back verification.");
     }
-    return NextResponse.json({ migration, checksums: persisted.checksums });
+    const result = { projectId: migration.project_id, diagramId: migration.diagram_id, version: Number(migration.version), irVersion: Number(migration.ir_version) };
+    return NextResponse.json(responseKey === "migration" ? { migration, checksums: persisted.checksums } : { project: result, checksums: persisted.checksums }, { status: responseKey === "project" ? 201 : 200 });
   } catch (error) {
     return apiError(error);
   }

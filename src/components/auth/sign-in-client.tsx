@@ -8,14 +8,12 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import styles from "./sign-in.module.css";
 
-export function SignInClient() {
+export function SignInClient({ nextPath, authError }: { nextPath: string; authError?: string }) {
   const [email, setEmail] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(authError === "not-configured" ? "Authentication is not configured yet." : authError === "failed" ? "That sign-in link could not be completed. Please try again." : "");
 
   function callbackUrl() {
-    const next = new URLSearchParams(location.search).get("next");
-    const destination = next?.startsWith("/") ? next : "/dashboard";
-    return `${location.origin}/auth/callback?next=${encodeURIComponent(destination)}`;
+    return `${location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   }
 
   async function oauth(provider: "google" | "github") {
@@ -37,7 +35,7 @@ export function SignInClient() {
     <section className={styles.card} aria-labelledby="sign-in-title">
       <span>BUILD YOUR WORKSPACE</span>
       <h1 id="sign-in-title">Continue to BuildRAX</h1>
-      <p>Sign in to save diagrams, keep versioned reviews and return to your projects.</p>
+      <p>Sign in to save diagrams, keep versioned reviews and continue exactly where you intended.</p>
       <div className={styles.providers}><Button onClick={() => oauth("google")} variant="secondary">Continue with Google</Button><Button onClick={() => oauth("github")} variant="secondary"><Github size={15} /> Continue with GitHub</Button></div>
       <div className={styles.divider}><span />or use email<span /></div>
       <label><span>Email address</span><input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" type="email" autoComplete="email" /></label>

@@ -1,6 +1,40 @@
 # User-journey implementation handoff
 
-## Current chunk: Day 1(b) / 1B — cloud-save coordinator
+## Current chunks: Day 2(a) and 2(b) — signed-in creation and authentication journey
+
+### Day 2 implemented
+
+- `/start` now receives trusted session state from the server. Anonymous users still create recoverable browser drafts; authenticated users create a workspace project before the canvas opens.
+- Blank and AI-generated signed-in architectures use the same validated Architecture IR, presentation, materialized diagram, checksum, idempotency, RLS, and read-back verification path.
+- A failed signed-in project creation remains an explicit error. It never silently downgrades into an unexplained guest draft.
+- Authenticated AI generation no longer sends guest identity headers. Guest generation retains its anonymous-session rate-limit identity.
+- `/api/v1/projects` is now the clear signed-in creation endpoint. It reuses the existing atomic first-version persistence transaction rather than introducing a second, weaker write path.
+- `/sign-in` is the single sign-in surface. The duplicate dashboard modal and duplicate provider logic were removed.
+- Sign-in accepts one sanitized internal `next` destination. OAuth and email callbacks preserve it, reject external/protocol-relative/recursive callback targets, and return failures to the sign-in screen without discarding the intended destination.
+- An already authenticated visitor to `/sign-in` is returned immediately to the safe intended destination.
+- The guest editor's save gate now goes directly to sign-in with `/draft/:id?migrate=1` as its return target, keeping the canvas in view for the existing migration continuation.
+
+### Day 2 acceptance coverage
+
+- Unit/component coverage proves internal return paths are preserved, unsafe return paths are rejected, anonymous blank creation stays local, authenticated blank creation persists first, and a failed cloud creation never creates a guest draft.
+- Full verification on 2026-09-11: 70 unit/component tests, typecheck, lint, and production build passed.
+- Chromium journey regression: 24 passed (including the dedicated sign-in and hostile-return-path checks) and one intentionally mobile-only test skipped.
+- The PostgreSQL suite could not start: the local Supabase database was absent and Docker Desktop's engine did not respond to either `supabase start` or `docker info`. No hosted database was touched. Re-run `npm run db:test` once Docker reports a healthy engine.
+
+### Day 2 remaining limits
+
+- The signed-in creation endpoint deliberately reuses the hardened atomic first-version transaction currently named `migrate_guest_architecture` in PostgreSQL. The public API and user journey are correctly separated, but renaming/splitting this legacy database routine and its internal audit label should be done in the next database migration without changing its idempotency behavior.
+- Hosted OAuth/email-provider redirects were not exercised with a real external account in automated tests. Local callback safety and routing contracts are covered; staging-provider verification remains a release check.
+- Complete guest asset/document/origin migration remains Day 3A. This chunk only preserves the correct return-to-draft continuation.
+- Conflict comparison and explicit resolution remain Day 3B.
+
+### Next session: Day 3A only
+
+Make guest-to-account migration carry assets, editable document content, current snapshot, and original generation lineage, retaining the browser backup until the complete persisted result is verified.
+
+---
+
+## Completed chunk: Day 1(b) / 1B — cloud-save coordinator
 
 Day 1(a) was committed and pushed to `origin/fresh-variant` as `efa75df` before beginning this chunk.
 
@@ -51,9 +85,9 @@ The first browser run exposed two existing tests that counted nodes before React
 - A hard browser/OS termination can interrupt work before the 800 ms local checkpoint. No browser application can guarantee an asynchronous final write after process termination.
 - Hosted Supabase/RLS, deployment, and 100–200-user load tests are release work; local coordinator tests do not establish production capacity.
 
-### Next session: Day 2A only
+### Original next-session note (now completed)
 
-Make signed-in creation produce a real persisted project/diagram while preserving the clear guest path. Do not begin auth-route consolidation, guest migration, or canvas interaction work in the same chunk.
+Day 2A and 2B were subsequently completed together at the user's request. See the current section above.
 
 ---
 

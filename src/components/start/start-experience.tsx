@@ -8,7 +8,7 @@ import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { createDiagram } from "@/lib/domain/factory";
-import type { ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
+import { architectureIRFromDiagram, presentationFromDiagram, type ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
 import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { GenerationReceipt } from "@/lib/server/generation-receipt";
 import { getTemplate, templates } from "@/lib/domain/templates";
@@ -27,7 +27,7 @@ function anonymousSessionId() {
   return created;
 }
 
-export function StartExperience({ initialTemplate }: { initialTemplate?: string }) {
+export function StartExperience({ initialTemplate, authenticated = false }: { initialTemplate?: string; authenticated?: boolean }) {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate ?? "");
@@ -47,17 +47,39 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
     checksums?: { ir: string; presentation: string; diagram: string };
     generationReceipt?: GenerationReceipt;
   }) {
+    const resolvedArtifact = artifact ?? {
+      ir: architectureIRFromDiagram(diagram),
+      presentation: presentationFromDiagram(diagram),
+    };
+    if (authenticated) {
+      setMessage("Saving a new project to your workspace…");
+      const response = await fetch("/api/v1/projects", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          // The diagram ID is already a UUID and remains stable if this exact
+          // creation request is replayed after an uncertain network response.
+          idempotencyKey: diagram.id,
+          artifact: { ir: resolvedArtifact.ir, presentation: resolvedArtifact.presentation, diagram },
+          generationReceipt: resolvedArtifact.generationReceipt,
+        }),
+      });
+      const body = await response.json();
+      if (!response.ok || !body.project?.projectId) throw new Error(body.error || "The project could not be saved.");
+      router.push(`/projects/${body.project.projectId}/canvas`);
+      return;
+    }
     const draftId = diagram.id;
     await saveDraft({
       id: draftId,
       diagram,
-      architecture: artifact ? {
-        ir: artifact.ir,
-        presentation: artifact.presentation,
+      architecture: {
+        ir: resolvedArtifact.ir,
+        presentation: resolvedArtifact.presentation,
         irVersion: 1,
-        checksums: artifact.checksums,
-        generationReceipt: artifact.generationReceipt,
-      } : undefined,
+        checksums: resolvedArtifact.checksums,
+        generationReceipt: resolvedArtifact.generationReceipt,
+      },
       prompt: sourcePrompt,
       status: "ready",
       createdAt: diagram.createdAt,
@@ -77,13 +99,14 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
     setMessage("Understanding the system and validating component boundaries…");
     try {
       const basePrompt = prompt.trim() || selected!.description;
+      const headers: Record<string, string> = { "content-type": "application/json" };
+      if (!authenticated) {
+        headers["x-buildrax-guest"] = "true";
+        headers["x-buildrax-anonymous-session"] = anonymousSessionId();
+      }
       const response = await fetch("/api/v1/ai/generations", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-buildrax-guest": "true",
-          "x-buildrax-anonymous-session": anonymousSessionId(),
-        },
+        headers,
         body: JSON.stringify({ prompt: basePrompt, preferredStack: preferences.join(", ") || undefined, templateId: selected?.id }),
       });
       const body = await response.json();
@@ -103,7 +126,7 @@ export function StartExperience({ initialTemplate }: { initialTemplate?: string 
 
   async function blankCanvas() {
     try { await openDiagram(createDiagram("Untitled architecture")); }
-    catch { setState("error"); setMessage("Browser storage is unavailable or full. A new draft could not be saved. Enable storage or free space, then retry."); }
+    catch (error) { setState("error"); setMessage(error instanceof Error ? error.message : authenticated ? "The workspace project could not be created." : "Browser storage is unavailable or full. A new draft could not be saved."); }
   }
 
   return <div className={styles.page}>
