@@ -1,6 +1,38 @@
 # User-journey implementation handoff
 
-## Current chunks: Day 3(a) and 3(b) — complete guest migration and conflict recovery
+## Current chunks: Day 4(a) and 4(b) — deterministic canvas interaction and workflow
+
+### Day 4 implemented
+
+- React Flow and the saved diagram no longer compete as two live sources of drag positions. Temporary movement stays in the controlled React Flow nodes and is committed once at drag end.
+- Measured node dimensions are preserved when selection or editor data changes, preventing selected groups from becoming temporarily uninitialized during movement.
+- Pointer mode supports direct movement, Shift multi-selection, partial-intersection marquee selection, multi-node dragging, and Arrow-key nudging. Shift+Arrow moves the selection ten canvas units; Arrow alone moves it one.
+- Node and primitive layer order remains part of the saved diagram. Bring-to-front and send-to-back now have browser assertions that verify their effective order after selection is cleared.
+- Semantic nodes remain resizable and connector handles create editable connections. Route, line texture, direction, label, protocol, authentication, and encryption remain configurable in the inspector.
+- Freehand drawing continues collecting coalesced pointer samples while the live preview is under the pointer. The preview cannot intercept drawing input, and stored strokes render through a smooth cubic path.
+- Signed-in canvases now expose a compact project switcher containing the user's accessible projects and a link back to the full dashboard. Existing recovery-before-navigation protection applies to each project link.
+- The mini-map remains independently collapsible, node appearance controls remain persistent, and no snap-to-grid or ellipse creation control was reintroduced.
+
+### Day 4 acceptance coverage
+
+- Browser coverage exercises node resize, connector creation, single/multi-node movement, keyboard movement, marquee selection, style persistence, front/back layering, and continuous smoothed freehand input.
+- The movement journey fails if React Flow emits its former “node not initialized” diagnostic.
+- Full verification on 2026-09-12: 75 unit/component tests, typecheck, lint, and production build passed.
+- Desktop/mobile guest-canvas regression: 26 passed and 14 intentionally platform-specific tests skipped. All 19 applicable desktop canvas journeys passed.
+
+### Day 4 remaining limits
+
+- Touch-first drawing and connection creation remain intentionally desktop-only for the MVP; mobile retains pan, zoom, selection, and light editing.
+- Project switching is a safe whole-project navigation, not multiple simultaneously mounted canvases or browser-like editor tabs.
+- Connector compatibility remains advisory for manual diagrams. Semantic validation still reports unusual connections rather than silently deleting them.
+
+### Next session: Day 5(a) only
+
+Persist editable documents as version-aligned backend artifacts, while preserving the distinction between AI-generated drafts and user-authored changes.
+
+---
+
+## Completed chunks: Day 3(a) and 3(b) — complete guest migration and conflict recovery
 
 ### Day 3 implemented
 

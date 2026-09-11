@@ -1,10 +1,10 @@
 import { ArchitectureEditor } from "@/components/editor/architecture-editor";
-import { loadProjectArchitecture } from "@/lib/supabase/projects";
+import { listPersistedProjects, loadProjectArchitecture } from "@/lib/supabase/projects";
 import { notFound } from "next/navigation";
 
 export default async function ProjectCanvasPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
-  const architecture = await loadProjectArchitecture(projectId);
+  const [architecture, projects] = await Promise.all([loadProjectArchitecture(projectId), listPersistedProjects()]);
   if (!architecture) notFound();
-  return <ArchitectureEditor initialDiagram={architecture.diagram} initialIR={architecture.ir} initialIrVersion={architecture.irVersion} initialDocument={architecture.document} recoveryScope={architecture.recoveryScope} persisted projectId={projectId} />;
+  return <ArchitectureEditor initialDiagram={architecture.diagram} initialIR={architecture.ir} initialIrVersion={architecture.irVersion} initialDocument={architecture.document} recoveryScope={architecture.recoveryScope} persisted projectId={projectId} projectOptions={projects.map(({ id, name }) => ({ id, name }))} />;
 }

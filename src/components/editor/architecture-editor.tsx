@@ -99,7 +99,6 @@ type VersionSummary = {
 type PrimitiveTool = Exclude<Tool, "select" | "pan" | "eraser" | "circle"> | "ellipse" | "image";
 type CanvasPoint = { x: number; y: number };
 type DrawDraft = { kind: PrimitiveTool; start: CanvasPoint; current: CanvasPoint; points: CanvasPoint[]; lockAspect?: boolean; style?: Record<string, string> };
-type TransientPositions = Record<string, CanvasPoint>;
 type ArrowStyle = "start" | "end" | "both" | "none";
 type ArrowTexture = "solid" | "dashed" | "dotted";
 
@@ -185,7 +184,6 @@ function flowNodes(
   onTextEditActivate: (id: string) => void,
   connectorMode: boolean,
   preview: DrawDraft | null,
-  transientPositions: TransientPositions,
   selectedIds: string[],
   renamingNodeId: string | null,
   onRenameStart: () => void,
@@ -194,8 +192,8 @@ function flowNodes(
   onRenameCancel: () => void,
 ): EditorNode[] {
   const selected = new Set(selectedIds);
-  const semantic: SemanticFlowNode[] = diagram.nodes.map((component, index) => ({ id: component.id, type: "semantic", position: transientPositions[component.id] ?? component.position, selected: selected.has(component.id), zIndex: typeof component.metadata.zIndex === "number" ? component.metadata.zIndex : index, data: { component, showConnectors: connectorMode, onResize: (width, height) => onResize(component.id, width, height), isRenaming: component.id === renamingNodeId, onRenameStart, onNameChange: (name) => onNodeNameChange(component.id, name), onRenameEnd, onRenameCancel }, width: component.dimensions.width, height: component.dimensions.height }));
-  const primitives: PrimitiveFlowNode[] = diagram.primitives.map((primitive, index) => ({ id: primitive.id, type: "primitive", position: transientPositions[primitive.id] ?? primitive.position, selected: selected.has(primitive.id), zIndex: Number(primitive.style.zIndex ?? diagram.nodes.length + index), data: { primitive, onResize: (width, height) => onResize(primitive.id, width, height), isEditing: editingTextId === primitive.id, onTextEditActivate: () => onTextEditActivate(primitive.id), onTextEditStart, onTextChange: (text) => onTextChange(primitive.id, text), onTextEditEnd, onTextEditCancel }, width: primitive.dimensions.width, height: primitive.dimensions.height }));
+  const semantic: SemanticFlowNode[] = diagram.nodes.map((component, index) => ({ id: component.id, type: "semantic", position: component.position, selected: selected.has(component.id), zIndex: typeof component.metadata.zIndex === "number" ? component.metadata.zIndex : index, data: { component, showConnectors: connectorMode, onResize: (width, height) => onResize(component.id, width, height), isRenaming: component.id === renamingNodeId, onRenameStart, onNameChange: (name) => onNodeNameChange(component.id, name), onRenameEnd, onRenameCancel }, width: component.dimensions.width, height: component.dimensions.height }));
+  const primitives: PrimitiveFlowNode[] = diagram.primitives.map((primitive, index) => ({ id: primitive.id, type: "primitive", position: primitive.position, selected: selected.has(primitive.id), zIndex: Number(primitive.style.zIndex ?? diagram.nodes.length + index), data: { primitive, onResize: (width, height) => onResize(primitive.id, width, height), isEditing: editingTextId === primitive.id, onTextEditActivate: () => onTextEditActivate(primitive.id), onTextEditStart, onTextChange: (text) => onTextChange(primitive.id, text), onTextEditEnd, onTextEditCancel }, width: primitive.dimensions.width, height: primitive.dimensions.height }));
   if (preview) {
     const bounds = draftBounds(preview);
     const relativePoints = preview.points.map((point) => ({ x: point.x - bounds.position.x, y: point.y - bounds.position.y }));
@@ -305,9 +303,10 @@ function documentBlocks(markdown: string, diagram?: Diagram, onFocusNode: (id: s
   });
 }
 
-type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; initialDocument?: string; readOnly?: boolean; persisted?: boolean; projectId?: string; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
+type ProjectOption = { id: string; name: string };
+type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; initialDocument?: string; readOnly?: boolean; persisted?: boolean; projectId?: string; projectOptions?: ProjectOption[]; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
 
-function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, readOnly = false, persisted = false, projectId, initialRecovery, recoveredUnsynced = false }: EditorProps) {
+function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, readOnly = false, persisted = false, projectId, projectOptions = [], initialRecovery, recoveredUnsynced = false }: EditorProps) {
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -334,7 +333,6 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const [aiExpanded, setAiExpanded] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [drawDraft, setDrawDraft] = useState<DrawDraft | null>(null);
-  const [transientPositions, setTransientPositions] = useState<TransientPositions>({});
   const [renderNodes, setRenderNodes] = useState<EditorNode[]>([]);
   const [pendingComponentType, setPendingComponentType] = useState<string | null>(null);
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>("end");
@@ -486,10 +484,18 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
     setDiagram(snapshot);
   }, []);
 
-  const modelNodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, !readOnly, drawDraft, transientPositions, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, readOnly, drawDraft, transientPositions, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename]);
+  const modelNodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, !readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename]);
   const edges = useMemo(() => flowEdges(diagram, selectedId), [diagram, selectedId]);
 
-  useEffect(() => { setRenderNodes(modelNodes); }, [modelNodes]);
+  useEffect(() => {
+    setRenderNodes((current) => modelNodes.map((next) => {
+      const existing = current.find((item) => item.id === next.id);
+      // React Flow stores its measured dimensions on the controlled node. Keep
+      // those measurements when selection or editor data changes so a selected
+      // group never becomes temporarily "uninitialized" during a drag.
+      return existing ? { ...existing, ...next, measured: existing.measured } as EditorNode : next;
+    }));
+  }, [modelNodes]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -548,6 +554,12 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
       if ((event.metaKey || event.ctrlKey) && key === "k") { event.preventDefault(); setAiExpanded(true); return; }
       if ((event.metaKey || event.ctrlKey) && key === "d") { event.preventDefault(); duplicateSelected(); return; }
       if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelected(); return; }
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) && selectedNodeIdsRef.current.length) {
+        event.preventDefault();
+        const distance = event.shiftKey ? 10 : 1;
+        nudgeSelection(event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0, event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0);
+        return;
+      }
       if (key === "v") setTool("select");
       if (key === "h") setTool("pan");
       if (key === "n") setPanel((current) => current === "components" ? null : "components");
@@ -604,20 +616,12 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
       setSelectedNodeIds((current) => sameSelection(current, resolved) ? current : resolved);
       setSelectedId((current) => resolved.includes(current ?? "") ? current : resolved.at(-1) ?? null);
     }
-    const positions: TransientPositions = {};
-    for (const change of changes) {
-      // Pane clicks explicitly clear selection. React Flow also emits transient
-      // deselect changes while a drawing is being committed; treating those as
-      // authoritative hid the newly created text toolbar immediately.
-      if (change.type === "position" && change.position && !readOnly) positions[change.id] = change.position;
-    }
-    if (Object.keys(positions).length) setTransientPositions((current) => ({ ...current, ...positions }));
   }
 
   function finishNodeDrag(_: unknown, node: EditorNode) {
     if (!dragSnapshot || readOnly) return;
-    const selectedPositions = Object.fromEntries(renderNodes.filter((item) => selectedNodeIds.includes(item.id)).map((item) => [item.id, item.position]));
-    const finalPositions = { ...transientPositions, ...selectedPositions, [node.id]: node.position };
+    const selectedPositions = Object.fromEntries(renderNodes.filter((item) => selectedNodeIdsRef.current.includes(item.id)).map((item) => [item.id, item.position]));
+    const finalPositions = { ...selectedPositions, [node.id]: node.position };
     setPast((items) => [...items.slice(-49), dragSnapshot]);
     setFuture([]);
     setDiagram((current) => {
@@ -628,8 +632,17 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
       };
       return diagramSchema.parse(persisted ? { ...next, updatedAt: new Date().toISOString() } : bump(next));
     });
-    setTransientPositions({});
     setDragSnapshot(null);
+  }
+
+  function nudgeSelection(dx: number, dy: number) {
+    const ids = selectedNodeIdsRef.current;
+    if (!ids.length || readOnly) return;
+    commit((current) => ({
+      ...current,
+      nodes: current.nodes.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item),
+      primitives: current.primitives.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item),
+    }));
   }
 
   function onConnect(connection: Connection) {
@@ -812,7 +825,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   }
 
   function updateDrawing(event: React.MouseEvent) {
-    if (!drawDraft || !isPaneEvent(event)) return;
+    if (!drawDraft) return;
     const nativeEvent = event.nativeEvent as PointerEvent;
     const coalesced = typeof nativeEvent.getCoalescedEvents === "function" ? nativeEvent.getCoalescedEvents() : [nativeEvent];
     setDrawDraft((current) => {
@@ -1169,7 +1182,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   return <div className={styles.screen}>
     <header className={styles.topbar}>
       <Brand /><span>/</span><div className={styles.crumb}><input aria-label="Diagram title" value={diagram.title} readOnly={readOnly} onChange={(event) => setDiagram((current) => ({ ...current, title: event.target.value }))} onBlur={() => commit((current) => current)} /><span className={styles.status} aria-label="Browser recovery status"><span className={styles.statusDot} />{readOnly ? "Read only" : localRecovery.error ? "Browser recovery failed" : localRecovery.status === "saved" ? "Saved locally" : "Saving locally…"}{persisted && ` · Cloud ${cloudSave.state.replace("auth-required", "sign-in required")}`}</span></div>
-      <div className={styles.topActions}><ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink><button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={() => setPanel("docs")}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && <button className={styles.topButton} onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Canvas cloud saving runs automatically. Documents are currently recovered on this device only. Check both save indicators before leaving.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
+      <div className={styles.topActions}>{persisted && projectOptions.length > 0 ? <details className={styles.projectSwitcher}><summary className={styles.topButton}><FolderKanban size={14} /><span>Switch project</span></summary><nav aria-label="Switch project">{projectOptions.map((project) => project.id === projectId ? <span key={project.id} aria-current="page">{project.name}<small>Current</small></span> : <a key={project.id} href={`/projects/${project.id}/canvas`}>{project.name}</a>)}<a href="/dashboard">View all projects</a></nav></details> : <ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink>}<button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={() => setPanel("docs")}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && <button className={styles.topButton} onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Canvas cloud saving runs automatically. Documents are currently recovered on this device only. Check both save indicators before leaving.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
     </header>
     <main className={styles.workspace}>
       {!readOnly && localRecovery.error && <div className={styles.recoveryWarning} role="alert">

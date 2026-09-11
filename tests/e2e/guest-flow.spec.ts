@@ -77,6 +77,40 @@ test("desktop canvas exposes the streamlined shape toolkit and keeps freehand av
   await expect(page.locator(".react-flow__pane")).toHaveCSS("cursor", "crosshair");
 });
 
+test("freehand captures a continuous smooth stroke across its live preview", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Drawing remains desktop-only in the MVP.");
+  await page.goto("/templates");
+  await page.getByRole("button", { name: "Use template" }).first().click();
+  await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
+  await page.getByRole("button", { name: /Freehand \(P\)/i }).click();
+  const pane = page.locator(".react-flow__pane");
+  const box = await pane.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+  const center = await page.evaluate(({ x, y, width, height }) => {
+    for (let row = 2; row < 9; row += 1) {
+      for (let column = 2; column < 10; column += 1) {
+        const clientX = x + column / 11 * width;
+        const clientY = y + row / 10 * height;
+        const target = document.elementFromPoint(clientX, clientY);
+        if (target?.closest(".react-flow__pane") && !target.closest(".react-flow__node, .react-flow__edge")) return { x: clientX, y: clientY };
+      }
+    }
+    return { x: x + width * .75, y: y + height * .75 };
+  }, box);
+  const radius = 32;
+  await page.mouse.move(center.x + radius, center.y);
+  await page.mouse.down();
+  for (let step = 1; step <= 40; step += 1) {
+    const angle = step / 40 * Math.PI * 2;
+    await page.mouse.move(center.x + Math.cos(angle) * radius, center.y + Math.sin(angle) * radius);
+  }
+  await page.mouse.up();
+  const stroke = page.locator('.react-flow__node-primitive [aria-label="Freehand drawing"] path').last();
+  await expect(stroke).toBeVisible();
+  await expect.poll(async () => ((await stroke.getAttribute("d"))?.match(/ C /g) ?? []).length).toBeGreaterThan(12);
+});
+
 test("documentation supports markdown writing, slash inserts, and a live canvas embed", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full document workspace is desktop-first.");
   await page.goto("/start?template=multi-tenant-saas");
@@ -312,6 +346,10 @@ test("pointer selection moves nodes, supports multi-selection, and exposes persi
 
   const pointer = page.getByRole("button", { name: "Pointer / select" });
   await pointer.click();
+  const flowInitializationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (message.text().includes("node that is not initialized")) flowInitializationErrors.push(message.text());
+  });
   const service = page.locator('[data-id="saas-service"]');
   const before = await service.boundingBox();
   expect(before).not.toBeNull();
@@ -339,6 +377,10 @@ test("pointer selection moves nodes, supports multi-selection, and exposes persi
   expect((selectedAfter[0]?.x ?? 0) - (selectedBefore[0]?.x ?? 0)).toBeGreaterThan(30);
   expect((selectedAfter[1]?.x ?? 0) - (selectedBefore[1]?.x ?? 0)).toBeGreaterThan(30);
 
+  const beforeKeyboardMove = await gateway.boundingBox();
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect.poll(async () => (await gateway.boundingBox())?.x ?? 0).toBeGreaterThan((beforeKeyboardMove?.x ?? 0) + 4);
+
   await service.click();
   await page.getByRole("button", { name: "Edit node style" }).click();
   await page.getByLabel("Node style preset").selectOption("tinted");
@@ -346,7 +388,16 @@ test("pointer selection moves nodes, supports multi-selection, and exposes persi
   await expect(service.locator('[data-variant="tinted"]')).toBeVisible();
   await expect(service.locator('[data-variant="tinted"]')).toHaveCSS("border-radius", "24px");
 
+  await page.getByRole("button", { name: "Bring to front" }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => Number(await service.evaluate((element) => getComputedStyle(element).zIndex))).toBeGreaterThan(14);
+  await service.click();
+  await page.getByRole("button", { name: "Send to back" }).click();
+  await page.keyboard.press("Escape");
+  await expect.poll(async () => Number(await service.evaluate((element) => getComputedStyle(element).zIndex))).toBeLessThan(0);
+
   await expect(page.getByText(/Snap to grid/i)).toHaveCount(0);
+  expect(flowInitializationErrors).toEqual([]);
 });
 
 test("pointer drag creates an area selection across canvas nodes", async ({ page }, testInfo) => {
