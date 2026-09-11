@@ -571,11 +571,12 @@ begin
     raise exception 'Architecture snapshot checksum mismatch' using errcode = '22023';
   end if;
 
-  select d, p.workspace_id into current_record, workspace
+  select d.* into current_record
     from public.diagrams d join public.projects p on p.id = d.project_id
    where d.id = target_diagram and p.deleted_at is null and public.can_edit_workspace(p.workspace_id)
    for update of d;
   if current_record.id is null then raise exception 'Diagram not found or access denied' using errcode = '42501'; end if;
+  select p.workspace_id into workspace from public.projects p where p.id = current_record.project_id;
 
   select * into existing_request from public.diagram_save_requests dsr
    where dsr.diagram_id = target_diagram and dsr.idempotency_key = idempotency;
