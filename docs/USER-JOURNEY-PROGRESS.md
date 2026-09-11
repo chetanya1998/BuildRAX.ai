@@ -1,6 +1,39 @@
 # User-journey implementation handoff
 
-## Current chunks: Day 2(a) and 2(b) — signed-in creation and authentication journey
+## Current chunks: Day 3(a) and 3(b) — complete guest migration and conflict recovery
+
+### Day 3 implemented
+
+- Guest signup migration now carries the current Architecture IR, presentation, server-materialized diagram, editable document, private canvas/document images, and the original signed AI generation artifact in one verified workflow.
+- Canvas and document data-image references are uploaded to private diagram-scoped storage before migration. The server rejects remaining base64 images, references outside the workspace/diagram boundary, missing uploads, checksum mismatches, and excessive image counts or sizes.
+- The original AI generation remains separate from the edited current snapshot. Its signed receipt is verified against the original checksums, linked to its AI run, and stored as immutable generation lineage.
+- The complete database migration creates the project, diagram head, IR version, presentation/materialized artifacts, document version, and generation-origin link atomically. Replaying the same idempotency request returns the same result; conflicting content is rejected.
+- The client reads the migrated architecture, document, and generation origin back and compares their checksums. The browser draft is deleted only after every expected value matches. Upload, transaction, read-back, or checksum failures leave the complete browser recovery intact.
+- Cloud projects now load their persisted editable document into both canvas and document views instead of silently regenerating it.
+- A cloud/browser version mismatch now opens an explicit recovery decision rather than a generic stop screen. The user can download the browser copy, preserve both and save the browser copy as a new cloud version, or preserve both and continue from the cloud version.
+- Both sides of every conflict are archived in IndexedDB before resolution, with the selected resolution and timestamp retained. Automatic retries remain stopped until the user chooses.
+
+### Day 3 acceptance coverage
+
+- Unit/component coverage proves complete-migration deletion happens only after all read-back hashes match, mismatches retain the draft, and both cloud/browser conflict choices preserve both source copies.
+- Full verification on 2026-09-12: 75 unit/component tests, typecheck, lint, and production build passed.
+- Chromium journey regression: 24 passed and one intentionally mobile-only test skipped.
+- A new eight-assertion pgTAP suite covers atomic document/origin migration, replay safety, duplicate prevention, immutability, and cross-tenant RLS. It is committed but could not be executed while the local Docker/Supabase engine was unavailable; no hosted database was touched.
+
+### Day 3 remaining limits
+
+- Conflict resolution deliberately provides two safe whole-version choices, not field-level merging. A visual or semantic three-way merge belongs after the beta reliability path is proven.
+- Choosing the browser canvas creates a new cloud architecture version, while its locally recovered document remains protected for the later document-save API chunk. Cross-device editable document saving is still Day 5 work.
+- The new PostgreSQL migration must pass the local pgTAP suite and then a staging migration/RLS check before deployment.
+- Real OAuth signup, private Storage, and email-provider behavior still require staging credentials and an authenticated staging journey.
+
+### Next session: Day 4(a) only
+
+Make canvas interaction states deterministic: selection versus pan behavior, marquee/multi-select, node movement, and truthful pointer/hand cursors. Keep persistence contracts unchanged.
+
+---
+
+## Completed chunks: Day 2(a) and 2(b) — signed-in creation and authentication journey
 
 ### Day 2 implemented
 

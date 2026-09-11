@@ -47,6 +47,16 @@ export type RecoveryRecord = {
   generationOrigin?: GenerationOrigin;
   updatedAt: string;
 };
+export type RecoveryConflictArchive = {
+  key: string;
+  scope: Extract<RecoveryScope, { kind: "account" }>;
+  diagramId: string;
+  browser: RecoveryRecord;
+  cloud: RecoveryRecord;
+  createdAt: string;
+  resolvedAt?: string;
+  resolution?: "browser" | "cloud";
+};
 
 export function recoveryKey(scope: RecoveryScope, diagramId: string) {
   if (scope.kind === "account" && (!scope.userId || !scope.workspaceId)) throw new Error("Recovery requires an authenticated workspace identity.");
@@ -91,6 +101,7 @@ class BuildRaxDatabase extends Dexie {
   pendingProjectSaves!: EntityTable<PendingProjectSave, "diagramId">;
   recoveries!: EntityTable<RecoveryRecord, "key">;
   scopedProjectSaves!: EntityTable<PendingProjectSave & { key: string }, "key">;
+  recoveryConflicts!: EntityTable<RecoveryConflictArchive, "key">;
 
   constructor() {
     super("buildrax-guest");
@@ -99,8 +110,24 @@ class BuildRaxDatabase extends Dexie {
     this.version(3).stores({ drafts: "id, updatedAt, status", pendingProjectSaves: "diagramId, queuedAt" });
     // Additive upgrade: old drafts and pending requests are never cleared.
     this.version(4).stores({ drafts: "id, updatedAt, status", pendingProjectSaves: "diagramId, queuedAt", recoveries: "key, updatedAt", scopedProjectSaves: "key, queuedAt" });
+    this.version(5).stores({ drafts: "id, updatedAt, status", pendingProjectSaves: "diagramId, queuedAt", recoveries: "key, updatedAt", scopedProjectSaves: "key, queuedAt", recoveryConflicts: "key, diagramId, createdAt, resolvedAt" });
   }
 }
+
+export async function preserveRecoveryConflict(browser: RecoveryRecord, cloud: RecoveryRecord) {
+  if (browser.scope.kind !== "account" || cloud.scope.kind !== "account" || browser.key !== cloud.key) throw new Error("Conflict copies must belong to the same account diagram.");
+  const key = `${browser.key}::${cloud.diagram.version}`;
+  await db().recoveryConflicts.put({ key, scope: browser.scope, diagramId: browser.diagram.id, browser, cloud, createdAt: new Date().toISOString() });
+  return key;
+}
+
+export async function resolveRecoveryConflict(key: string, resolution: "browser" | "cloud") {
+  const conflict = await db().recoveryConflicts.get(key);
+  if (!conflict) throw new Error("Recovery conflict backup is unavailable.");
+  await db().recoveryConflicts.put({ ...conflict, resolution, resolvedAt: new Date().toISOString() });
+}
+
+export async function loadRecoveryConflict(key: string) { return db().recoveryConflicts.get(key); }
 
 let database: BuildRaxDatabase | undefined;
 

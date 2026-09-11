@@ -16,12 +16,18 @@ export async function verifyPrivatePresentationAssets(options: {
   diagramId: string;
 }) {
   const images = options.presentation.primitives.filter((primitive) => primitive.kind === "image");
-  if (!images.length) return;
+  return verifyPrivateAssetReferences({ ...options, references: images.map((image) => image.style.src ?? ""), context: "canvas" });
+}
+
+export async function verifyPrivateAssetReferences(options: {
+  admin: SupabaseClient | null; references: string[]; workspaceId: string; diagramId: string; context: "canvas" | "document";
+}) {
+  if (!options.references.length) return;
   if (!options.admin) throw new HttpError(503, "Private asset verification is not configured.");
-  if (images.length > 20) throw new HttpError(413, "A persisted diagram may contain at most 20 images.");
+  if (options.references.length > 20) throw new HttpError(413, `A persisted ${options.context} may contain at most 20 images.`);
   let totalBytes = 0;
-  for (const image of images) {
-    const asset = parsePrivateAssetReference(image.style.src ?? "");
+  for (const reference of options.references) {
+    const asset = parsePrivateAssetReference(reference);
     if (!asset || asset.workspaceId !== options.workspaceId || asset.diagramId !== options.diagramId) {
       throw new HttpError(422, "A private image reference is outside this architecture.");
     }

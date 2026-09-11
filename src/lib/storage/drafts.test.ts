@@ -3,7 +3,7 @@ import Dexie from "dexie";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDiagram } from "@/lib/domain/factory";
 import { architectureIRFromDiagram, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
-import { clearQueuedProjectSave, loadDraft, loadQueuedProjectSave, loadRecovery, queueProjectSave, recoveryArchitecture, recoveryKey, RecoveryConflictError, saveDraft, saveRecovery, type RecoveryRecord, type RecoveryScope } from "./drafts";
+import { clearQueuedProjectSave, loadDraft, loadQueuedProjectSave, loadRecovery, loadRecoveryConflict, preserveRecoveryConflict, queueProjectSave, recoveryArchitecture, recoveryKey, RecoveryConflictError, resolveRecoveryConflict, saveDraft, saveRecovery, type RecoveryRecord, type RecoveryScope } from "./drafts";
 
 const guest: RecoveryScope = { kind: "guest" };
 const account: RecoveryScope = { kind: "account", userId: "user-a", workspaceId: "workspace-a" };
@@ -91,6 +91,15 @@ describe("browser recovery records", () => {
     expect(await loadRecovery({ ...account, workspaceId: "workspace-b" }, record.diagram.id)).toBeUndefined();
     expect(await loadRecovery(account, "another-diagram")).toBeUndefined();
     expect(await loadRecovery(guest, record.diagram.id)).toBeUndefined();
+  });
+
+  it("preserves both conflict copies and records the explicit resolution", async () => {
+    const browser = fixture(account);
+    const cloud = { ...browser, diagram: { ...browser.diagram, version: 4, title: "Cloud copy" } };
+    const key = await preserveRecoveryConflict(browser, cloud);
+    expect(await loadRecoveryConflict(key)).toMatchObject({ browser: { diagram: { title: browser.diagram.title } }, cloud: { diagram: { title: "Cloud copy" } } });
+    await resolveRecoveryConflict(key, "browser");
+    expect(await loadRecoveryConflict(key)).toMatchObject({ resolution: "browser", resolvedAt: expect.any(String) });
   });
 
   it("accepts one of two simultaneous writes and rejects the stale tab", async () => {

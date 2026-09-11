@@ -76,6 +76,7 @@ import { createConnector, createNode } from "@/lib/domain/factory";
 import { autoLayout } from "@/lib/domain/layout";
 import { diagramSchema, type ChangePlan, type Diagram, type ReviewFinding } from "@/lib/domain/schema";
 import { recoveryKey, type RecoveryRecord, type RecoveryScope } from "@/lib/storage/drafts";
+import { privateAssetRenderUrl } from "@/lib/storage/asset-references";
 import { EditorRecoveryGate, useEditorRecovery } from "./editor-recovery";
 import { useCloudSave } from "./use-cloud-save";
 import { PrimitiveNode, type PrimitiveFlowNode } from "./primitive-node";
@@ -297,14 +298,14 @@ function documentBlocks(markdown: string, diagram?: Diagram, onFocusNode: (id: s
     if (lines.every((line) => /^\d+\. /.test(line))) return <ol key={index}>{lines.map((line, itemIndex) => <li key={itemIndex}>{inlineMarkdown(line.replace(/^\d+\. /, ""))}</li>)}</ol>;
     if (lines.every((line) => /^> /.test(line))) return <blockquote key={index}>{lines.map((line) => line.slice(2)).join(" ")}</blockquote>;
     if (block === "---") return <hr key={index} />;
-    const image = block.match(/^!\[([^\]]*)\]\((data:image\/[\w+.-]+;base64,[^)]+)\)$/);
+    const image = block.match(/^!\[([^\]]*)\]\((data:image\/[\w+.-]+;base64,[^)]+|buildrax-private-asset:[^)]+)\)$/);
     // eslint-disable-next-line @next/next/no-img-element -- document embeds are local data URLs, not remote content.
-    if (image) return <img className={styles.documentImage} key={index} src={image[2]} alt={image[1] || "Document upload"} />;
+    if (image) return <img className={styles.documentImage} key={index} src={privateAssetRenderUrl(image[2])} alt={image[1] || "Document upload"} />;
     return <p key={index}>{inlineMarkdown(block)}</p>;
   });
 }
 
-type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; readOnly?: boolean; persisted?: boolean; projectId?: string; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
+type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; initialDocument?: string; readOnly?: boolean; persisted?: boolean; projectId?: string; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
 
 function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, readOnly = false, persisted = false, projectId, initialRecovery, recoveredUnsynced = false }: EditorProps) {
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
@@ -1277,7 +1278,7 @@ export function ArchitectureEditor(props: EditorProps) {
   if (props.readOnly) return <ReactFlowProvider><ArchitectureEditorInner {...props} /></ReactFlowProvider>;
   if (props.persisted && props.recoveryScope?.kind !== "account") return <p role="alert">An authenticated workspace is required to open local recovery.</p>;
   const scope = props.recoveryScope ?? { kind: "guest" as const };
-  return <EditorRecoveryGate key={recoveryKey(scope, props.initialDiagram.id)} diagram={props.initialDiagram} ir={props.initialIR} irVersion={props.initialIrVersion} scope={scope}>
+  return <EditorRecoveryGate key={recoveryKey(scope, props.initialDiagram.id)} diagram={props.initialDiagram} ir={props.initialIR} irVersion={props.initialIrVersion} document={props.initialDocument} scope={scope}>
     {(record) => <ReactFlowProvider><ArchitectureEditorInner {...props} initialDiagram={record.diagram} initialIR={record.architecture.ir} initialIrVersion={record.architecture.irVersion} initialRecovery={record} recoveredUnsynced={props.persisted && JSON.stringify(record.diagram) !== JSON.stringify(props.initialDiagram)} /></ReactFlowProvider>}
   </EditorRecoveryGate>;
 }

@@ -17,7 +17,7 @@ import { apiError, HttpError, readJson } from "@/lib/server/http";
 import { generationReceiptSchema, verifyGenerationReceipt } from "@/lib/server/generation-receipt";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { verifyPrivatePresentationAssets } from "@/lib/server/private-assets";
+import { verifyPrivateAssetReferences, verifyPrivatePresentationAssets } from "@/lib/server/private-assets";
 import { readArchitectureVersion } from "@/lib/supabase/architecture-artifacts";
 
 const migrationRequest = z.object({
@@ -28,6 +28,15 @@ const migrationRequest = z.object({
     diagram: diagramSchema,
   }).strict(),
   generationReceipt: generationReceiptSchema.optional(),
+  document: z.string().max(1_000_000).optional(),
+  generationOrigin: z.object({
+    diagram: diagramSchema,
+    architecture: z.object({
+      ir: architectureIRSchema,
+      presentation: architecturePresentationSchema,
+      generationReceipt: generationReceiptSchema,
+    }).strict(),
+  }).strict().optional(),
 }).strict();
 
 const legacyMigrationRequest = z.object({ idempotencyKey: z.string().uuid(), diagram: diagramSchema }).strict();
@@ -70,6 +79,12 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       workspaceId: membership.workspace_id,
       diagramId: sourceDiagram.id,
     });
+    if (modern.success && modern.data.document !== undefined) {
+      const documentAssets = [...modern.data.document.matchAll(/!\[[^\]]*\]\((buildrax-private-asset:[^)]+)\)/g)].map((match) => match[1]);
+      if (/data:image\//.test(modern.data.document)) throw new HttpError(422, "Document images must be uploaded before migration.");
+      await verifyPrivateAssetReferences({ admin: createSupabaseAdminClient(), references: documentAssets,
+        workspaceId: membership.workspace_id, diagramId: sourceDiagram.id, context: "document" });
+    }
     const snapshot = await createArchitectureSnapshot({
       diagramId: sourceDiagram.id,
       diagramVersion: 1,
@@ -93,8 +108,28 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       throw new HttpError(422, "Generation receipt validation failed.");
     }
 
-    let aiRequestId: string | null = null;
-    if (generationReceipt) {
+    let originPayload: { ir: unknown; presentation: unknown; diagram: unknown } | null = null;
+    let originChecksum: string | null = null;
+    let originRequestId: string | null = null;
+    if (modern.success && modern.data.generationOrigin) {
+      const origin = modern.data.generationOrigin;
+      const originValidation = validateArchitectureArtifact(origin.architecture.ir, origin.architecture.presentation);
+      if (!originValidation.valid) throw new HttpError(422, "Original generation artifact is invalid.");
+      const originSnapshot = await createArchitectureSnapshot({
+        diagramId: origin.diagram.id, diagramVersion: 1, irVersion: 1,
+        ir: origin.architecture.ir, presentation: origin.architecture.presentation,
+        createdAt: origin.diagram.createdAt, updatedAt: origin.diagram.updatedAt,
+      });
+      const receipt = verifyGenerationReceipt(origin.architecture.generationReceipt, originSnapshot.checksums);
+      originPayload = { ir: origin.architecture.ir, presentation: origin.architecture.presentation, diagram: originSnapshot.materializedDiagram };
+      originChecksum = await canonicalSha256(originPayload);
+      originRequestId = receipt.requestId;
+    }
+
+    let aiRequestId: string | null = originRequestId;
+    if (generationReceipt || originRequestId) {
+      const receipt = generationReceipt ?? (modern.success ? modern.data.generationOrigin?.architecture.generationReceipt : undefined);
+      if (!receipt) throw new HttpError(422, "Generation receipt is unavailable.");
       const admin = createSupabaseAdminClient();
       if (!admin) throw new HttpError(503, "Generation provenance storage is not configured.");
       const recorded = await admin.from("ai_runs").upsert({
@@ -104,15 +139,17 @@ export async function persistArchitectureProject(request: Request, responseKey: 
         model: "recorded-at-generation",
         status: "completed",
         duration_ms: 0,
-        request_id: generationReceipt.requestId,
+        request_id: receipt.requestId,
         prompt_version: "architecture-v1",
         attempts: 1,
       }, { onConflict: "request_id", ignoreDuplicates: true });
       if (recorded.error) throw new HttpError(500, "Generation provenance could not be prepared.");
-      aiRequestId = generationReceipt.requestId;
+      aiRequestId = receipt.requestId;
     }
 
-    const { data, error } = await supabase.rpc("migrate_guest_architecture", {
+    const completeMigration = modern.success && (modern.data.document !== undefined || originPayload !== null);
+    const rpcName = completeMigration ? "migrate_guest_architecture_complete" : "migrate_guest_architecture";
+    const rpcInput: Record<string, unknown> = {
       idempotency: modern.success ? modern.data.idempotencyKey : legacyData!.idempotencyKey,
       request_checksum: await canonicalSha256({ ir, presentation, diagram: snapshot.materializedDiagram }),
       draft_title: snapshot.materializedDiagram.title,
@@ -125,8 +162,15 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       ir_provenance: ir.provenance.strategy,
       compiler_version: ARCHITECTURE_COMPILER_VERSION,
       catalog_version: SEMANTIC_CATALOG_VERSION,
-      ai_request_id: aiRequestId,
+      ai_request_id: completeMigration ? null : aiRequestId,
+    };
+    if (completeMigration) Object.assign(rpcInput, {
+      document_markdown: modern.data.document ?? "",
+      generation_origin: originPayload,
+      generation_origin_checksum: originChecksum,
+      generation_request_id: originRequestId,
     });
+    const { data, error } = await supabase.rpc(rpcName, rpcInput);
     if (error?.code === "22023" && error.message.includes("Idempotency")) {
       return NextResponse.json({ error: "Idempotency key conflict" }, { status: 409 });
     }
@@ -140,8 +184,21 @@ export async function persistArchitectureProject(request: Request, responseKey: 
     if (persisted.checksums.ir !== snapshot.checksums.ir || persisted.checksums.presentation !== snapshot.checksums.presentation || persisted.checksums.diagram !== snapshot.checksums.diagram) {
       throw new HttpError(500, "Persisted architecture failed read-back verification.");
     }
+    let migrationVerification: { documentChecksum: string; generationOriginChecksum: string | null } | undefined;
+    if (completeMigration) {
+      const [{ data: documentRow }, { data: originRow }] = await Promise.all([
+        supabase.from("documents").select("current_version, document_versions(markdown, version)").eq("diagram_id", migration.diagram_id).maybeSingle(),
+        supabase.from("diagram_generation_origins").select("artifact_checksum").eq("diagram_id", migration.diagram_id).maybeSingle(),
+      ]);
+      const versions = documentRow?.document_versions as unknown as Array<{ markdown: string; version: number }> | undefined;
+      const storedDocument = versions?.find((item) => item.version === documentRow?.current_version)?.markdown;
+      if (storedDocument !== (modern.data.document ?? "") || (originChecksum && originRow?.artifact_checksum !== originChecksum)) {
+        throw new HttpError(500, "Complete migration failed read-back verification.");
+      }
+      migrationVerification = { documentChecksum: await canonicalSha256(storedDocument), generationOriginChecksum: originRow?.artifact_checksum ?? null };
+    }
     const result = { projectId: migration.project_id, diagramId: migration.diagram_id, version: Number(migration.version), irVersion: Number(migration.ir_version) };
-    return NextResponse.json(responseKey === "migration" ? { migration, checksums: persisted.checksums } : { project: result, checksums: persisted.checksums }, { status: responseKey === "project" ? 201 : 200 });
+    return NextResponse.json(responseKey === "migration" ? { migration, checksums: persisted.checksums, verification: migrationVerification } : { project: result, checksums: persisted.checksums }, { status: responseKey === "project" ? 201 : 200 });
   } catch (error) {
     return apiError(error);
   }

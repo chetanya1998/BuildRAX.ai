@@ -5,21 +5,23 @@ import { architectureIRFromDiagram, canonicalSha256, presentationFromDiagram } f
 import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { Diagram } from "@/lib/domain/schema";
 import { downloadText } from "@/lib/domain/export";
-import { loadRecovery, recoveryArchitecture, recoveryKey, saveRecovery, type RecoveryRecord, type RecoveryScope } from "@/lib/storage/drafts";
+import { clearQueuedProjectSave, loadRecovery, preserveRecoveryConflict, recoveryArchitecture, recoveryKey, resolveRecoveryConflict, saveRecovery, type RecoveryRecord, type RecoveryScope } from "@/lib/storage/drafts";
 import { RecoveryWriter, recoveryErrorMessage, type RecoveryStatus } from "@/lib/storage/recovery-writer";
 import styles from "./loader.module.css";
+import { persistPrivatePresentationImages } from "@/lib/storage/private-assets";
 
 export function downloadRecovery(record: RecoveryRecord) {
   downloadText(JSON.stringify(record, null, 2), `buildrax-recovery-${record.diagram.id}.json`, "application/json");
 }
 
-export function EditorRecoveryGate({ diagram, ir, irVersion = 0, scope, children }: {
-  diagram: Diagram; ir?: ArchitectureIR; irVersion?: number; scope: RecoveryScope;
+export function EditorRecoveryGate({ diagram, ir, irVersion = 0, document = "", scope, children }: {
+  diagram: Diagram; ir?: ArchitectureIR; irVersion?: number; document?: string; scope: RecoveryScope;
   children: (record: RecoveryRecord) => ReactNode;
 }) {
   const [record, setRecord] = useState<RecoveryRecord>();
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [resolving, setResolving] = useState<"browser" | "cloud" | "">("");
   const key = recoveryKey(scope, diagram.id);
   useEffect(() => {
     let active = true;
@@ -29,7 +31,7 @@ export function EditorRecoveryGate({ diagram, ir, irVersion = 0, scope, children
       setRecord(stored ?? {
         schemaVersion: 1, key, scope, revision: 0, diagram,
         architecture: { ir: ir ?? architectureIRFromDiagram(diagram), presentation: presentationFromDiagram(diagram), irVersion },
-        document: "", updatedAt: diagram.updatedAt,
+        document, updatedAt: diagram.updatedAt,
       });
     }).catch(() => { if (active) setError("Browser recovery could not be opened. Existing records have not been removed. Enable browser storage or retry."); });
     return () => { active = false; };
@@ -40,12 +42,47 @@ export function EditorRecoveryGate({ diagram, ir, irVersion = 0, scope, children
 
   if (error) return <div className={styles.state} role="alert"><strong>{error}</strong><button onClick={() => setAttempt((value) => value + 1)}>Retry browser recovery</button></div>;
   if (!record) return <div className={styles.state} role="status">Opening browser recovery…</div>;
-  if (scope.kind === "account" && record.diagram.version !== diagram.version) return <div className={styles.state} role="alert">
+  if (scope.kind === "account" && record.diagram.version !== diagram.version) {
+    const cloud: RecoveryRecord = { schemaVersion: 1, key, scope, revision: record.revision, diagram,
+      architecture: { ir: ir ?? architectureIRFromDiagram(diagram), presentation: presentationFromDiagram(diagram), irVersion }, document, updatedAt: diagram.updatedAt };
+    async function chooseCloud() {
+      setResolving("cloud");
+      try {
+        const conflictKey = await preserveRecoveryConflict(record!, cloud);
+        const revision = await saveRecovery({ ...cloud, revision: record!.revision }, record!.revision);
+        await clearQueuedProjectSave(diagram.id, scope);
+        await resolveRecoveryConflict(conflictKey, "cloud");
+        setRecord({ ...cloud, revision });
+      } catch { setError("The conflict could not be resolved. Both copies remain preserved."); setResolving(""); }
+    }
+    async function chooseBrowser() {
+      setResolving("browser");
+      try {
+        const conflictKey = await preserveRecoveryConflict(record!, cloud);
+        const presentation = await persistPrivatePresentationImages({ diagramId: diagram.id }, record!.architecture.presentation);
+        const response = await fetch(`/api/v1/diagrams/${diagram.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({
+          idempotencyKey: crypto.randomUUID(), baseVersion: diagram.version, baseIrVersion: irVersion,
+          ir: record!.architecture.ir, presentation,
+        }) });
+        const body = await response.json();
+        if (!response.ok || !body.snapshot?.materializedDiagram) throw new Error();
+        const next: RecoveryRecord = { ...record!, revision: record!.revision, diagram: body.snapshot.materializedDiagram,
+          architecture: { ...record!.architecture, ir: body.snapshot.ir, presentation: body.snapshot.presentation, irVersion: body.snapshot.irVersion, checksums: body.snapshot.checksums }, updatedAt: new Date().toISOString() };
+        const revision = await saveRecovery(next, record!.revision);
+        await clearQueuedProjectSave(diagram.id, scope);
+        await resolveRecoveryConflict(conflictKey, "browser");
+        setRecord({ ...next, revision });
+      } catch { setError("The browser copy could not be saved as a new cloud version. Both copies remain preserved."); setResolving(""); }
+    }
+    return <div className={styles.state} role="alert">
     <strong>Your browser copy and cloud version differ.</strong>
-    <p>Browser base: {record.diagram.version}. Cloud: {diagram.version}. Neither copy has been overwritten. Automatic saving is paused; download this recovery before resolving the conflict.</p>
+    <p>Browser version {record.diagram.version} has {record.diagram.nodes.length} components. Cloud version {diagram.version} has {diagram.nodes.length}. Both copies are backed up before either choice is applied.</p>
     <button onClick={() => downloadRecovery(record)}>Download browser recovery</button>
+    <button disabled={Boolean(resolving)} onClick={() => void chooseBrowser()}>{resolving === "browser" ? "Saving browser copy…" : "Keep browser copy as a new cloud version"}</button>
+    <button disabled={Boolean(resolving)} onClick={() => void chooseCloud()}>{resolving === "cloud" ? "Opening cloud copy…" : "Use cloud version"}</button>
     <a href="/dashboard">Return to projects</a>
   </div>;
+  }
   return children(record);
 }
 

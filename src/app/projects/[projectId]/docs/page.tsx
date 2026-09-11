@@ -6,5 +6,5 @@ export default async function ProjectDocsPage({ params }: { params: Promise<{ pr
   const { projectId } = await params;
   const architecture = await loadProjectArchitecture(projectId);
   if (!architecture) return <main className={styles.section}><h1>Documentation unavailable</h1><p>The project could not be loaded or you do not have access.</p></main>;
-  return <main className={styles.section}><header className={styles.sectionHeader}><div><span>IR version {architecture.irVersion} · Diagram version {architecture.diagram.version}</span><h1>Documentation</h1></div><span>Up to date</span></header><pre className={styles.doc}>{documentArchitectureIR(architecture.ir, architecture.irVersion, architecture.diagram.version)}</pre></main>;
+  return <main className={styles.section}><header className={styles.sectionHeader}><div><span>IR version {architecture.irVersion} · Diagram version {architecture.diagram.version}</span><h1>Documentation</h1></div><span>Up to date</span></header><pre className={styles.doc}>{architecture.document || documentArchitectureIR(architecture.ir, architecture.irVersion, architecture.diagram.version)}</pre></main>;
 }

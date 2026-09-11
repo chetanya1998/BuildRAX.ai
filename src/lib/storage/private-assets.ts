@@ -16,7 +16,7 @@ async function uploadDataUrl(target: UploadTarget, dataUrl: string) {
   const response = await fetch(dataUrl);
   const blob = await response.blob();
   if (!allowedImageTypes.has(blob.type)) throw new Error("This image format cannot be persisted.");
-  if (blob.size > 10_000_000) throw new Error("Persisted images must be 10 MB or smaller.");
+  if (blob.size > 3_000_000) throw new Error("Persisted images must be 3 MB or smaller.");
   const checksum = bytesToHex(new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer())));
   const grantResponse = await fetch("/api/v1/assets/upload-url", {
     method: "POST",
@@ -34,6 +34,18 @@ async function uploadDataUrl(target: UploadTarget, dataUrl: string) {
   });
   if (upload.error) throw new Error("The private image upload did not complete.");
   return grant.reference;
+}
+
+export async function persistPrivateDocumentImages(target: UploadTarget, markdown: string) {
+  const pattern = /!\[([^\]]*)\]\((data:image\/[\w+.-]+;base64,[^)]+)\)/g;
+  const matches = [...markdown.matchAll(pattern)];
+  if (matches.length > 20) throw new Error("A persisted document may contain at most 20 images.");
+  let output = markdown;
+  for (const match of matches) {
+    const reference = await uploadDataUrl(target, match[2]);
+    output = output.replace(match[0], `![${match[1]}](${reference})`);
+  }
+  return output;
 }
 
 export async function persistPrivatePresentationImages(target: UploadTarget, input: ArchitecturePresentation) {

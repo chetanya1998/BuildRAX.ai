@@ -6,5 +6,5 @@ export default async function ProjectCanvasPage({ params }: { params: Promise<{ 
   const { projectId } = await params;
   const architecture = await loadProjectArchitecture(projectId);
   if (!architecture) notFound();
-  return <ArchitectureEditor initialDiagram={architecture.diagram} initialIR={architecture.ir} initialIrVersion={architecture.irVersion} recoveryScope={architecture.recoveryScope} persisted projectId={projectId} />;
+  return <ArchitectureEditor initialDiagram={architecture.diagram} initialIR={architecture.ir} initialIrVersion={architecture.irVersion} initialDocument={architecture.document} recoveryScope={architecture.recoveryScope} persisted projectId={projectId} />;
 }
