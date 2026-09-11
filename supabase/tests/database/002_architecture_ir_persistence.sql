@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, auth;
 
-select plan(26);
+select plan(31);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.artifact_blobs'::regclass), 'artifact blobs have RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.architecture_ir_versions'::regclass), 'IR versions have RLS');
@@ -118,14 +118,51 @@ select lives_ok($test$
   )
 $test$, 'review is pinned to an exact IR and diagram version');
 select lives_ok($test$
-  select public.persist_architecture_document(
-    '66666666-6666-4666-8666-666666666666', 2, 1, '# Architecture\n\nVersion-bound content.'
+  select * from public.save_architecture_document(
+    '66666666-6666-4666-8666-666666666666', 0, 2, 1,
+    'abababab-abab-4bab-8bab-abababababab',
+    public.canonical_jsonb_sha256(jsonb_build_object(
+      'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
+      'markdown', '# Architecture\n\nVersion-bound content.', 'source', 'ai-generated'
+    )), '# Architecture\n\nVersion-bound content.', 'ai-generated'
   )
 $test$, 'documentation is pinned to an exact IR and diagram version');
+select lives_ok($test$
+  select * from public.save_architecture_document(
+    '66666666-6666-4666-8666-666666666666', 0, 2, 1,
+    'abababab-abab-4bab-8bab-abababababab',
+    public.canonical_jsonb_sha256(jsonb_build_object(
+      'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
+      'markdown', '# Architecture\n\nVersion-bound content.', 'source', 'ai-generated'
+    )), '# Architecture\n\nVersion-bound content.', 'ai-generated'
+  )
+$test$, 'replaying a document idempotency key returns the original version');
+select throws_ok($test$
+  select * from public.save_architecture_document(
+    '66666666-6666-4666-8666-666666666666', 1, 2, 1,
+    'abababab-abab-4bab-8bab-abababababab',
+    public.canonical_jsonb_sha256(jsonb_build_object(
+      'baseDocumentVersion', 1, 'diagramVersion', 2, 'irVersion', 1,
+      'markdown', '# Different content', 'source', 'user-edit'
+    )), '# Different content', 'user-edit'
+  )
+$test$, '22023', 'Idempotency key was reused with different document content', 'changed content cannot reuse a document idempotency key');
+select throws_ok($test$
+  select * from public.save_architecture_document(
+    '66666666-6666-4666-8666-666666666666', 0, 2, 1,
+    'cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd',
+    public.canonical_jsonb_sha256(jsonb_build_object(
+      'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
+      'markdown', '# Stale content', 'source', 'user-edit'
+    )), '# Stale content', 'user-edit'
+  )
+$test$, '40001', 'Document version conflict', 'a stale document base version cannot overwrite the head');
 
 reset role;
 select is((select architecture_ir_version_id is not null from public.review_runs where diagram_id = '66666666-6666-4666-8666-666666666666' order by created_at desc limit 1), true, 'review stores the immutable IR link');
 select is((select architecture_ir_version_id is not null from public.document_versions dv join public.documents d on d.id = dv.document_id where d.diagram_id = '66666666-6666-4666-8666-666666666666' order by dv.version desc limit 1), true, 'document stores the immutable IR link');
+select is((select source from public.document_versions dv join public.documents d on d.id = dv.document_id where d.diagram_id = '66666666-6666-4666-8666-666666666666' order by dv.version desc limit 1), 'ai-generated', 'document records its provenance');
+select is((select content_checksum from public.document_versions dv join public.documents d on d.id = dv.document_id where d.diagram_id = '66666666-6666-4666-8666-666666666666' order by dv.version desc limit 1), encode(extensions.digest(pg_catalog.convert_to('# Architecture\n\nVersion-bound content.', 'UTF8'), 'sha256'), 'hex'), 'document checksum covers the exact Markdown');
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);

@@ -58,8 +58,9 @@ begin
     values(migrated.diagram_id, 1, auth.uid()) returning id into doc_id;
     select aiv.id into ir_id from public.architecture_ir_versions aiv
       where aiv.diagram_id = migrated.diagram_id and aiv.version = migrated.ir_version;
-    insert into public.document_versions(document_id, version, diagram_version, architecture_ir_version_id, markdown, created_by)
-    values(doc_id, 1, migrated.version, ir_id, document_markdown, auth.uid());
+    insert into public.document_versions(document_id, version, diagram_version, architecture_ir_version_id, markdown, content_checksum, source, created_by)
+    values(doc_id, 1, migrated.version, ir_id, document_markdown,
+      encode(extensions.digest(pg_catalog.convert_to(document_markdown, 'UTF8'), 'sha256'), 'hex'), 'guest-migration', auth.uid());
   end if;
 
   if generation_origin is not null then

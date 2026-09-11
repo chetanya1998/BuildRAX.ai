@@ -77,6 +77,7 @@ import { autoLayout } from "@/lib/domain/layout";
 import { diagramSchema, type ChangePlan, type Diagram, type ReviewFinding } from "@/lib/domain/schema";
 import { recoveryKey, type RecoveryRecord, type RecoveryScope } from "@/lib/storage/drafts";
 import { privateAssetRenderUrl } from "@/lib/storage/asset-references";
+import { persistPrivateDocumentImages } from "@/lib/storage/private-assets";
 import { EditorRecoveryGate, useEditorRecovery } from "./editor-recovery";
 import { useCloudSave } from "./use-cloud-save";
 import { PrimitiveNode, type PrimitiveFlowNode } from "./primitive-node";
@@ -304,9 +305,11 @@ function documentBlocks(markdown: string, diagram?: Diagram, onFocusNode: (id: s
 }
 
 type ProjectOption = { id: string; name: string };
-type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; initialDocument?: string; readOnly?: boolean; persisted?: boolean; projectId?: string; projectOptions?: ProjectOption[]; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
+type DocumentSource = "user-edit" | "ai-generated" | "guest-migration" | "legacy";
+type DocumentCloudState = "saved" | "pending" | "saving" | "conflict" | "error";
+type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; initialDocument?: string; initialDocumentVersion?: number; initialDocumentSource?: DocumentSource; readOnly?: boolean; persisted?: boolean; projectId?: string; projectOptions?: ProjectOption[]; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
 
-function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, readOnly = false, persisted = false, projectId, projectOptions = [], initialRecovery, recoveredUnsynced = false }: EditorProps) {
+function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, initialDocument = "", initialDocumentVersion = 0, initialDocumentSource = "legacy", readOnly = false, persisted = false, projectId, projectOptions = [], initialRecovery, recoveredUnsynced = false }: EditorProps) {
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -320,7 +323,10 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const [instance, setInstance] = useState<ReactFlowInstance<EditorNode, Edge> | null>(null);
   const [zoom, setZoom] = useState(100);
   const [reviews, setReviews] = useState<ReviewFinding[]>([]);
-  const [docs, setDocs] = useState(initialRecovery?.document ?? "");
+  const recoveredDocument = initialRecovery?.document ?? initialDocument;
+  const [docs, setDocs] = useState(recoveredDocument);
+  const [documentVersion, setDocumentVersion] = useState(initialDocumentVersion);
+  const [documentCloudState, setDocumentCloudState] = useState<DocumentCloudState>(persisted && recoveredDocument !== initialDocument ? "pending" : "saved");
   const [versions, setVersions] = useState<VersionSummary[]>([]);
   const [documentMode, setDocumentMode] = useState<"edit" | "preview">("preview");
   const [documentView, setDocumentView] = useState<"document" | "both">("both");
@@ -357,7 +363,13 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const documentInputRef = useRef<HTMLTextAreaElement>(null);
   const documentImageInputRef = useRef<HTMLInputElement>(null);
   const componentPaletteDrag = useRef<{ offsetX: number; offsetY: number } | null>(null);
+  const latestDocs = useRef(docs);
+  const documentVersionRef = useRef(initialDocumentVersion);
+  const lastSavedDocument = useRef(initialDocument);
+  const documentSource = useRef<"user-edit" | "ai-generated">(initialDocumentSource === "ai-generated" ? "ai-generated" : "user-edit");
+  const documentSaveInFlight = useRef(false);
   latest.current = diagram;
+  latestDocs.current = docs;
   selectedNodeIdsRef.current = selectedNodeIds;
   const localRecovery = useEditorRecovery({ initial: initialRecovery, diagram, document: docs, getIR: () => irBase.current, getIrVersion: () => Math.max(1, irVersion.current), enabled: !readOnly });
   const cloudSave = useCloudSave({
@@ -382,6 +394,65 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
       }));
     },
   });
+
+  const saveDocument = useCallback(async () => {
+    if (!persisted || readOnly || documentSaveInFlight.current) return;
+    if (cloudSave.state !== "saved") {
+      setDocumentCloudState("pending");
+      return;
+    }
+    const markdownAtStart = latestDocs.current;
+    if (markdownAtStart === lastSavedDocument.current) {
+      setDocumentCloudState("saved");
+      return;
+    }
+    documentSaveInFlight.current = true;
+    setDocumentCloudState("saving");
+    try {
+      const persistedMarkdown = await persistPrivateDocumentImages({ diagramId: latest.current.id }, markdownAtStart);
+      const response = await fetch(`/api/v1/diagrams/${latest.current.id}/document`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          idempotencyKey: crypto.randomUUID(),
+          baseDocumentVersion: documentVersionRef.current,
+          diagramVersion: latest.current.version,
+          irVersion: Math.max(1, irVersion.current),
+          markdown: persistedMarkdown,
+          source: documentSource.current,
+        }),
+      });
+      const body = await response.json();
+      if (response.status === 409) {
+        setDocumentCloudState("conflict");
+        setMessage(`Document changed elsewhere (cloud version ${body.authoritative?.documentVersion ?? "unknown"}). Your local draft is preserved.`);
+        return;
+      }
+      if (!response.ok) throw new Error(body.error ?? "Document could not be saved.");
+      documentVersionRef.current = body.document.version;
+      setDocumentVersion(body.document.version);
+      lastSavedDocument.current = persistedMarkdown;
+      setDocs((current) => current === markdownAtStart ? persistedMarkdown : current);
+      setDocumentCloudState(latestDocs.current === markdownAtStart ? "saved" : "pending");
+      setMessage(`Document saved as version ${body.document.version}.`);
+    } catch (error) {
+      setDocumentCloudState("error");
+      setMessage(error instanceof Error ? error.message : "Document could not be saved.");
+    } finally {
+      documentSaveInFlight.current = false;
+    }
+  }, [cloudSave.state, persisted, readOnly]);
+
+  useEffect(() => {
+    if (!persisted || readOnly) return;
+    if (docs === lastSavedDocument.current) {
+      if (!documentSaveInFlight.current) setDocumentCloudState("saved");
+      return;
+    }
+    setDocumentCloudState((current) => current === "conflict" ? current : "pending");
+    const timer = window.setTimeout(() => void saveDocument(), 5_000);
+    return () => window.clearTimeout(timer);
+  }, [docs, persisted, readOnly, saveDocument]);
 
   const selectedNode = diagram.nodes.find((node) => node.id === selectedId);
   const selectedConnector = diagram.connectors.find((connector) => connector.id === selectedId);
@@ -981,6 +1052,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   }
 
   function insertDocumentation(template: string) {
+    documentSource.current = "user-edit";
     let nextLength = 0;
     setDocs((current) => {
       const withoutSlash = current.replace(/(?:^|\s)\/[a-z]*$/i, (match) => match.startsWith(" ") ? " " : "");
@@ -997,6 +1069,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   }
 
   function wrapDocumentation(prefix: string, suffix = prefix, fallback: string) {
+    documentSource.current = "user-edit";
     const input = documentInputRef.current;
     const start = input?.selectionStart ?? docs.length;
     const end = input?.selectionEnd ?? docs.length;
@@ -1010,6 +1083,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   }
 
   function updateFirstTable(mutator: (rows: string[][]) => string[][]) {
+    documentSource.current = "user-edit";
     const lines = docs.split("\n");
     const start = lines.findIndex((line) => line.trim().startsWith("|"));
     if (start < 0) { insertDocumentation("| Column | Value |\n| --- | --- |\n| Item | Details |"); return; }
@@ -1053,6 +1127,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
       const intro = documentPrompt.trim() ? `## AI draft: ${documentPrompt.trim()}\n\n` : "";
+      documentSource.current = "ai-generated";
       setDocs((current) => `${current.trim()}${current.trim() ? "\n\n" : ""}${intro}${body.markdown}`);
       setDocumentPrompt("");
       setDocumentMode("edit");
@@ -1089,9 +1164,10 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
     setPanel("docs"); setLoadingPanel(true);
     try {
       const ir = architectureIRFromDiagram(diagram, irBase.current);
-      const response = await fetch("/api/v1/ai/documentation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ diagram, ir, presentation: presentationFromDiagram(diagram), irVersion: Math.max(1, irVersion.current), persist: persisted && cloudSave.state === "saved" }) });
+      const response = await fetch("/api/v1/ai/documentation", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ diagram, ir, presentation: presentationFromDiagram(diagram), irVersion: Math.max(1, irVersion.current), persist: false }) });
       const body = await response.json();
       if (!response.ok) throw new Error(body.error);
+      documentSource.current = "ai-generated";
       setDocs(body.markdown);
     } catch (error) { setMessage(error instanceof Error ? error.message : "Documentation failed."); }
     finally { setLoadingPanel(false); }
@@ -1234,9 +1310,10 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
       {(panel === "review" || panel === "docs" || panel === "export") && <aside className={`${styles.sidePanel} ${panel === "docs" ? styles.docsPanel : ""}`}><div className={styles.panelHead}><strong>{panel === "review" ? "Architecture review" : panel === "docs" ? "Documentation" : "Export"}</strong><div className={styles.panelActions}>{panel === "docs" && <><button className={styles.close} title="Copy documentation" aria-label="Copy documentation" onClick={() => void copyDocumentation()}><Copy size={14} /></button><button className={styles.close} title="Export Markdown" aria-label="Export Markdown" onClick={() => void exportFile("markdown")}><Download size={14} /></button></>}<button className={styles.close} onClick={() => setPanel(null)} aria-label="Close"><X size={14} /></button></div></div><div className={styles.sidePanelBody}>{loadingPanel ? <p>Preparing version {diagram.version}…</p> : panel === "review" ? <><p>Advisory findings for version {diagram.version}. Validate recommendations with your engineering and security teams.</p>{reviews.length ? reviews.map((finding) => <article className={styles.finding} key={finding.id}><div className={`${styles.findingTop} ${styles[`severity_${finding.severity}`]}`}><span>{finding.lens}</span><span>{finding.severity}</span></div><p>{finding.rationale}</p><strong>{finding.recommendation}</strong></article>) : <p>No review has been run for this version.</p>}</> : panel === "docs" ? <article className={styles.docs}>{docs ? <><div className={styles.docsMeta}>Version {diagram.version} · {diagram.nodes.length} components · {diagram.connectors.length} connectors</div>{documentBlocks(docs)}</> : <p>Generate documentation to create a version-bound implementation brief.</p>}</article> : <><p>Guest exports contain only the diagram model and visible content.</p>{(["png", "svg", "json", "mermaid", "markdown"] as const).map((format) => <button className={styles.componentItem} key={format} onClick={() => exportFile(format)}><span className={styles.componentCode} style={{ "--item-color": "var(--text-secondary)" } as React.CSSProperties}>{format.slice(0, 3).toUpperCase()}</span><span className={styles.componentText}><strong>{format.toUpperCase()}</strong><span>{format === "png" || format === "svg" ? "Current canvas view" : "Validated semantic model"}</span></span><Download size={14} /></button>)}</>}</div></aside>}
       {panel === "docs" && <aside className={`${styles.documentWorkspace} ${documentView === "document" ? styles.documentFocus : ""}`} aria-label="Documentation workspace">
         <div className={styles.panelHead}>
-          <div><strong>Documentation</strong><span className={styles.documentStatus}>Local draft · version {diagram.version}</span></div>
+          <div><strong>Documentation</strong><span className={styles.documentStatus}>{persisted ? `Document v${documentVersion} · ${documentCloudState === "saved" ? "saved" : documentCloudState}` : "Local draft"} · architecture v{diagram.version}</span></div>
           <div className={styles.panelActions}>
             {!readOnly && <button className={styles.close} title="Generate a document from the canvas" aria-label="Generate document" onClick={() => void generateDocs()} disabled={loadingPanel}><Sparkles size={14} /></button>}
+            {!readOnly && persisted && <button className={styles.close} title="Save document" data-tooltip="Save a new immutable document version" aria-label="Save document" onClick={() => void saveDocument()} disabled={documentCloudState === "saving" || cloudSave.state !== "saved"}><Save size={14} /></button>}
             <button className={styles.close} title="Copy documentation" data-tooltip="Copy document as Markdown" aria-label="Copy documentation" onClick={() => void copyDocumentation()}><Copy size={14} /></button>
             <button className={styles.close} title="Export Markdown" data-tooltip="Download document as Markdown" aria-label="Export Markdown" onClick={() => void exportFile("markdown")}><Download size={14} /></button>
             <button className={styles.close} title="Close documentation" data-tooltip="Close documentation" aria-label="Close documentation" onClick={() => setPanel(null)}><X size={14} /></button>
@@ -1273,7 +1350,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
         </div>}
         {!readOnly && <input ref={documentImageInputRef} className={styles.visuallyHidden} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={(event) => { addDocumentImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} />}
         <div className={styles.documentBody}>
-          {loadingPanel ? <p>Preparing version {diagram.version}…</p> : documentMode === "edit" ? <><textarea ref={documentInputRef} readOnly={readOnly} className={styles.documentEditor} aria-label="Documentation editor" value={docs} onChange={(event) => setDocs(event.target.value)} placeholder="# Architecture decision\n\nWrite in Markdown, or type / for quick insert." />
+          {loadingPanel ? <p>Preparing version {diagram.version}…</p> : documentMode === "edit" ? <><textarea ref={documentInputRef} readOnly={readOnly} className={styles.documentEditor} aria-label="Documentation editor" value={docs} onChange={(event) => { documentSource.current = "user-edit"; setDocs(event.target.value); }} placeholder="# Architecture decision\n\nWrite in Markdown, or type / for quick insert." />
             {!readOnly && slashMatch && <div className={styles.slashMenu} role="menu" aria-label="Slash commands">{[
               ["heading", "## Heading"], ["table", "| Column | Value |\n| --- | --- |\n| Item | Details |"], ["callout", "> Important callout"], ["code", "```typescript\n// code\n```"], ["divider", "---"], ["diagram", ":::buildrax-canvas\n:::"], ["mermaid", `\`\`\`mermaid\n${semanticMermaid}\n\`\`\``],
             ].filter(([name]) => name.includes(slashQuery)).map(([name, template]) => <button key={name} role="menuitem" onClick={() => insertDocumentation(template)}><strong>/{name}</strong><span>Insert {name}</span></button>)}</div>}</> : <article className={styles.docs}>{docs ? <><div className={styles.docsMeta}>Version {diagram.version} · {diagram.nodes.length} components · {diagram.connectors.length} connectors</div>{documentBlocks(docs, diagram, focusDocumentNode)}</> : <p>Write a Markdown document, or use AI draft from canvas to create a version-bound brief.</p>}</article>}

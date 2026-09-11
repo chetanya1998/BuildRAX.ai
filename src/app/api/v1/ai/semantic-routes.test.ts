@@ -31,6 +31,9 @@ describe("semantic artifact APIs", () => {
     expect(body.markdown).toContain(`# ${ir.intent.title}`);
     expect(body.markdown).toContain("Architecture IR version 7");
     expect(body.markdown).not.toContain("# Visual-only title");
+
+    const directPersistence = await documentArchitecture(request("/api/v1/ai/documentation", { diagram, ir, presentation, irVersion: 7, persist: true }));
+    expect(directPersistence.status).toBe(422);
   });
 
   it("returns advisory findings pinned to the requested IR version", async () => {

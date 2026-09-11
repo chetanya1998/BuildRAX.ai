@@ -6,5 +6,5 @@ export default async function ProjectCanvasPage({ params }: { params: Promise<{ 
   const { projectId } = await params;
   const [architecture, projects] = await Promise.all([loadProjectArchitecture(projectId), listPersistedProjects()]);
   if (!architecture) notFound();
-  return <ArchitectureEditor initialDiagram={architecture.diagram} initialIR={architecture.ir} initialIrVersion={architecture.irVersion} initialDocument={architecture.document} recoveryScope={architecture.recoveryScope} persisted projectId={projectId} projectOptions={projects.map(({ id, name }) => ({ id, name }))} />;
+  return <ArchitectureEditor initialDiagram={architecture.diagram} initialIR={architecture.ir} initialIrVersion={architecture.irVersion} initialDocument={architecture.document} initialDocumentVersion={architecture.documentVersion} initialDocumentSource={architecture.documentSource} recoveryScope={architecture.recoveryScope} persisted projectId={projectId} projectOptions={projects.map(({ id, name }) => ({ id, name }))} />;
 }
