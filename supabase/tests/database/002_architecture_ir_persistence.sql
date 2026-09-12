@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, auth;
 
-select plan(38);
+select plan(45);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.artifact_blobs'::regclass), 'artifact blobs have RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.architecture_ir_versions'::regclass), 'IR versions have RLS');
@@ -15,6 +15,8 @@ select ok(not has_table_privilege('authenticated', 'public.artifact_blobs', 'UPD
 select ok(not has_table_privilege('authenticated', 'public.architecture_assets', 'INSERT'), 'browser sessions cannot forge verified private assets');
 select ok(not has_function_privilege('authenticated', 'public.get_architecture_maintenance_health()', 'EXECUTE'), 'browser sessions cannot inspect worker health');
 select ok(has_function_privilege('service_role', 'public.get_architecture_maintenance_health()', 'EXECUTE'), 'maintenance service can inspect privacy-safe worker health');
+select ok(not has_function_privilege('authenticated', 'public.verify_architecture_persistence()', 'EXECUTE'), 'browser sessions cannot inspect release-wide persistence health');
+select ok(has_function_privilege('service_role', 'public.verify_architecture_persistence()', 'EXECUTE'), 'service role can run the release verification report');
 select is(public.canonical_jsonb_text('{"z":1,"a":{"y":2,"b":3}}'::jsonb), '{"a":{"b":3,"y":2},"z":1}', 'database canonical JSON matches the application encoder');
 select is(public.canonical_jsonb_sha256('{"z":1,"a":{"y":2,"b":3}}'::jsonb), '10d6b907e50339871355376854e16e87112120f63b9ce9bca2913907cd2a124d', 'database and Web Crypto produce the same canonical checksum');
 
@@ -235,6 +237,14 @@ select is(
     where user_id = '33333333-3333-4333-8333-333333333333' and kind = 'archive-restore-failed'),
   1,
   'owner receives one in-app notice when archival exhausts its retry budget'
+);
+select is((select ready from public.verify_architecture_persistence()), true, 'release verification accepts the complete artifact graph');
+select is((select unlinked_diagram_versions from public.verify_architecture_persistence()), 0::bigint, 'release verification finds no unlinked versions');
+select is((select artifact_checksum_mismatches from public.verify_architecture_persistence()), 0::bigint, 'release verification finds no hot artifact checksum mismatches');
+select is((select legacy_payload_rows from public.verify_architecture_persistence()), 0::bigint, 'new version writes do not retain duplicate compatibility payloads');
+select throws_ok(
+  $$select public.finalize_legacy_architecture_payloads('NOT_CONFIRMED', (select verification_token from public.verify_architecture_persistence()))$$,
+  '22023', 'Backup confirmation and verification token are required', 'legacy payload cleanup requires explicit backup confirmation'
 );
 
 select * from finish();

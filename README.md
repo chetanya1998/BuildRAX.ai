@@ -409,6 +409,7 @@ cp .env.example .env.local
 | `SHARE_TOKEN_PEPPER` | Server | Share hash protection. |
 | `GENERATION_RECEIPT_SECRET` | Server | Signed guest receipts. |
 | `ARCHIVE_WORKER_SECRET` | Server | Maintenance authentication. |
+| `ARCHIVE_MAINTENANCE_ENABLED` | Server | Keep `false` until database and application release checks pass; enable the scheduler last. |
 | `RESEND_API_KEY`, `ARCHIVE_NOTICE_FROM_EMAIL` | Server | Archive emails. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Public | Optional monitoring. |
 
@@ -498,7 +499,7 @@ public/icons/             Local SVGs and attribution
 5. Documents are an MVP Markdown editor, not realtime Google Docs.
 6. Realtime multi-user canvas editing is not implemented; conflicts are detected instead.
 7. Scale targets are not yet production-certified.
-8. Email/archive scheduling needs Resend, sender, secrets, and clock tests.
+8. Email/archive scheduling is implemented but still needs staging Resend, sender, secret, and clock-controlled proof.
 9. Archive recovery needs deployed private Storage policies.
 10. Guest drafts depend on browser storage before migration.
 11. Wider mobile/device visual regression remains.
@@ -609,6 +610,7 @@ Do not call BuildRAX production-ready until:
 - [`docs/DAY-1-SUPABASE-ROLLOUT.md`](docs/DAY-1-SUPABASE-ROLLOUT.md) — database authorization.
 - [`docs/DAY-2-AUTH-PERSISTENCE.md`](docs/DAY-2-AUTH-PERSISTENCE.md) — auth and saving.
 - [`docs/DAY-3-AI-GENERATION.md`](docs/DAY-3-AI-GENERATION.md) — AI generation.
+- [`docs/DAY-7-RELEASE-RUNBOOK.md`](docs/DAY-7-RELEASE-RUNBOOK.md) — verified rollout, guarded cleanup, and recovery.
 - [`docs/LANDING-DESIGN.md`](docs/LANDING-DESIGN.md) — landing design and motion.
 
 ## Repository rule
