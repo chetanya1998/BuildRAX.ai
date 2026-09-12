@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, ArrowRight, Check, LogIn, Plus } from "lucide-react";
+import { AlertTriangle, Archive, ArrowRight, Check, LogIn, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Brand } from "@/components/ui/brand";
 import { ButtonLink } from "@/components/ui/button";
@@ -10,6 +10,12 @@ import styles from "./dashboard.module.css";
 
 type PersistedProjectSummary = { id: string; name: string; description: string; updatedAt: string; diagramCount: number };
 type ArchiveNotification = { id: string; kind: string; diagram_id: string | null; diagram_version: number | null; message: string; read_at: string | null; created_at: string };
+
+function notificationPresentation(kind: string) {
+  if (kind === "version-archive-warning") return { title: "Archive scheduled in seven days", warning: false };
+  if (kind === "version-archived") return { title: "Version moved to secure archive", warning: false };
+  return { title: "Archive delayed — version remains available", warning: true };
+}
 
 export function DashboardClient({ authenticated, projects, notifications: initialNotifications }: { authenticated: boolean; projects: PersistedProjectSummary[]; notifications: ArchiveNotification[] }) {
   const [drafts, setDrafts] = useState<DraftRecord[]>([]);
@@ -28,7 +34,7 @@ export function DashboardClient({ authenticated, projects, notifications: initia
     <main className={styles.main}>
       <div className={styles.headline}><div><span>Returning workspace</span><h1>Your architectures</h1></div><ButtonLink href="/templates" variant="secondary">Browse templates</ButtonLink></div>
       <div className={styles.notice}>{notice}</div>
-      {notifications.length > 0 && <section className={styles.notificationStack} aria-label="Architecture history notifications">{notifications.map((notification) => <article className={styles.archiveNotice} key={notification.id}><span className={styles.archiveIcon}><Archive size={16} /></span><div><strong>Version history remains available</strong><p>{notification.message}{notification.diagram_version ? ` Version ${notification.diagram_version}.` : ""}</p><small>{new Date(notification.created_at).toLocaleString()}</small></div><button onClick={() => void markNotificationRead(notification.id)} aria-label="Mark archive notice as read" title="Mark as read"><Check size={15} /></button></article>)}</section>}
+      {notifications.length > 0 && <section className={styles.notificationStack} aria-label="Architecture history notifications">{notifications.map((notification) => { const presentation = notificationPresentation(notification.kind); return <article className={`${styles.archiveNotice} ${presentation.warning ? styles.archiveNoticeWarning : ""}`} key={notification.id}><span className={styles.archiveIcon}>{presentation.warning ? <AlertTriangle size={16} /> : <Archive size={16} />}</span><div><strong>{presentation.title}</strong><p>{notification.message}{notification.diagram_version ? ` Version ${notification.diagram_version}.` : ""}</p><small>{new Date(notification.created_at).toLocaleString()}</small></div><button onClick={() => void markNotificationRead(notification.id)} aria-label="Mark archive notice as read" title="Mark as read"><Check size={15} /></button></article>; })}</section>}
       {authenticated && <ProjectSection id="saved-projects" heading="Saved projects" meta={`${projects.length} ${projects.length === 1 ? "project" : "projects"}`} projects={projects} />}
       <section aria-labelledby="local-drafts"><div className={styles.sectionHeading}><h2 id="local-drafts">Local drafts</h2><span>Stored in this browser</span></div><div className={styles.grid}>{drafts.length ? drafts.map((draft) => <article className={styles.card} key={draft.id}><div><div className={styles.thumb} /><h2>{draft.diagram.title}</h2><p>Version {draft.diagram.version} · Updated {new Date(draft.updatedAt).toLocaleString()}</p></div><div className={styles.cardBottom}><span>{draft.diagram.nodes.length} components</span><ButtonLink href={`/draft/${draft.id}`} variant="secondary">Open <ArrowRight size={14} /></ButtonLink></div></article>) : <EmptyState text="No local drafts in this browser." />}</div></section>
     </main>

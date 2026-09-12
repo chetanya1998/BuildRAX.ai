@@ -88,8 +88,19 @@ from IR; PNG and SVG remain presentation exports.
   canonicalized, compressed, uploaded to private Storage, verified, and then
   removed from the hot JSON column. Current or content-shared head artifacts are
   excluded.
+- A version is considered moved after its presentation and materialized diagram
+  checksums are verified in private Storage. An IR still shared by the current
+  head safely remains hot; an unshared IR is archived independently. Owners then
+  receive one deduplicated in-app completion notice.
 - The scheduled Netlify worker calls the authenticated internal maintenance
   route hourly. Failed archive and email jobs retry with exponential backoff.
+- Archive retries stop after 12 attempts. A terminal upload failure leaves the
+  verified hot JSON readable, records a privacy-safe failure class, and creates
+  one owner notice explaining that history is still safe but archival is delayed.
+- Email requests use the notification ID as the provider idempotency key, so a
+  worker retry after an uncertain provider response does not send duplicate
+  warnings. Project titles, diagram content, prompts, and archive paths never
+  enter the email outbox or email body.
 
 Required server-only deployment values are `SUPABASE_SERVICE_ROLE_KEY`,
 `GENERATION_RECEIPT_SECRET`, `ARCHIVE_WORKER_SECRET`, and—when email delivery is
@@ -115,6 +126,13 @@ client-prefixed variables or `netlify.toml`.
   worker only after the application can read both hot and archived artifacts.
 - Alert when archive checksum failures, exhausted leases, notification retries,
   save conflicts, or hydration failures rise above their normal baseline.
+- Correlate each maintenance run with its returned `requestId`. Worker logs may
+  contain phase names and database error codes, but never artifact or document
+  content.
+- The maintenance response includes a service-role-only health snapshot with
+  pending jobs, terminal failures, expired leases, exhausted email retries,
+  unreadable artifacts, and the oldest queued archive time. Alerting should use
+  these bounded counters rather than inspecting user payloads.
 
 ## Verification gates
 

@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, auth;
 
-select plan(31);
+select plan(38);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.artifact_blobs'::regclass), 'artifact blobs have RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.architecture_ir_versions'::regclass), 'IR versions have RLS');
@@ -13,6 +13,8 @@ select ok((select relrowsecurity from pg_class where oid = 'public.architecture_
 select ok(not has_table_privilege('authenticated', 'public.artifact_blobs', 'INSERT'), 'browser sessions cannot insert artifact blobs');
 select ok(not has_table_privilege('authenticated', 'public.artifact_blobs', 'UPDATE'), 'browser sessions cannot mutate artifact blobs');
 select ok(not has_table_privilege('authenticated', 'public.architecture_assets', 'INSERT'), 'browser sessions cannot forge verified private assets');
+select ok(not has_function_privilege('authenticated', 'public.get_architecture_maintenance_health()', 'EXECUTE'), 'browser sessions cannot inspect worker health');
+select ok(has_function_privilege('service_role', 'public.get_architecture_maintenance_health()', 'EXECUTE'), 'maintenance service can inspect privacy-safe worker health');
 select is(public.canonical_jsonb_text('{"z":1,"a":{"y":2,"b":3}}'::jsonb), '{"a":{"b":3,"y":2},"z":1}', 'database canonical JSON matches the application encoder');
 select is(public.canonical_jsonb_sha256('{"z":1,"a":{"y":2,"b":3}}'::jsonb), '10d6b907e50339871355376854e16e87112120f63b9ce9bca2913907cd2a124d', 'database and Web Crypto produce the same canonical checksum');
 
@@ -199,6 +201,40 @@ select results_eq(
     cross join scheduled$$,
   array[0::integer],
   'current heads are excluded from archival'
+);
+
+select lives_ok(
+  $$select * from public.schedule_architecture_archives(now() + interval '31 days')$$,
+  'archive scheduling can be safely replayed'
+);
+select is(
+  (select count(*)::integer from public.user_notifications
+    where user_id = '33333333-3333-4333-8333-333333333333'
+      and diagram_id = '66666666-6666-4666-8666-666666666666'
+      and diagram_version = 1 and kind = 'version-archive-warning'),
+  1,
+  'archive warning is deduplicated per owner and version'
+);
+
+update public.artifact_archive_jobs set attempts = 11
+ where id = (select id from public.artifact_archive_jobs where status = 'pending' order by created_at limit 1);
+create temporary table terminal_archive_lease as
+  select * from public.lease_artifact_archive_jobs('edededed-eded-4ded-8ded-edededededed', 1);
+select lives_ok(
+  $$select public.fail_artifact_archive_job('edededed-eded-4ded-8ded-edededededed',
+      (select job_id from terminal_archive_lease), 'storage-unavailable')$$,
+  'terminal archive failure is recorded without losing the hot copy'
+);
+select is(
+  (select ab.storage_state from public.artifact_blobs ab join terminal_archive_lease tal on tal.artifact_id = ab.id),
+  'hot',
+  'terminal archive failure keeps the artifact readable from hot storage'
+);
+select is(
+  (select count(*)::integer from public.user_notifications
+    where user_id = '33333333-3333-4333-8333-333333333333' and kind = 'archive-restore-failed'),
+  1,
+  'owner receives one in-app notice when archival exhausts its retry budget'
 );
 
 select * from finish();

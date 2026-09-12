@@ -17,6 +17,7 @@ function authorize(request: Request) {
 
 export async function POST(request: Request) {
   const workerId = crypto.randomUUID();
+  const requestId = request.headers.get("x-request-id")?.slice(0, 100) || crypto.randomUUID();
   try {
     authorize(request);
     const admin = createSupabaseAdminClient();
@@ -49,15 +50,17 @@ export async function POST(request: Request) {
         archived += 1;
       } catch (error) {
         archiveFailures += 1;
-        await admin.rpc("fail_artifact_archive_job", {
+        const failed = await admin.rpc("fail_artifact_archive_job", {
           worker_id: workerId,
           target_job: job.job_id,
           failure_class: error instanceof Error ? error.message : "unknown-archive-failure",
         });
+        if (failed.error) console.error("[architecture-maintenance] archive failure could not be recorded", { requestId, code: failed.error.code });
       }
     }
 
     const notificationLease = await admin.rpc("lease_notification_jobs", { worker_id: workerId, batch_size: 10 });
+    if (notificationLease.error) throw new HttpError(500, "Notification leasing failed.");
     let delivered = 0;
     let deliveryFailures = 0;
     for (const job of notificationLease.data ?? []) {
@@ -67,7 +70,11 @@ export async function POST(request: Request) {
         if (!key || !from) throw new Error("email-provider-unconfigured");
         const response = await fetch("https://api.resend.com/emails", {
           method: "POST",
-          headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+          headers: {
+            authorization: `Bearer ${key}`,
+            "content-type": "application/json",
+            "idempotency-key": `buildrax-archive-${job.notification_id}`,
+          },
           body: JSON.stringify({
             from,
             to: [job.recipient_email],
@@ -78,23 +85,29 @@ export async function POST(request: Request) {
         });
         if (!response.ok) throw new Error(`email-provider-${response.status}`);
         const result = await response.json() as { id?: string };
-        await admin.rpc("complete_notification_job", { worker_id: workerId, target_job: job.job_id, provider_id: result.id ?? null });
+        const completed = await admin.rpc("complete_notification_job", { worker_id: workerId, target_job: job.job_id, provider_id: result.id ?? null });
+        if (completed.error) throw new Error("notification-commit-failed");
         delivered += 1;
       } catch (error) {
         deliveryFailures += 1;
-        await admin.rpc("fail_notification_job", {
+        const failed = await admin.rpc("fail_notification_job", {
           worker_id: workerId,
           target_job: job.job_id,
           failure_class: error instanceof Error ? error.message : "unknown-delivery-failure",
         });
+        if (failed.error) console.error("[architecture-maintenance] notification failure could not be recorded", { requestId, code: failed.error.code });
       }
     }
+    const health = await admin.rpc("get_architecture_maintenance_health");
+    if (health.error) console.error("[architecture-maintenance] health snapshot unavailable", { requestId, code: health.error.code });
     return NextResponse.json({
       scheduled: scheduled.data?.[0] ?? { notifications_created: 0, jobs_created: 0 },
       archived,
       archiveFailures,
       delivered,
       deliveryFailures,
+      requestId,
+      health: health.data?.[0] ?? null,
     }, { headers: { "cache-control": "no-store" } });
   } catch (error) { return apiError(error); }
 }

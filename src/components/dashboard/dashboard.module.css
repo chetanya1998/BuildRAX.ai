@@ -11,6 +11,8 @@
 .notice { margin-bottom: 20px; padding: 13px 15px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text-secondary); font-size: 12px; }
 .notificationStack { display: grid; gap: 10px; margin: 0 0 24px; }
 .archiveNotice { display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.archiveNoticeWarning { border-color: color-mix(in srgb, #f59e0b 45%, var(--border)); }
+.archiveNoticeWarning .archiveIcon { color: #b86800; background: color-mix(in srgb, #f59e0b 12%, var(--surface-subtle)); }
 .archiveNotice strong { font-size: 13px; }
 .archiveNotice p { margin: 3px 0; color: var(--text-secondary); font-size: 12px; }
 .archiveNotice small { color: var(--text-muted); font-size: 10px; }
