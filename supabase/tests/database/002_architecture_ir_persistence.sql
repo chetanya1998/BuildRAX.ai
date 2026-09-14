@@ -29,7 +29,8 @@ create temporary table architecture_fixture(
   ir jsonb, presentation_v1 jsonb, diagram_v1 jsonb, presentation_v2 jsonb, diagram_v2 jsonb,
   ir_hash text, presentation_v1_hash text, diagram_v1_hash text, presentation_v2_hash text, diagram_v2_hash text,
   guest_request_hash text, save_v1_request_hash text, save_v2_request_hash text,
-  changed_diagram jsonb, changed_diagram_hash text, changed_request_hash text
+  changed_diagram jsonb, changed_diagram_hash text, changed_request_hash text,
+  document_request_hash text, changed_document_request_hash text, stale_document_request_hash text
 );
 insert into architecture_fixture(ir, presentation_v1, diagram_v1, presentation_v2, diagram_v2) values (
   '{"schemaVersion":"1.1.0","intent":{"title":"IR test","summary":"A complete blank test architecture.","archetype":"general","trafficProfile":"unknown"},"requirements":{"functional":["Allow a blank architecture."],"nonFunctional":[]},"constraints":{"preferredStack":[],"cloudProvider":"","multiTenant":false,"dataSensitivity":"unspecified"},"components":[],"flows":[],"assumptions":[],"decisions":[],"provenance":{"strategy":"manual-edit","compilerVersion":"1.1.0","catalogVersion":"1.0.0"}}'::jsonb,
@@ -47,6 +48,18 @@ update architecture_fixture set
   guest_request_hash = public.canonical_jsonb_sha256(jsonb_build_object('ir', ir, 'presentation', presentation_v1, 'diagram', diagram_v1)),
   save_v1_request_hash = public.canonical_jsonb_sha256(jsonb_build_object('baseVersion', 1, 'baseIrVersion', 1, 'ir', ir, 'presentation', presentation_v1)),
   save_v2_request_hash = public.canonical_jsonb_sha256(jsonb_build_object('baseVersion', 1, 'baseIrVersion', 1, 'ir', ir, 'presentation', presentation_v2)),
+  document_request_hash = public.canonical_jsonb_sha256(jsonb_build_object(
+    'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
+    'markdown', '# Architecture\n\nVersion-bound content.', 'source', 'ai-generated'
+  )),
+  changed_document_request_hash = public.canonical_jsonb_sha256(jsonb_build_object(
+    'baseDocumentVersion', 1, 'diagramVersion', 2, 'irVersion', 1,
+    'markdown', '# Different content', 'source', 'user-edit'
+  )),
+  stale_document_request_hash = public.canonical_jsonb_sha256(jsonb_build_object(
+    'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
+    'markdown', '# Stale content', 'source', 'user-edit'
+  )),
   changed_diagram = jsonb_set(diagram_v1, '{title}', '"Changed"');
 update architecture_fixture set changed_diagram_hash = public.canonical_jsonb_sha256(changed_diagram), changed_request_hash = public.canonical_jsonb_sha256(
   jsonb_build_object('ir', ir, 'presentation', presentation_v1, 'diagram', changed_diagram)
@@ -125,40 +138,32 @@ select lives_ok($test$
   select * from public.save_architecture_document(
     '66666666-6666-4666-8666-666666666666', 0, 2, 1,
     'abababab-abab-4bab-8bab-abababababab',
-    public.canonical_jsonb_sha256(jsonb_build_object(
-      'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
-      'markdown', '# Architecture\n\nVersion-bound content.', 'source', 'ai-generated'
-    )), '# Architecture\n\nVersion-bound content.', 'ai-generated'
+    (select document_request_hash from architecture_fixture),
+    '# Architecture\n\nVersion-bound content.', 'ai-generated'
   )
 $test$, 'documentation is pinned to an exact IR and diagram version');
 select lives_ok($test$
   select * from public.save_architecture_document(
     '66666666-6666-4666-8666-666666666666', 0, 2, 1,
     'abababab-abab-4bab-8bab-abababababab',
-    public.canonical_jsonb_sha256(jsonb_build_object(
-      'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
-      'markdown', '# Architecture\n\nVersion-bound content.', 'source', 'ai-generated'
-    )), '# Architecture\n\nVersion-bound content.', 'ai-generated'
+    (select document_request_hash from architecture_fixture),
+    '# Architecture\n\nVersion-bound content.', 'ai-generated'
   )
 $test$, 'replaying a document idempotency key returns the original version');
 select throws_ok($test$
   select * from public.save_architecture_document(
     '66666666-6666-4666-8666-666666666666', 1, 2, 1,
     'abababab-abab-4bab-8bab-abababababab',
-    public.canonical_jsonb_sha256(jsonb_build_object(
-      'baseDocumentVersion', 1, 'diagramVersion', 2, 'irVersion', 1,
-      'markdown', '# Different content', 'source', 'user-edit'
-    )), '# Different content', 'user-edit'
+    (select changed_document_request_hash from architecture_fixture),
+    '# Different content', 'user-edit'
   )
 $test$, '22023', 'Idempotency key was reused with different document content', 'changed content cannot reuse a document idempotency key');
 select throws_ok($test$
   select * from public.save_architecture_document(
     '66666666-6666-4666-8666-666666666666', 0, 2, 1,
     'cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdcd',
-    public.canonical_jsonb_sha256(jsonb_build_object(
-      'baseDocumentVersion', 0, 'diagramVersion', 2, 'irVersion', 1,
-      'markdown', '# Stale content', 'source', 'user-edit'
-    )), '# Stale content', 'user-edit'
+    (select stale_document_request_hash from architecture_fixture),
+    '# Stale content', 'user-edit'
   )
 $test$, '40001', 'Document version conflict', 'a stale document base version cannot overwrite the head');
 

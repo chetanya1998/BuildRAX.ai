@@ -88,7 +88,7 @@ select throws_ok(
 select throws_ok(
   $$insert into public.documents(id, diagram_id, created_by) values ('88888888-8888-8888-8888-888888888888', 'cccccccc-cccc-cccc-cccc-cccccccccccc', '22222222-2222-2222-2222-222222222222')$$,
   '42501',
-  'new row violates row-level security policy for table "documents"',
+  'permission denied for table documents',
   'non-member cannot create documentation for another workspace diagram'
 );
 select results_eq(
