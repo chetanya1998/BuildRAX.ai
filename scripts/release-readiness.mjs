@@ -37,6 +37,15 @@ for (const name of requiredMigrations) {
   if (!names.includes(name)) findings.push(`supabase/migrations: required migration missing: ${name}`);
 }
 
+const netlifyFunctions = tracked.filter((file) => /^netlify\/functions\/[^/]+\.(?:cjs|js|mjs|ts)$/.test(file));
+for (const file of netlifyFunctions) {
+  const filename = file.split("/").at(-1);
+  const functionName = filename.replace(/\.(?:cjs|js|mjs|ts)$/, "");
+  if (!/^[A-Za-z0-9_-]+$/.test(functionName)) {
+    findings.push(`${file}: Netlify function name must contain only letters, numbers, hyphens, or underscores`);
+  }
+}
+
 if (findings.length) {
   console.error("Release readiness scan failed:\n" + findings.map((item) => `- ${item}`).join("\n"));
   process.exit(1);
