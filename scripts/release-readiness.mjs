@@ -31,6 +31,7 @@ const requiredMigrations = [
   "202609120007_document_persistence.sql",
   "202609120008_archive_delivery_hardening.sql",
   "202609120009_release_verification.sql",
+  "202609150010_fix_guest_migration_origin_conflict.sql",
 ];
 for (const name of requiredMigrations) {
   if (!names.includes(name)) findings.push(`supabase/migrations: required migration missing: ${name}`);
