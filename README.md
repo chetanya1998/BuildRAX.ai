@@ -16,22 +16,23 @@ This repository contains the current MVP on the `fresh-variant` branch.
 
 1. [The problem](#the-problem)
 2. [Current delivery status](#current-delivery-status)
-3. [Complete user journey](#complete-user-journey)
-4. [Product functionality](#product-functionality)
-5. [Architecture IR](#architecture-ir)
-6. [System design](#system-design)
-7. [Saving and history](#saving-and-history)
-8. [Authentication and permissions](#authentication-and-permissions)
-9. [AI and safety](#ai-and-safety)
-10. [Security and privacy](#security-and-privacy)
-11. [Performance and scale](#performance-and-scale)
-12. [Setup and configuration](#setup-and-configuration)
-13. [Testing](#testing)
-14. [Project structure](#project-structure)
-15. [API guide](#api-guide)
-16. [Known limitations](#known-limitations)
-17. [Jira-ready roadmap](#jira-ready-roadmap)
-18. [Definition of done](#definition-of-done)
+3. [What's new](#whats-new)
+4. [Complete user journey](#complete-user-journey)
+5. [Product functionality](#product-functionality)
+6. [Architecture IR](#architecture-ir)
+7. [System design](#system-design)
+8. [Saving and history](#saving-and-history)
+9. [Authentication and permissions](#authentication-and-permissions)
+10. [AI and safety](#ai-and-safety)
+11. [Security and privacy](#security-and-privacy)
+12. [Performance and scale](#performance-and-scale)
+13. [Setup and configuration](#setup-and-configuration)
+14. [Testing](#testing)
+15. [Project structure](#project-structure)
+16. [API guide](#api-guide)
+17. [Known limitations](#known-limitations)
+18. [Jira-ready roadmap](#jira-ready-roadmap)
+19. [Definition of done](#definition-of-done)
 
 ## The problem
 
@@ -92,10 +93,12 @@ Status meanings:
 | Hosted database rollout | Configuration required | Apply migrations to confirmed staging after a recovery point. A code push does not apply them. |
 | Authentication | Implemented; setup required | PKCE, callback, refresh, sign-in surfaces, and return-to-draft exist. Providers need Supabase configuration. |
 | Guest migration | Implemented | Assets upload first; project, diagram, IR, and lineage save together; local data remains until checksum-confirmed readback. |
-| IR persistence | Implemented in code and migration | IR versions, artifacts, idempotency, AI links, history, and restore. |
+| IR persistence | Implemented in code and migrations | IR versions, content-addressed artifacts, idempotency, AI links, history, restore, and release verification. |
+| Document persistence | Implemented in code and migration | Documents have immutable versions, optimistic conflict checks, diagram/IR lineage, and protected database access. |
 | Private images | Implemented; setup required | Scoped uploads, checksums, private references, and authorized reads. Buckets/policies need staging deployment. |
-| Archive and notices | Implemented; setup required | Day-23 notices, email outbox, day-30 archive, hydration, and restore. Scheduler/Resend need validation. |
-| CI | Implemented | Type, lint, unit, build, browser, migration, and RLS jobs. |
+| Archive and notices | Implemented; setup required | Day-23 notices, idempotent email delivery, day-30 archive, bounded retries, hydration, restore, and worker health reporting. Scheduler/Resend need staging validation. |
+| Release safety | Implemented in source | Read-only persistence verification, guarded legacy cleanup, a disabled-by-default maintenance switch, dependency scan, and ordered release runbook. |
+| CI | Implemented | Type, lint, unit, build, browser, migration, RLS, dependency, and release-readiness jobs. |
 | Production load proof | Planned | Concurrency protection exists, but 100/1,000-user tests remain. |
 | Production release | Planned | Source status does not prove a production deployment or migration. |
 
@@ -119,11 +122,51 @@ Deterministic generation, optional OpenAI Structured Outputs, strict validation,
 
 **Why it matters:** development does not require paid AI, and model output cannot directly change saved data.
 
+#### Day 4 — reliable editor and offline integration
+
+Cloud autosaves, offline retry records, signed-in creation, completed guest migration, checksum-confirmed readback, multi-tab conflict recovery, and stronger canvas interaction workflows were delivered.
+
+**Why it matters:** a temporary network failure, repeated request, or second browser tab should not lose or silently replace a user's architecture.
+
+#### Day 5 — immutable history and documents
+
+Version listing, snapshot reads, restoration as a new head, immutable document versions, optimistic document conflict checks, and diagram/IR lineage were delivered.
+
+**Why it matters:** users can inspect and restore earlier work without rewriting audit history, while documentation stays tied to the architecture version it describes.
+
+#### Day 6 — archive and notification hardening
+
+Archive leases, bounded retries, terminal-failure recovery, deduplicated in-app notices, idempotent email jobs, delayed/archived notification states, request correlation, and service-only worker health metrics were delivered.
+
+**Why it matters:** maintenance work can retry safely, does not make the hot copy unreadable after a terminal failure, and gives operators enough information to diagnose problems without exposing project content.
+
+#### Day 7 — release verification and guarded cleanup
+
+A service-only persistence verifier, graph-consistency token, confirmation-gated legacy cleanup, compatibility trigger, release-readiness workflow, dependency scan, disabled-by-default archive switch, and deployment/recovery runbook were delivered.
+
+**Why it matters:** rollout can prove that versions, IR, artifacts, and checksums agree before legacy data is cleared or scheduled maintenance is enabled.
+
 #### Architecture IR and canvas phase
 
 IR 1.1, IR 1.0 migration, presentation contracts, stable checksums, deterministic compilation, atomic persistence, history, restore, archive jobs, notices, private assets, improved canvas interactions, rich documents, templates, and local SVGs were delivered in source.
 
 Still requiring environment proof: staging migration/backfill, private Storage, live OAuth, Resend, scheduler, archive hydration, and production-like load/failure tests.
+
+## What's new
+
+The newest work turns the earlier Architecture IR prototype into a safer, release-oriented persistence system.
+
+- **Documents now have real history.** Each save creates an immutable document version linked to the relevant diagram and IR version. A stale editor receives a conflict instead of overwriting newer text.
+- **History restoration is non-destructive.** Restoring an older snapshot creates a new current version. The original version remains unchanged and auditable.
+- **Archive work is safer to operate.** Jobs are leased, retry counts are bounded, duplicate delivery is prevented, and a failed archive leaves the hot artifact readable.
+- **Owner notices have explicit states.** In-app notices and email jobs distinguish pending, delayed, delivered, and archived outcomes without placing project content in email payloads.
+- **Release verification is built in.** The database can report unlinked versions, missing heads, checksum problems, invalid snapshots, orphan IR records, and remaining legacy payloads before release.
+- **Legacy cleanup requires proof.** Cleanup needs both a deliberate confirmation phrase and the verification token returned by the current database graph. It cannot be triggered casually from the browser.
+- **Scheduled maintenance starts off.** `ARCHIVE_MAINTENANCE_ENABLED=false` is the safe default. It is enabled only after migrations, verification, and application smoke tests succeed.
+- **The repository has a repeatable release gate.** `npm run release:scan` checks dependency risk, required migrations, unsafe configuration, and accidental secret-shaped content; `npm run release:check` adds lint, types, tests, and a production build.
+- **A deployment and recovery runbook is included.** It explains the database-first, application-second, scheduler-last sequence and the checks required at every stage.
+
+These capabilities are implemented and locally verified in source. They are not proof that the hosted Supabase database, Storage buckets, OAuth providers, Resend account, or production scheduler have been configured.
 
 ## Complete user journey
 
@@ -422,6 +465,10 @@ Database migrations run in order:
 3. `202609020003_day2_auth_persistence.sql`
 4. `202609030004_day3_ai_generation.sql`
 5. `202609060005_architecture_ir_persistence.sql`
+6. `202609110006_guest_migration_completion.sql`
+7. `202609120007_document_persistence.sql`
+8. `202609120008_archive_delivery_hardening.sql`
+9. `202609120009_release_verification.sql`
 
 ```bash
 npx supabase start
@@ -439,11 +486,23 @@ npm run lint
 npm test
 npm run build
 npm run test:e2e
+npm run release:scan
+npm run release:check
 ```
 
-These check TypeScript contracts, common correctness issues, units/APIs, production compilation, and browser journeys. `npm run db:test` checks migrations, RLS, immutable history, checksums, idempotency, and conflicts.
+These check TypeScript contracts, common correctness issues, units/APIs, production compilation, browser journeys, dependency risk, migration presence, release configuration, and secret-shaped repository content. `npm run db:test` checks migrations, RLS, immutable history, checksums, idempotency, conflicts, document versions, archive workers, and release verification.
 
 Coverage includes IR migration, checksum/compiler determinism, semantic versus visual changes, AI repair/failure, catalog/icon/ellipse regressions, canvas placement/selection/movement/resizing/connections, documents, guest migration, multi-tab conflict, tenant denial, history, archive, and accessibility.
+
+Latest local source verification completed on 12 September 2026:
+
+- 80 unit and integration tests passed;
+- 25 Chromium journeys passed and 1 conditional journey was skipped;
+- lint, TypeScript checks, and the production build passed;
+- the release-readiness scan passed; and
+- the production dependency audit reported no high-severity vulnerability.
+
+The PostgreSQL/pgTAP suite still needs to run against an available local or staging Supabase instance. During the latest verification, no database was reachable at the normal local Supabase port, so this README does not claim that the Day 5–7 migrations have executed in a live environment.
 
 GitHub Actions runs quality, Chromium browser, and isolated Supabase jobs on `fresh-variant` pushes and pull requests.
 
