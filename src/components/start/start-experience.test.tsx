@@ -46,4 +46,36 @@ describe("new architecture journey", () => {
     expect(saveDraft).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
+
+  it("sends architecture context as separate fields", async () => {
+    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+      error: "Check the architecture inputs and try again.",
+      stage: "input-validation",
+      fieldErrors: { scale: ["Unsupported scale."] },
+    }), { status: 422, headers: { "content-type": "application/json" } }));
+    render(<StartExperience />);
+    const description = "Build a tenant-aware support platform and preserve every explicit input.";
+    fireEvent.change(screen.getByLabelText("Architecture prompt"), { target: { value: description } });
+    fireEvent.change(screen.getByLabelText("Product type"), { target: { value: "Support platform" } });
+    fireEvent.change(screen.getByLabelText("Preferred stack"), { target: { value: "Next.js, PostgreSQL" } });
+    fireEvent.change(screen.getByLabelText("Cloud provider"), { target: { value: "AWS" } });
+    fireEvent.change(screen.getByLabelText("Expected scale"), { target: { value: "large" } });
+    fireEvent.change(screen.getByLabelText("Tenancy"), { target: { value: "multi-tenant" } });
+    fireEvent.change(screen.getByLabelText("Data sensitivity"), { target: { value: "confidential" } });
+    fireEvent.click(screen.getByRole("button", { name: /generate architecture/i }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const [, init] = vi.mocked(fetch).mock.calls[0];
+    expect(JSON.parse(String(init?.body))).toEqual({
+      prompt: description,
+      productType: "Support platform",
+      preferredStack: "Next.js, PostgreSQL",
+      cloudProvider: "AWS",
+      scale: "large",
+      tenancy: "multi-tenant",
+      dataSensitivity: "confidential",
+    });
+    expect(await screen.findByText("Scale: Unsupported scale.")).toBeVisible();
+    expect(screen.getByLabelText("Architecture prompt")).toHaveValue(description);
+  });
 });

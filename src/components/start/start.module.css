@@ -12,9 +12,13 @@
 .composer textarea { width: 100%; min-height: 154px; border: 0; outline: 0; resize: vertical; padding: 15px 16px; background: transparent; color: var(--text); font-size: 17px; line-height: 1.55; }
 .composerFooter { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px; }
 .count { color: var(--text-muted); font-size: 12px; }
-.chips { max-width: 820px; margin: 18px auto 0; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-.chip { border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 8px 12px; color: var(--text-secondary); cursor: pointer; font-size: 13px; }
-.chipActive { border-color: var(--text); color: var(--text); background: var(--surface-subtle); }
+.contextPanel { max-width: 820px; margin: 18px auto 0; border: 1px solid var(--border); border-radius: 18px; background: var(--surface-subtle); padding: 18px; }
+.contextPanel legend { padding: 0 7px; font-size: 13px; font-weight: 700; color: var(--text); }
+.contextPanel > p { margin: 0 0 14px; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.contextGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.contextGrid label { display: grid; gap: 6px; color: var(--text-secondary); font-size: 12px; font-weight: 650; }
+.contextGrid input, .contextGrid select { width: 100%; min-width: 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); padding: 10px 11px; font: inherit; font-weight: 500; }
+.contextGrid input:focus, .contextGrid select:focus { outline: 2px solid color-mix(in srgb, var(--accent) 42%, transparent); outline-offset: 1px; border-color: var(--accent); }
 .divider { max-width: 820px; margin: 36px auto; display: flex; align-items: center; gap: 16px; color: var(--text-muted); font-size: 12px; }
 .divider::before, .divider::after { content: ""; height: 1px; flex: 1; background: var(--border); }
 .templateGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
@@ -30,5 +34,5 @@
 .error { color: var(--danger); }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 1040px) { .promptNote { padding-right: 8px; } }
-@media (max-width: 860px) { .templateGrid { grid-template-columns: 1fr 1fr; } }
-@media (max-width: 560px) { .headerActions > a { display: none; } .main { padding-top: 28px; } .templateGrid { grid-template-columns: 1fr; } .composerFooter { align-items: stretch; flex-direction: column; } .handNote { font-size: 18px; } .promptNote, .templateNote { justify-content: flex-start; padding-right: 0; margin-left: 2px; } .template { min-height: 196px; } .template strong { margin-top: 26px; } }
+@media (max-width: 860px) { .templateGrid { grid-template-columns: 1fr 1fr; } .contextGrid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 560px) { .headerActions > a { display: none; } .main { padding-top: 28px; } .templateGrid, .contextGrid { grid-template-columns: 1fr; } .composerFooter { align-items: stretch; flex-direction: column; } .handNote { font-size: 18px; } .promptNote, .templateNote { justify-content: flex-start; padding-right: 0; margin-left: 2px; } .template { min-height: 196px; } .template strong { margin-top: 26px; } }

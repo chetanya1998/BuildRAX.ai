@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
 const MAX_JSON_BYTES = 1_000_000;
 
@@ -17,6 +18,18 @@ export async function readJson(request: Request) {
 
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
+}
+
+export function inputValidationError(error: z.ZodError, requestId?: string) {
+  return NextResponse.json({
+    error: "Check the architecture inputs and try again.",
+    stage: "input-validation",
+    fieldErrors: error.flatten().fieldErrors,
+    requestId,
+  }, {
+    status: 422,
+    headers: requestId ? { "x-request-id": requestId } : undefined,
+  });
 }
 
 export function apiError(error: unknown) {
