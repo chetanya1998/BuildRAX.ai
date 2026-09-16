@@ -2,6 +2,7 @@ import { catalogByType } from "@/lib/domain/catalog";
 import { createConnector, createDiagram, createNode } from "@/lib/domain/factory";
 import { diagramSchema, generationRequestSchema, type Diagram, type GenerationRequest } from "@/lib/domain/schema";
 import { getTemplate } from "@/lib/domain/templates";
+import { functionalRequirementsFromDescription } from "@/lib/intelligence/input";
 import { ARCHITECTURE_COMPILER_VERSION, ARCHITECTURE_IR_VERSION, SEMANTIC_CATALOG_VERSION, architectureIRSchema, migrateArchitectureIR, type ArchitectureIR } from "./schema";
 import { validateArchitectureIR, type IRValidationResult } from "./validator";
 
@@ -41,34 +42,7 @@ function inferredSensitivity(prompt: string): ArchitectureIR["constraints"]["dat
   return "unspecified";
 }
 
-function splitRequirement(value: string, maxLength = 240) {
-  const chunks: string[] = [];
-  let remaining = value.trim();
-  while (remaining.length > maxLength) {
-    const candidate = remaining.slice(0, maxLength + 1);
-    const wordBoundary = candidate.lastIndexOf(" ");
-    const splitAt = wordBoundary >= Math.floor(maxLength * .55) ? wordBoundary : maxLength;
-    chunks.push(remaining.slice(0, splitAt).trim());
-    remaining = remaining.slice(splitAt).trim();
-  }
-  if (remaining) chunks.push(remaining);
-  return chunks;
-}
-
-/** Convert a raw description into IR-safe requirements without inventing facts. */
-export function functionalRequirementsFromDescription(description: string) {
-  const normalized = description.replace(/\r\n?/g, "\n").replace(/[\t ]+/g, " ").trim();
-  const statements = normalized
-    .split(/(?:\n+|(?<=[.!?])\s+)/)
-    .map((item) => item.replace(/^[-*•]\s*/, "").trim())
-    .filter(Boolean);
-  const requirements = (statements.length ? statements : [normalized]).flatMap((item) => splitRequirement(item));
-
-  // The IR contract allows at most 30 functional requirements. A description
-  // containing many short sentences still needs to be recoverable, so repack
-  // the original text into bounded chunks instead of dropping content.
-  return requirements.length <= 30 ? requirements : splitRequirement(normalized);
-}
+export { functionalRequirementsFromDescription } from "@/lib/intelligence/input";
 
 function boundedSummary(description: string) {
   if (description.length <= 1200) return description;

@@ -80,6 +80,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 3 — Make detailed descriptions work
 
+**Progress:** The detailed-input outcome was completed in Day 02 / B01. Day 03 follows the authoritative execution sequence by implementing B02 Evidence IR and Requirement IR contracts on branch `feat/b02-evidence-requirement-ir`; see [Day 03 Evidence IR and Requirement IR](DAY-03-EVIDENCE-REQUIREMENT-IR.md).
+
 **User outcome:** A thoughtful product description can reliably become an architecture request.
 
 **Session 3A — what and how:** Fix long-input conversion using Day 2 requirements. Keep the original description separately; correctly map scale, cloud, tenancy, sensitivity, technology preferences and restrictions.
