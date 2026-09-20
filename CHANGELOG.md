@@ -24,7 +24,7 @@
 
 #### Day 04 · B03 — Persisted evidence and requirements
 
-- Status: Implemented; database execution environment-blocked
+- Status: Implemented and verified locally, including database tests
 - Branch: `feat/m1-b03-b05-foundations`
 - User impact: Carries evidence, requirements, and semantic references through
   recovery, saving, migration, history, restore, and readback.

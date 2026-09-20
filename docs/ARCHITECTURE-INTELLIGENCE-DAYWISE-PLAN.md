@@ -96,7 +96,7 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 4 — Save the new information safely
 
-**Progress:** B03 is implemented on branch `feat/m1-b03-b05-foundations`; application checks pass, but the database tests remain environment-blocked until local Supabase is running. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
+**Progress:** B03 is implemented and locally verified on branch `feat/m1-b03-b05-foundations`; all four database test files and 78 assertions pass. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
 
 **User outcome:** Evidence and requirements survive editing, signup and reopening.
 

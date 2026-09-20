@@ -172,7 +172,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B03 — Persist and link the new representations
 
 **Depends on:** B02.  
-**Status:** Implemented on 20 September 2026 in `feat/m1-b03-b05-foundations`; application checks pass, while database execution is environment-blocked because local Supabase is unavailable. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b03-b05-foundations`; all four database test files and 78 assertions pass. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
 
 **Implement:** Extend the existing artifact/version graph with immutable evidence and requirement references. Migrate older IR through adapters without inventing evidence. Add component/flow references and presentation override metadata only where needed.
 
