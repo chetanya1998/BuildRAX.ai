@@ -4,6 +4,15 @@ Architecture IR is the versioned, provider-neutral contract between requirement
 understanding and the saved canvas diagram. It prevents an AI provider from
 writing project state directly.
 
+Evidence IR and Requirement IR are separate versioned inputs to that contract.
+Evidence IR records claims, origin, verification labels, confidence, and source
+locations. Requirement IR records normalized requirements, explicit unknowns,
+conflicts, and evidence references. User statements remain user-provided rather
+than verified; AI suggestions remain proposals; code-detector evidence is
+verified only within its named detector scope and repository location. The
+traceability bundle validates references across both artifacts before they can
+enter later persistence or generation stages.
+
 ## Request path
 
 1. The request boundary enforces size, text-safety and rate limits.

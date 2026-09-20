@@ -163,7 +163,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B02 — Define Evidence IR and Requirement IR
 
 **Depends on:** B01.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 16 September 2026 in `feat/b02-evidence-requirement-ir`. See [Day 03 Evidence IR and Requirement IR](DAY-03-EVIDENCE-REQUIREMENT-IR.md). Persistence, deployment, and production verification are not claimed.
 
 **Implement:** Add versioned Zod contracts, stable IDs, evidence locations, verification labels, unknowns, and confidence bounds. Keep existing catalog types. Explicit user statements remain user-provided; detected code evidence is verified only within detector scope.
 
