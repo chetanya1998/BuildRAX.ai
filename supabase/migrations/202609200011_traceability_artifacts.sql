@@ -37,7 +37,7 @@ create or replace function public.link_architecture_traceability(
 returns void language plpgsql security definer set search_path = '' as $$
 declare
   workspace uuid;
-  diagram_version_id uuid;
+  linked_version_id uuid;
   evidence_blob uuid;
   requirement_blob uuid;
   existing_evidence_checksum text;
@@ -56,12 +56,12 @@ begin
     raise exception 'Invalid architecture traceability payload' using errcode = '22023';
   end if;
 
-  select p.workspace_id, dv.id into workspace, diagram_version_id
+  select p.workspace_id, dv.id into workspace, linked_version_id
     from public.diagram_versions dv
     join public.diagrams d on d.id = dv.diagram_id
     join public.projects p on p.id = d.project_id and p.deleted_at is null
    where d.id = target_diagram and dv.version = target_version and public.can_edit_workspace(p.workspace_id);
-  if diagram_version_id is null then raise exception 'Architecture version not found or access denied' using errcode = '42501'; end if;
+  if linked_version_id is null then raise exception 'Architecture version not found or access denied' using errcode = '42501'; end if;
 
   insert into public.artifact_blobs(workspace_id, kind, schema_version, checksum, byte_size, hot_payload)
   values(workspace, 'evidence-ir', evidence_payload->>'schemaVersion', evidence_checksum, octet_length(evidence_payload::text), evidence_payload)
@@ -76,14 +76,14 @@ begin
   returning id into requirement_blob;
 
   insert into public.diagram_version_traceability(diagram_version_id, evidence_blob_id, requirement_blob_id)
-  values(diagram_version_id, evidence_blob, requirement_blob)
+  values(linked_version_id, evidence_blob, requirement_blob)
   on conflict on constraint diagram_version_traceability_pkey do nothing;
 
   select eb.checksum, rb.checksum into existing_evidence_checksum, existing_requirement_checksum
     from public.diagram_version_traceability dvt
     join public.artifact_blobs eb on eb.id = dvt.evidence_blob_id
     join public.artifact_blobs rb on rb.id = dvt.requirement_blob_id
-   where dvt.diagram_version_id = diagram_version_id;
+   where dvt.diagram_version_id = linked_version_id;
   if existing_evidence_checksum <> evidence_checksum or existing_requirement_checksum <> requirement_checksum then
     raise exception 'Traceability replay mismatch' using errcode = '22023';
   end if;
