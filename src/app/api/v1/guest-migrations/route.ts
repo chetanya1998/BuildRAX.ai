@@ -19,12 +19,14 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { verifyPrivateAssetReferences, verifyPrivatePresentationAssets } from "@/lib/server/private-assets";
 import { readArchitectureVersion } from "@/lib/supabase/architecture-artifacts";
+import { traceabilityBundleSchema } from "@/lib/intelligence/schema";
 
 const migrationRequest = z.object({
   idempotencyKey: z.string().uuid(),
   artifact: z.object({
     ir: architectureIRSchema,
     presentation: architecturePresentationSchema,
+    traceability: traceabilityBundleSchema.optional(),
     diagram: diagramSchema,
   }).strict(),
   generationReceipt: generationReceiptSchema.optional(),
@@ -34,6 +36,7 @@ const migrationRequest = z.object({
     architecture: z.object({
       ir: architectureIRSchema,
       presentation: architecturePresentationSchema,
+      traceability: traceabilityBundleSchema.optional(),
       generationReceipt: generationReceiptSchema,
     }).strict(),
   }).strict().optional(),
@@ -61,6 +64,7 @@ export async function persistArchitectureProject(request: Request, responseKey: 
     const sourceDiagram = modern.success ? modern.data.artifact.diagram : legacyData!.diagram;
     z.string().uuid().parse(sourceDiagram.id);
     const ir = modern.success ? modern.data.artifact.ir : architectureIRFromDiagram(sourceDiagram, undefined, "legacy-migration");
+    const traceability = modern.success ? modern.data.artifact.traceability : undefined;
     let presentation;
     try {
       presentation = assertPersistablePresentation(modern.success ? modern.data.artifact.presentation : presentationFromDiagram(sourceDiagram));
@@ -90,12 +94,13 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       diagramVersion: 1,
       irVersion: 1,
       ir,
+      traceability,
       presentation,
       createdAt: sourceDiagram.createdAt,
       updatedAt: sourceDiagram.updatedAt,
     });
     try {
-      assertArchitecturePayloadSizes(ir, presentation, snapshot.materializedDiagram);
+      assertArchitecturePayloadSizes(ir, presentation, snapshot.materializedDiagram, traceability);
     } catch (error) {
       throw new HttpError(413, error instanceof Error ? error.message : "Architecture snapshot is too large.");
     }
@@ -108,7 +113,7 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       throw new HttpError(422, "Generation receipt validation failed.");
     }
 
-    let originPayload: { ir: unknown; presentation: unknown; diagram: unknown } | null = null;
+    let originPayload: { ir: unknown; presentation: unknown; traceability?: unknown; diagram: unknown } | null = null;
     let originChecksum: string | null = null;
     let originRequestId: string | null = null;
     if (modern.success && modern.data.generationOrigin) {
@@ -118,10 +123,11 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       const originSnapshot = await createArchitectureSnapshot({
         diagramId: origin.diagram.id, diagramVersion: 1, irVersion: 1,
         ir: origin.architecture.ir, presentation: origin.architecture.presentation,
+        traceability: origin.architecture.traceability,
         createdAt: origin.diagram.createdAt, updatedAt: origin.diagram.updatedAt,
       });
       const receipt = verifyGenerationReceipt(origin.architecture.generationReceipt, originSnapshot.checksums);
-      originPayload = { ir: origin.architecture.ir, presentation: origin.architecture.presentation, diagram: originSnapshot.materializedDiagram };
+      originPayload = { ir: origin.architecture.ir, presentation: origin.architecture.presentation, traceability: origin.architecture.traceability, diagram: originSnapshot.materializedDiagram };
       originChecksum = await canonicalSha256(originPayload);
       originRequestId = receipt.requestId;
     }
@@ -148,10 +154,12 @@ export async function persistArchitectureProject(request: Request, responseKey: 
     }
 
     const completeMigration = modern.success && (modern.data.document !== undefined || originPayload !== null);
-    const rpcName = completeMigration ? "migrate_guest_architecture_complete" : "migrate_guest_architecture";
+    const rpcName = traceability
+      ? completeMigration ? "migrate_guest_architecture_complete_v2" : "migrate_guest_architecture_v2"
+      : completeMigration ? "migrate_guest_architecture_complete" : "migrate_guest_architecture";
     const rpcInput: Record<string, unknown> = {
       idempotency: modern.success ? modern.data.idempotencyKey : legacyData!.idempotencyKey,
-      request_checksum: await canonicalSha256({ ir, presentation, diagram: snapshot.materializedDiagram }),
+      request_checksum: await canonicalSha256({ ir, presentation, diagram: snapshot.materializedDiagram, ...(traceability ? { traceability } : {}) }),
       draft_title: snapshot.materializedDiagram.title,
       ir_payload: ir,
       ir_checksum: snapshot.checksums.ir,
@@ -164,6 +172,12 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       catalog_version: SEMANTIC_CATALOG_VERSION,
       ai_request_id: completeMigration ? null : aiRequestId,
     };
+    if (traceability) Object.assign(rpcInput, {
+      evidence_payload: traceability.evidence,
+      evidence_checksum: snapshot.checksums.evidence,
+      requirement_payload: traceability.requirements,
+      requirement_checksum: snapshot.checksums.requirements,
+    });
     if (completeMigration) Object.assign(rpcInput, {
       document_markdown: modern.data.document ?? "",
       generation_origin: originPayload,
@@ -181,7 +195,8 @@ export async function persistArchitectureProject(request: Request, responseKey: 
     const migration = data?.[0];
     if (!migration?.diagram_id) throw new HttpError(500, "Guest migration did not return an architecture.");
     const persisted = await readArchitectureVersion(supabase, migration.diagram_id, Number(migration.version));
-    if (persisted.checksums.ir !== snapshot.checksums.ir || persisted.checksums.presentation !== snapshot.checksums.presentation || persisted.checksums.diagram !== snapshot.checksums.diagram) {
+    if (persisted.checksums.ir !== snapshot.checksums.ir || persisted.checksums.presentation !== snapshot.checksums.presentation || persisted.checksums.diagram !== snapshot.checksums.diagram
+      || persisted.checksums.evidence !== snapshot.checksums.evidence || persisted.checksums.requirements !== snapshot.checksums.requirements) {
       throw new HttpError(500, "Persisted architecture failed read-back verification.");
     }
     let migrationVerification: { documentChecksum: string; generationOriginChecksum: string | null } | undefined;

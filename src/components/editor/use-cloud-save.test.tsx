@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createDiagram } from "@/lib/domain/factory";
 import { architectureIRFromDiagram, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
+import { buildInputTraceability } from "@/lib/intelligence/input";
 import type { RecoveryRecord } from "@/lib/storage/drafts";
 import { useCloudSave } from "./use-cloud-save";
 
@@ -34,6 +35,7 @@ beforeEach(() => { vi.clearAllMocks(); vi.useFakeTimers({ shouldAdvanceTime: tru
 describe("authenticated cloud save hook", () => {
   it("keeps a newer edit pending while the older HTTP response is delayed", async () => {
     const base = fixture();
+    const traceability = buildInputTraceability({ prompt: "Build a durable cloud service." });
     let finishFirst!: (response: Response) => void;
     const first = new Promise<Response>((resolve) => { finishFirst = resolve; });
     const fetchMock = vi.fn().mockImplementationOnce(() => first).mockImplementationOnce(async () => responseFor(base.diagram, 12, 4));
@@ -42,6 +44,7 @@ describe("authenticated cloud save hook", () => {
     const { result, rerender } = renderHook(({ diagram }) => useCloudSave({
       enabled: true, diagram, recovery: base.recovery, recoveredUnsynced: false,
       getIR: () => base.ir, getIrVersion: () => 2, applySuccess: applied,
+      getTraceability: () => traceability,
     }), { initialProps: { diagram: base.diagram }, wrapper: ({ children }) => <>{children}</> });
     await waitFor(() => expect(result.current.state).toBe("saved"));
     const oldEdit = { ...base.diagram, title: "Old edit" };
@@ -55,6 +58,7 @@ describe("authenticated cloud save hook", () => {
     const secondBody = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(secondBody.baseVersion).toBe(11);
     expect(secondBody.ir.intent.title).toBe("Latest edit");
+    expect(secondBody.traceability).toEqual(traceability);
     await waitFor(() => expect(result.current.state).toBe("saved"));
     expect(applied).toHaveBeenCalledTimes(2);
   });

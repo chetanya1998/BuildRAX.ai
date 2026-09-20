@@ -69,6 +69,7 @@ import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { architectureIRFromDiagram, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
 import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
+import type { TraceabilityBundle } from "@/lib/intelligence/schema";
 import { catalogByType, categoryMeta, nodeCatalog } from "@/lib/domain/catalog";
 import { validateConnection } from "@/lib/domain/compatibility";
 import { architectureIRToMermaid, downloadText, safeFilename } from "@/lib/domain/export";
@@ -307,9 +308,9 @@ function documentBlocks(markdown: string, diagram?: Diagram, onFocusNode: (id: s
 type ProjectOption = { id: string; name: string };
 type DocumentSource = "user-edit" | "ai-generated" | "guest-migration" | "legacy";
 type DocumentCloudState = "saved" | "pending" | "saving" | "conflict" | "error";
-type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialIrVersion?: number; initialDocument?: string; initialDocumentVersion?: number; initialDocumentSource?: DocumentSource; readOnly?: boolean; persisted?: boolean; projectId?: string; projectOptions?: ProjectOption[]; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
+type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initialTraceability?: TraceabilityBundle; initialIrVersion?: number; initialDocument?: string; initialDocumentVersion?: number; initialDocumentSource?: DocumentSource; readOnly?: boolean; persisted?: boolean; projectId?: string; projectOptions?: ProjectOption[]; recoveryScope?: RecoveryScope; initialRecovery?: RecoveryRecord; recoveredUnsynced?: boolean };
 
-function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion = 0, initialDocument = "", initialDocumentVersion = 0, initialDocumentSource = "legacy", readOnly = false, persisted = false, projectId, projectOptions = [], initialRecovery, recoveredUnsynced = false }: EditorProps) {
+function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceability, initialIrVersion = 0, initialDocument = "", initialDocumentVersion = 0, initialDocumentSource = "legacy", readOnly = false, persisted = false, projectId, projectOptions = [], initialRecovery, recoveredUnsynced = false }: EditorProps) {
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -355,6 +356,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
   const latest = useRef(diagram);
   const selectedNodeIdsRef = useRef<string[]>(selectedNodeIds);
   const irBase = useRef<ArchitectureIR>(initialIR ?? architectureIRFromDiagram(initialDiagram));
+  const traceabilityBase = useRef<TraceabilityBundle | undefined>(initialRecovery?.architecture.traceability ?? initialTraceability);
   const irVersion = useRef(initialIrVersion);
   const textEditSnapshot = useRef<Diagram | null>(null);
   const ignoreNextPaneClick = useRef(false);
@@ -378,9 +380,11 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialIrVersion =
     recovery: initialRecovery,
     recoveredUnsynced,
     getIR: () => irBase.current,
+    getTraceability: () => traceabilityBase.current,
     getIrVersion: () => irVersion.current,
     applySuccess: (request, result) => {
       irBase.current = result.ir;
+      traceabilityBase.current = result.traceability;
       irVersion.current = result.irVersion;
       setDiagram((current) => ({
         ...current,
@@ -1368,7 +1372,7 @@ export function ArchitectureEditor(props: EditorProps) {
   if (props.readOnly) return <ReactFlowProvider><ArchitectureEditorInner {...props} /></ReactFlowProvider>;
   if (props.persisted && props.recoveryScope?.kind !== "account") return <p role="alert">An authenticated workspace is required to open local recovery.</p>;
   const scope = props.recoveryScope ?? { kind: "guest" as const };
-  return <EditorRecoveryGate key={recoveryKey(scope, props.initialDiagram.id)} diagram={props.initialDiagram} ir={props.initialIR} irVersion={props.initialIrVersion} document={props.initialDocument} scope={scope}>
-    {(record) => <ReactFlowProvider><ArchitectureEditorInner {...props} initialDiagram={record.diagram} initialIR={record.architecture.ir} initialIrVersion={record.architecture.irVersion} initialRecovery={record} recoveredUnsynced={props.persisted && JSON.stringify(record.diagram) !== JSON.stringify(props.initialDiagram)} /></ReactFlowProvider>}
+  return <EditorRecoveryGate key={recoveryKey(scope, props.initialDiagram.id)} diagram={props.initialDiagram} ir={props.initialIR} traceability={props.initialTraceability} irVersion={props.initialIrVersion} document={props.initialDocument} scope={scope}>
+    {(record) => <ReactFlowProvider><ArchitectureEditorInner {...props} initialDiagram={record.diagram} initialIR={record.architecture.ir} initialTraceability={record.architecture.traceability} initialIrVersion={record.architecture.irVersion} initialRecovery={record} recoveredUnsynced={props.persisted && JSON.stringify(record.diagram) !== JSON.stringify(props.initialDiagram)} /></ReactFlowProvider>}
   </EditorRecoveryGate>;
 }

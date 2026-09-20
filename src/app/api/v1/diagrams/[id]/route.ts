@@ -17,6 +17,7 @@ import { apiError, HttpError, readJson } from "@/lib/server/http";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { verifyPrivatePresentationAssets } from "@/lib/server/private-assets";
+import { traceabilityBundleSchema } from "@/lib/intelligence/schema";
 
 const architectureSaveRequest = z.object({
   idempotencyKey: z.string().uuid(),
@@ -24,6 +25,7 @@ const architectureSaveRequest = z.object({
   baseIrVersion: z.number().int().min(0),
   ir: architectureIRSchema,
   presentation: architecturePresentationSchema,
+  traceability: traceabilityBundleSchema.optional(),
   aiRequestId: z.string().uuid().optional(),
 }).strict();
 
@@ -55,6 +57,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const idempotencyKey = modern.success ? modern.data.idempotencyKey : crypto.randomUUID();
     const aiRequestId = modern.success ? modern.data.aiRequestId : undefined;
     const ir = modern.success ? modern.data.ir : architectureIRFromDiagram(legacyData!.diagram, undefined, "legacy-migration");
+    const traceability = modern.success ? modern.data.traceability : undefined;
     let presentation;
     try {
       presentation = assertPersistablePresentation(modern.success ? modern.data.presentation : presentationFromDiagram(legacyData!.diagram));
@@ -79,16 +82,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       diagramVersion: baseVersion + 1,
       irVersion: Math.max(1, baseIrVersion),
       ir,
+      traceability,
       presentation,
       createdAt: current.created_at,
     });
     try {
-      assertArchitecturePayloadSizes(ir, presentation, snapshot.materializedDiagram);
+      assertArchitecturePayloadSizes(ir, presentation, snapshot.materializedDiagram, traceability);
     } catch (error) {
       throw new HttpError(413, error instanceof Error ? error.message : "Architecture snapshot is too large.");
     }
-    const requestChecksum = await canonicalSha256({ baseVersion, baseIrVersion, ir, presentation });
-    const { data, error } = await supabase.rpc("save_architecture_snapshot", {
+    const requestChecksum = await canonicalSha256({ baseVersion, baseIrVersion, ir, presentation, ...(traceability ? { traceability } : {}) });
+    const rpcName = traceability ? "save_architecture_snapshot_v2" : "save_architecture_snapshot";
+    const rpcInput: Record<string, unknown> = {
       target_diagram: id,
       base_version: baseVersion,
       base_ir_version: baseIrVersion,
@@ -104,7 +109,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       compiler_version: ARCHITECTURE_COMPILER_VERSION,
       catalog_version: SEMANTIC_CATALOG_VERSION,
       ai_request_id: aiRequestId ?? null,
+    };
+    if (traceability) Object.assign(rpcInput, {
+      evidence_payload: traceability.evidence,
+      evidence_checksum: snapshot.checksums.evidence,
+      requirement_payload: traceability.requirements,
+      requirement_checksum: snapshot.checksums.requirements,
     });
+    const { data, error } = await supabase.rpc(rpcName, rpcInput);
     if (error?.code === "40001") {
       const { data: authoritative } = await supabase.from("diagrams").select("current_version, current_ir_version, updated_at").eq("id", id).maybeSingle();
       return NextResponse.json({ error: "Version conflict", authoritative }, { status: 409 });

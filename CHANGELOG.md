@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Architecture intelligence persistence
+
+#### Day 04 · B03 — Persisted evidence and requirements
+
+- Status: Implemented and application-verified; database validation pending CI
+- Branch: `feat/b03-persist-traceability`
+- User impact: Carries evidence, requirements, and semantic references through
+  recovery, saving, migration, history, restore, and readback.
+- Automatic checks: See `docs/DAY-04-PERSISTED-TRACEABILITY.md`.
+- Production verification: Not claimed.
+
 ### Architecture intelligence contracts
 
 #### Day 03 · B02 — Evidence IR and Requirement IR

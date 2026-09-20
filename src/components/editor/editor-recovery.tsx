@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { architectureIRFromDiagram, canonicalSha256, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
 import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { Diagram } from "@/lib/domain/schema";
+import type { TraceabilityBundle } from "@/lib/intelligence/schema";
 import { downloadText } from "@/lib/domain/export";
 import { clearQueuedProjectSave, loadRecovery, preserveRecoveryConflict, recoveryArchitecture, recoveryKey, resolveRecoveryConflict, saveRecovery, type RecoveryRecord, type RecoveryScope } from "@/lib/storage/drafts";
 import { RecoveryWriter, recoveryErrorMessage, type RecoveryStatus } from "@/lib/storage/recovery-writer";
@@ -14,8 +15,8 @@ export function downloadRecovery(record: RecoveryRecord) {
   downloadText(JSON.stringify(record, null, 2), `buildrax-recovery-${record.diagram.id}.json`, "application/json");
 }
 
-export function EditorRecoveryGate({ diagram, ir, irVersion = 0, document = "", scope, children }: {
-  diagram: Diagram; ir?: ArchitectureIR; irVersion?: number; document?: string; scope: RecoveryScope;
+export function EditorRecoveryGate({ diagram, ir, traceability, irVersion = 0, document = "", scope, children }: {
+  diagram: Diagram; ir?: ArchitectureIR; traceability?: TraceabilityBundle; irVersion?: number; document?: string; scope: RecoveryScope;
   children: (record: RecoveryRecord) => ReactNode;
 }) {
   const [record, setRecord] = useState<RecoveryRecord>();
@@ -30,7 +31,7 @@ export function EditorRecoveryGate({ diagram, ir, irVersion = 0, document = "", 
       setError("");
       setRecord(stored ?? {
         schemaVersion: 1, key, scope, revision: 0, diagram,
-        architecture: { ir: ir ?? architectureIRFromDiagram(diagram), presentation: presentationFromDiagram(diagram), irVersion },
+        architecture: { ir: ir ?? architectureIRFromDiagram(diagram), presentation: presentationFromDiagram(diagram), irVersion, traceability },
         document, updatedAt: diagram.updatedAt,
       });
     }).catch(() => { if (active) setError("Browser recovery could not be opened. Existing records have not been removed. Enable browser storage or retry."); });
@@ -44,7 +45,7 @@ export function EditorRecoveryGate({ diagram, ir, irVersion = 0, document = "", 
   if (!record) return <div className={styles.state} role="status">Opening browser recovery…</div>;
   if (scope.kind === "account" && record.diagram.version !== diagram.version) {
     const cloud: RecoveryRecord = { schemaVersion: 1, key, scope, revision: record.revision, diagram,
-      architecture: { ir: ir ?? architectureIRFromDiagram(diagram), presentation: presentationFromDiagram(diagram), irVersion }, document, updatedAt: diagram.updatedAt };
+      architecture: { ir: ir ?? architectureIRFromDiagram(diagram), presentation: presentationFromDiagram(diagram), irVersion, traceability }, document, updatedAt: diagram.updatedAt };
     async function chooseCloud() {
       setResolving("cloud");
       try {
@@ -63,6 +64,7 @@ export function EditorRecoveryGate({ diagram, ir, irVersion = 0, document = "", 
         const response = await fetch(`/api/v1/diagrams/${diagram.id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({
           idempotencyKey: crypto.randomUUID(), baseVersion: diagram.version, baseIrVersion: irVersion,
           ir: record!.architecture.ir, presentation,
+          traceability: record!.architecture.traceability,
         }) });
         const body = await response.json();
         if (!response.ok || !body.snapshot?.materializedDiagram) throw new Error();
@@ -98,7 +100,7 @@ export function useEditorRecovery({ initial, diagram, document, getIR, getIrVers
   useEffect(() => {
     capture.current = () => initial && ({
       ...initial, diagram, document,
-      architecture: recoveryArchitecture(diagram, getIR(), getIrVersion()),
+      architecture: recoveryArchitecture(diagram, getIR(), getIrVersion(), initial.architecture.traceability),
       updatedAt: new Date().toISOString(),
     });
   }, [initial, diagram, document, getIR, getIrVersion]);
@@ -109,8 +111,15 @@ export function useEditorRecovery({ initial, diagram, document, getIR, getIrVers
     let revision = initial.revision;
     const queue = writer.current ?? new RecoveryWriter<RecoveryRecord>(async (record) => {
       const { ir, presentation } = record.architecture;
-      const [irHash, presentationHash, diagramHash] = await Promise.all([canonicalSha256(ir), canonicalSha256(presentation), canonicalSha256(record.diagram)]);
-      revision = await saveRecovery({ ...record, architecture: { ...record.architecture, checksums: { ir: irHash, presentation: presentationHash, diagram: diagramHash } } }, revision);
+      const [irHash, presentationHash, diagramHash, evidenceHash, requirementsHash] = await Promise.all([
+        canonicalSha256(ir), canonicalSha256(presentation), canonicalSha256(record.diagram),
+        record.architecture.traceability ? canonicalSha256(record.architecture.traceability.evidence) : undefined,
+        record.architecture.traceability ? canonicalSha256(record.architecture.traceability.requirements) : undefined,
+      ]);
+      revision = await saveRecovery({ ...record, architecture: { ...record.architecture, checksums: {
+        ir: irHash, presentation: presentationHash, diagram: diagramHash,
+        evidence: evidenceHash, requirements: requirementsHash,
+      } } }, revision);
     }, (next, failure) => {
       if (!active.current) return;
       setStatus(next);

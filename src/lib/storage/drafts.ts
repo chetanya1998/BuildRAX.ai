@@ -5,12 +5,14 @@ import { architectureIRFromDiagram, architecturePresentationSchema, canonicalStr
 import { architectureIRSchema, migrateArchitectureIR, type ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { GenerationReceipt } from "@/lib/server/generation-receipt";
 import { diagramSchema, type Diagram } from "@/lib/domain/schema";
+import { traceabilityBundleSchema, type TraceabilityBundle } from "@/lib/intelligence/schema";
 
 export type StoredArchitectureArtifact = {
   ir: ArchitectureIR;
   presentation: ArchitecturePresentation;
   irVersion: number;
-  checksums?: { ir: string; presentation: string; diagram: string };
+  traceability?: TraceabilityBundle;
+  checksums?: { ir: string; presentation: string; diagram: string; evidence?: string; requirements?: string };
   generationReceipt?: GenerationReceipt;
 };
 
@@ -67,12 +69,12 @@ export class RecoveryConflictError extends Error {
   constructor() { super("Another tab updated this browser copy. Download your current work before reopening the diagram."); }
 }
 
-export function recoveryArchitecture(diagram: Diagram, base: ArchitectureIR, irVersion: number): StoredArchitectureArtifact {
+export function recoveryArchitecture(diagram: Diagram, base: ArchitectureIR, irVersion: number, traceability?: TraceabilityBundle): StoredArchitectureArtifact {
   const projected = architectureIRFromDiagram(diagram, base);
   // Merely opening a generated architecture or moving a box must not relabel
   // its semantic origin as a manual edit.
   const semanticUnchanged = canonicalStringify({ ...projected, provenance: base.provenance }) === canonicalStringify(base);
-  return { ir: semanticUnchanged ? base : projected, presentation: presentationFromDiagram(diagram), irVersion };
+  return { ir: semanticUnchanged ? base : projected, presentation: presentationFromDiagram(diagram), irVersion, traceability };
 }
 
 function sameRecoveryContent(left: Pick<RecoveryRecord, "diagram" | "architecture" | "document" | "generationOrigin">, right: typeof left) {
@@ -80,7 +82,7 @@ function sameRecoveryContent(left: Pick<RecoveryRecord, "diagram" | "architectur
 }
 
 function validateArchitecture(artifact: StoredArchitectureArtifact): StoredArchitectureArtifact {
-  return { ...artifact, ir: migrateArchitectureIR(artifact.ir), presentation: architecturePresentationSchema.parse(artifact.presentation) };
+  return { ...artifact, ir: migrateArchitectureIR(artifact.ir), presentation: architecturePresentationSchema.parse(artifact.presentation), traceability: artifact.traceability ? traceabilityBundleSchema.parse(artifact.traceability) : undefined };
 }
 
 export type PendingProjectSave = {
@@ -89,6 +91,7 @@ export type PendingProjectSave = {
   baseVersion: number;
   baseIrVersion: number;
   ir: ArchitectureIR;
+  traceability?: TraceabilityBundle;
   presentation: ArchitecturePresentation;
   diagram: Diagram;
   queuedAt: string;
@@ -138,11 +141,7 @@ function db() {
 
 export async function saveDraft(record: DraftRecord) {
   const validated = diagramSchema.parse(record.diagram);
-  const architecture = record.architecture ? {
-    ...record.architecture,
-    ir: architectureIRSchema.parse(record.architecture.ir),
-    presentation: architecturePresentationSchema.parse(record.architecture.presentation),
-  } : undefined;
+  const architecture = record.architecture ? validateArchitecture(record.architecture) : undefined;
   const generationOrigin = record.generationOrigin ?? (architecture?.generationReceipt ? { diagram: validated, architecture } : undefined);
   await db().drafts.put({ ...record, diagram: validated, architecture, generationOrigin, updatedAt: new Date().toISOString() });
 }
@@ -229,13 +228,14 @@ export async function saveRecovery(record: RecoveryRecord, expectedRevision: num
 export async function queueProjectSave(record: Omit<PendingProjectSave, "queuedAt" | "attempts">, scope: RecoveryScope) {
   const diagram = diagramSchema.parse(record.diagram);
   const ir = architectureIRSchema.parse(record.ir);
+  const traceability = record.traceability ? traceabilityBundleSchema.parse(record.traceability) : undefined;
   const presentation = architecturePresentationSchema.parse(record.presentation);
   const key = recoveryKey(scope, record.diagramId);
   await db().transaction("rw", db().scopedProjectSaves, async () => {
     const existing = await db().scopedProjectSaves.get(key);
     if (existing && existing.localRevision > record.localRevision) return;
     await db().scopedProjectSaves.put({
-      ...record, key, diagram, ir, presentation, queuedAt: new Date().toISOString(),
+      ...record, key, diagram, ir, traceability, presentation, queuedAt: new Date().toISOString(),
       attempts: existing?.idempotencyKey === record.idempotencyKey ? existing.attempts + 1 : 1,
     });
   });
@@ -254,6 +254,7 @@ export async function loadQueuedProjectSave(diagramId: string, scope: RecoverySc
     baseIrVersion: Number.isInteger(record.baseIrVersion) ? record.baseIrVersion : 0,
     localRevision: Number.isSafeInteger(record.localRevision) ? record.localRevision : 0,
     ir: record.ir ? architectureIRSchema.parse(record.ir) : architectureIRFromDiagram(diagram, undefined, "legacy-migration"),
+    traceability: record.traceability ? traceabilityBundleSchema.parse(record.traceability) : undefined,
     presentation: record.presentation ? architecturePresentationSchema.parse(record.presentation) : presentationFromDiagram(diagram),
   };
 }

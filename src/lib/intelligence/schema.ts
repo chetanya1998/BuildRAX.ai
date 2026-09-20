@@ -160,10 +160,18 @@ export const requirementItemSchema = z.object({
   origin: z.enum(["user-provided", "evidence-derived", "inferred", "ai-proposed", "unknown"]),
   confidence: z.number().min(0).max(1),
   evidenceRefs: z.array(evidenceIdSchema).max(40).default([]),
+  architectureRefs: z.array(z.object({
+    kind: z.enum(["component", "flow"]),
+    id: z.string().min(1).max(120),
+  }).strict()).max(80).default([]),
   question: recordText(300).optional(),
 }).strict().superRefine((item, ctx) => {
   if (new Set(item.evidenceRefs).size !== item.evidenceRefs.length) {
     ctx.addIssue({ code: "custom", path: ["evidenceRefs"], message: "Requirement evidence references must be unique." });
+  }
+  const architectureReferences = item.architectureRefs.map((reference) => `${reference.kind}:${reference.id}`);
+  if (new Set(architectureReferences).size !== architectureReferences.length) {
+    ctx.addIssue({ code: "custom", path: ["architectureRefs"], message: "Requirement architecture references must be unique." });
   }
   if (item.origin === "user-provided" && !["stated", "conflicting"].includes(item.state)) {
     ctx.addIssue({ code: "custom", path: ["state"], message: "User-provided requirements must remain stated or explicitly conflicting facts." });

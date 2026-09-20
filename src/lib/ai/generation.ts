@@ -7,6 +7,8 @@ import { createArchitectureSnapshot, presentationFromDiagram, type ArchitectureP
 import { validateArchitectureIR, type IRValidationResult } from "@/lib/architecture-ir/validator";
 import { AIOutputError, AISemanticValidationError } from "./errors";
 import { getAIProvider, type ArchitectureAIProvider } from "./provider";
+import { buildInputTraceability } from "@/lib/intelligence/input";
+import type { TraceabilityBundle } from "@/lib/intelligence/schema";
 
 export const ARCHITECTURE_PROMPT_VERSION = "architecture-v1";
 
@@ -20,6 +22,7 @@ export type GenerationContext = {
 
 export type GenerationResult = {
   ir: ArchitectureIR;
+  traceability: TraceabilityBundle;
   presentation: ArchitecturePresentation;
   artifact: ArchitectureSnapshot;
   diagram: Diagram;
@@ -113,15 +116,17 @@ export async function generateArchitecture(
   const request = generationRequestSchema.parse(input);
   const provider = options.provider ?? await getAIProvider();
   const context = buildGenerationContext(request, options.requestId ?? crypto.randomUUID());
+  const traceability = buildInputTraceability(request);
 
   try {
     const candidate = await provider.generate(request, context);
     const { ir, validation } = validateGeneratedIR(candidate);
     const diagram = validateGeneratedDiagram(compileArchitectureIR(ir));
     const presentation = presentationFromDiagram(diagram);
-    const artifact = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, presentation, createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
+    const artifact = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, traceability, presentation, createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
     return {
       ir,
+      traceability,
       presentation,
       artifact,
       diagram: artifact.materializedDiagram,
@@ -138,9 +143,10 @@ export async function generateArchitecture(
     const { ir, validation } = validateGeneratedIR(repaired);
     const diagram = validateGeneratedDiagram(compileArchitectureIR(ir));
     const presentation = presentationFromDiagram(diagram);
-    const artifact = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, presentation, createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
+    const artifact = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, traceability, presentation, createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
     return {
       ir,
+      traceability,
       presentation,
       artifact,
       diagram: artifact.materializedDiagram,
