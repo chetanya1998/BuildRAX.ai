@@ -7,3 +7,6 @@ updates:
     groups:
       development-dependencies:
         dependency-type: development
+        update-types:
+          - minor
+          - patch
