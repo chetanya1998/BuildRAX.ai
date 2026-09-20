@@ -199,7 +199,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B06 — Consolidate the AI gateway
 
 **Depends on:** B04.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b06-b08-generation-platform`. See [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
 
 **Implement:** Wrap the existing provider behind task contracts. Centralize structured output, timeouts, bounded retry, cancellation, token/cost metadata and request IDs. Add production configuration validation and deterministic no-key behavior.
 
@@ -208,7 +208,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B07 — Add resumable generation jobs
 
 **Depends on:** B03, B06.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b06-b08-generation-platform`; the clean database reset and 108 database assertions pass. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
 
 **Implement:** Use durable PostgreSQL jobs and stage artifacts with leases. Add create/status/cancel/retry APIs. Choose polling first for current hosting; run long work in a bounded worker. Retain valid prior stages and reject stale completions.
 
@@ -217,7 +217,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B08 — Connect the staged prompt pipeline
 
 **Depends on:** B03–B07.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b06-b08-generation-platform`. See [Day 10 generation workflow](DAY-10-GENERATION-WORKFLOW.md).
 
 **Implement:** Route prompt/existing architecture through evidence, requirements, context, patterns, rules, optional ambiguity resolution, validation and compilation. Add actual progress, cancel, retry and first-result facts/assumptions/unknowns.
 
@@ -425,7 +425,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### O01 — Add distributed limits and admission control
 
 **Depends on:** B06, B07.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b06-b08-generation-platform`; hosted multi-instance load remains a release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
 
 **Implement:** Replace process-local limits with a Redis-compatible adapter and signed guest identities. Add user/workspace/route/provider limits, provider concurrency leases, queue capacity, cost ceilings and Retry-After. Meter actual usage through the gateway.
 

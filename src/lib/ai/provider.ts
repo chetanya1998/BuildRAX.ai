@@ -3,11 +3,23 @@ import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import { type Diagram, type GenerationRequest, type ReviewFinding } from "@/lib/domain/schema";
 import type { GenerationContext } from "./generation";
 
+export type AIUsage = {
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number | null;
+};
+
+export type ArchitectureProviderResult = {
+  output: ArchitectureIR;
+  usage: AIUsage;
+};
+
 export interface ArchitectureAIProvider {
   id: string;
   model: string;
-  generate(request: GenerationRequest, context: GenerationContext): Promise<ArchitectureIR>;
-  repair(request: GenerationRequest, context: GenerationContext): Promise<ArchitectureIR>;
+  generate(request: GenerationRequest, context: GenerationContext): Promise<ArchitectureProviderResult>;
+  repair(request: GenerationRequest, context: GenerationContext): Promise<ArchitectureProviderResult>;
 }
 
 export class MockArchitectureProvider implements ArchitectureAIProvider {
@@ -16,7 +28,7 @@ export class MockArchitectureProvider implements ArchitectureAIProvider {
 
   async generate(input: GenerationRequest, context?: GenerationContext) {
     void context;
-    return compileArchitectureRequest(input).ir;
+    return { output: compileArchitectureRequest(input).ir, usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 } };
   }
 
   async repair(input: GenerationRequest, context: GenerationContext) {

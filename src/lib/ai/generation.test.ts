@@ -30,7 +30,11 @@ function validDiagram(): Diagram {
 }
 
 function provider(generate: (input: GenerationRequest, context: GenerationContext) => Promise<ArchitectureIR>, repair = generate): ArchitectureAIProvider {
-  return { id: "test", model: "test-model", generate, repair };
+  const wrap = async (input: GenerationRequest, context: GenerationContext, handler: typeof generate) => ({
+    output: await handler(input, context),
+    usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30, estimatedCostUsd: null },
+  });
+  return { id: "test", model: "test-model", generate: (input, context) => wrap(input, context, generate), repair: (input, context) => wrap(input, context, repair) };
 }
 
 describe("AI generation orchestration", () => {
@@ -62,6 +66,7 @@ describe("AI generation orchestration", () => {
     });
     expect(result.attempts).toBe(2);
     expect(repairs).toBe(1);
+    expect(result.usage.totalTokens).toBe(60);
     expect(result.diagram.nodes).toHaveLength(15);
   });
 

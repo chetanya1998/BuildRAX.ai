@@ -451,6 +451,11 @@ cp .env.example .env.local
 | `RATE_LIMIT_HMAC_SECRET` | Server | Privacy-safe rate fingerprints. |
 | `SHARE_TOKEN_PEPPER` | Server | Share hash protection. |
 | `GENERATION_RECEIPT_SECRET` | Server | Signed guest receipts. |
+| `GENERATION_WORKER_SECRET` | Server | Authenticates bounded generation worker invocations. |
+| `GENERATION_WORKER_ENABLED` | Server | Keep `false` until database, application, and worker verification pass. |
+| `GENERATION_QUEUE_CAPACITY` | Server | Shared queued/running job ceiling; defaults to `100`. |
+| `GENERATION_PROVIDER_CONCURRENCY` | Server | Shared provider lease ceiling; defaults to `4`. |
+| `GENERATION_PROVIDER_COST_CAPACITY` | Server | Reserved provider cost-unit ceiling; defaults to `100`. |
 | `ARCHIVE_WORKER_SECRET` | Server | Maintenance authentication. |
 | `ARCHIVE_MAINTENANCE_ENABLED` | Server | Keep `false` until database and application release checks pass; enable the scheduler last. |
 | `RESEND_API_KEY`, `ARCHIVE_NOTICE_FROM_EMAIL` | Server | Archive emails. |
@@ -470,6 +475,8 @@ Database migrations run in order:
 8. `202609120008_archive_delivery_hardening.sql`
 9. `202609120009_release_verification.sql`
 10. `202609150010_fix_guest_migration_origin_conflict.sql`
+11. `202609200011_traceability_artifacts.sql`
+12. `202609200012_generation_jobs_and_admission.sql`
 
 ```bash
 npx supabase start

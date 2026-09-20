@@ -37,8 +37,10 @@ describe("complete guest migration", () => {
     vi.mocked(loadDraft).mockResolvedValue(record);
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(await successfulBody(record)), { status: 200, headers: { "content-type": "application/json" } })));
     render(<DraftLoader draftId={record.id} migrate />);
-    await waitFor(() => expect(deleteDraft).toHaveBeenCalledWith(record.id));
-    expect(replace).toHaveBeenCalledWith("/projects/project-one/canvas");
+    await waitFor(() => {
+      expect(deleteDraft).toHaveBeenCalledWith(record.id);
+      expect(replace).toHaveBeenCalledWith("/projects/project-one/canvas");
+    });
   });
 
   it("retains the browser draft when any verification result differs", async () => {

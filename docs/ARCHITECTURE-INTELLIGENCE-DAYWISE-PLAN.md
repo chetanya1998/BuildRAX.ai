@@ -144,6 +144,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 7 — Put AI requests through one controlled service
 
+**Progress:** B06 is implemented and locally verified on branch `feat/m1-b06-b08-generation-platform`; see [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
+
 **User outcome:** All AI features follow the same rules for output, cost and errors.
 
 **Session 7A — what and how:** Wrap the existing provider in one task gateway for extraction, synthesis, changes, review, refinement and explanation. Define a structured response for each task.
@@ -157,6 +159,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 **Done when:** Invalid outputs fail safely; enabled production features reject missing secrets; request IDs and actual model usage are recorded without private content.
 
 ## Day 8 — Resume long work from the failed step
+
+**Progress:** B07 is implemented and locally verified on branch `feat/m1-b06-b08-generation-platform`; see [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
 
 **User outcome:** A failed final step does not force the user to start again.
 
@@ -172,6 +176,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 9 — Protect the service when users arrive together
 
+**Progress:** O01 is implemented and locally verified on branch `feat/m1-b06-b08-generation-platform`; hosted multi-instance load remains unverified. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
+
 **User outcome:** Traffic is shared fairly and excess work queues visibly.
 
 **Session 9A — what and how:** Replace process-local rate limits with shared TTL-backed limits. Issue signed guest identities; apply limits by user, workspace, route and provider.
@@ -185,6 +191,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 **Done when:** Two server instances share limits; crashed workers release capacity; exhausted capacity queues or rejects honestly; costly public requests fail safely if protection is unavailable.
 
 ## Day 10 — Complete the new prompt-to-canvas journey
+
+**Progress:** B08 is implemented and locally verified on branch `feat/m1-b06-b08-generation-platform`; see [Day 10 generation workflow](DAY-10-GENERATION-WORKFLOW.md).
 
 **User outcome:** The user sees real progress and receives an explainable first architecture.
 

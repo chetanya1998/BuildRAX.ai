@@ -2,10 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { architectureIRFromDiagram, architecturePresentationSchema, validateArchitectureArtifact } from "@/lib/architecture-ir/snapshot";
 import { architectureIRSchema } from "@/lib/architecture-ir/schema";
-import { reviewArchitectureIR } from "@/lib/ai/provider";
+import { runArchitectureReview } from "@/lib/ai/gateway";
 import { diagramSchema } from "@/lib/domain/schema";
 import { apiError, HttpError, readJson } from "@/lib/server/http";
-import { assertRateLimit } from "@/lib/server/rate-limit";
+import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
@@ -18,7 +18,7 @@ const requestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    assertRateLimit(request, "review", 12);
+    await assertSharedRateLimit(request, "review", { limit: 12, windowSeconds: 600 });
     const body = requestSchema.parse(await readJson(request));
     const ir = body.ir ?? architectureIRFromDiagram(body.diagram);
     if (body.presentation) {
@@ -26,7 +26,8 @@ export async function POST(request: Request) {
       if (!validation.valid) return NextResponse.json({ error: "Architecture artifact validation failed.", validation }, { status: 422 });
     }
     const irVersion = body.irVersion ?? 1;
-    const findings = reviewArchitectureIR(ir, body.diagram.version);
+    const gateway = await runArchitectureReview({ ir, diagramVersion: body.diagram.version }, { signal: request.signal });
+    const findings = gateway.data;
     let reviewRunId: string | null = null;
     if (body.persist) {
       const supabase = await createSupabaseServerClient();
@@ -40,6 +41,6 @@ export async function POST(request: Request) {
       if (error) throw new HttpError(error.code === "42501" ? 403 : error.code === "22023" ? 422 : 500, "Architecture review could not be persisted.");
       reviewRunId = data as string;
     }
-    return NextResponse.json({ diagramVersion: body.diagram.version, irVersion, reviewRunId, advisory: true, findings });
+    return NextResponse.json({ diagramVersion: body.diagram.version, irVersion, reviewRunId, advisory: true, findings, meta: gateway.meta });
   } catch (error) { return apiError(error); }
 }

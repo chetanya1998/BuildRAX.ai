@@ -18,6 +18,8 @@ export class AISemanticValidationError extends Error {
 
 export function classifyAIError(error: unknown) {
   if (error instanceof AIOutputError || error instanceof AISemanticValidationError) return error.code;
+  if (error && typeof error === "object" && "code" in error && error.code === "gateway_configuration") return "configuration";
+  if (error && typeof error === "object" && "code" in error && error.code === "gateway_timeout") return "provider_timeout";
   if (error instanceof Error && error.name === "APIConnectionTimeoutError") return "provider_timeout";
   if (error instanceof Error && /timeout/i.test(error.message)) return "provider_timeout";
   if (error instanceof Error && /rate limit/i.test(error.message)) return "provider_rate_limited";

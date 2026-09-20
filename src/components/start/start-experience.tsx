@@ -3,7 +3,7 @@
 import { ArrowRight, LayoutTemplate, PencilRuler } from "lucide-react";
 import { ArrowBendRightDown } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -18,7 +18,7 @@ import { saveDraft } from "@/lib/storage/drafts";
 import { useHydrated } from "@/lib/ui/use-hydrated";
 import styles from "./start.module.css";
 
-const anonymousSessionStorageKey = "buildrax-anonymous-session";
+const guestTokenStorageKey = "buildrax-signed-guest-session";
 
 const fieldLabels: Record<string, string> = {
   prompt: "Architecture description",
@@ -40,13 +40,23 @@ function generationErrorMessage(body: unknown) {
   return `${stage}${response.error || "Generation failed."}`;
 }
 
-function anonymousSessionId() {
-  const existing = localStorage.getItem(anonymousSessionStorageKey);
-  if (existing) return existing;
-  const created = crypto.randomUUID();
-  localStorage.setItem(anonymousSessionStorageKey, created);
-  return created;
-}
+type CompletedGeneration = {
+  artifact: { ir: ArchitectureIR; presentation: ArchitecturePresentation; traceability?: TraceabilityBundle; diagram: ReturnType<typeof createDiagram>; checksums?: { ir: string; presentation: string; diagram: string; evidence?: string; requirements?: string }; generationReceipt?: GenerationReceipt };
+  summary: { facts: string[]; assumptions: string[]; unknowns: string[] };
+  sourcePrompt: string;
+};
+
+const stageMessages: Record<string, string> = {
+  accepted: "Queued for bounded generation…",
+  evidence: "Captured source evidence…",
+  requirements: "Normalized requirements and unknowns…",
+  context: "Prepared the task context within budget…",
+  rules: "Evaluated reusable patterns and proposal-only rules…",
+  synthesis: "Synthesized the semantic architecture…",
+  validation: "Validated components, flows, and constraints…",
+  layout: "Compiled the visual layout…",
+  published: "The architecture is ready to inspect.",
+};
 
 export function StartExperience({ initialTemplate, authenticated = false }: { initialTemplate?: string; authenticated?: boolean }) {
   const router = useRouter();
@@ -58,10 +68,34 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
   const [scale, setScale] = useState("");
   const [tenancy, setTenancy] = useState<GenerationRequest["tenancy"] | "">("");
   const [dataSensitivity, setDataSensitivity] = useState<GenerationRequest["dataSensitivity"] | "">("");
-  const [state, setState] = useState<"idle" | "generating" | "error">("idle");
+  const [state, setState] = useState<"idle" | "generating" | "ready" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [completedGeneration, setCompletedGeneration] = useState<CompletedGeneration | null>(null);
+  const guestToken = useRef<string | null>(null);
   const hydrated = useHydrated();
   const selected = useMemo(() => getTemplate(selectedTemplate), [selectedTemplate]);
+
+  async function generationHeaders() {
+    const headers: Record<string, string> = { "content-type": "application/json" };
+    if (authenticated) return headers;
+    let token = guestToken.current;
+    if (!token) {
+      try { token = sessionStorage.getItem(guestTokenStorageKey); } catch { /* Use a fresh signed session. */ }
+    }
+    if (!token) {
+      const response = await fetch("/api/v1/guest-session", { method: "POST" });
+      const body = await response.json();
+      if (!response.ok || !body.token) throw new Error(body.error || "A secure guest session could not be created.");
+      const issuedToken = String(body.token);
+      token = issuedToken;
+      try { sessionStorage.setItem(guestTokenStorageKey, issuedToken); } catch { /* In-memory token remains usable. */ }
+    }
+    if (!token) throw new Error("A secure guest session could not be created.");
+    guestToken.current = token;
+    headers["x-buildrax-guest-token"] = token;
+    return headers;
+  }
 
   async function openDiagram(diagram: ReturnType<typeof createDiagram>, sourcePrompt?: string, artifact?: {
     ir: ArchitectureIR;
@@ -120,42 +154,101 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
       return;
     }
     setState("generating");
-    setMessage("Understanding the system and validating component boundaries…");
+    setCompletedGeneration(null);
+    setMessage(stageMessages.accepted);
     try {
       const basePrompt = prompt.trim().length ? prompt : selected!.description;
-      const headers: Record<string, string> = { "content-type": "application/json" };
-      if (!authenticated) {
-        headers["x-buildrax-guest"] = "true";
-        headers["x-buildrax-anonymous-session"] = anonymousSessionId();
-      }
-      const response = await fetch("/api/v1/ai/generations", {
+      const headers = await generationHeaders();
+      const architectureRequest = {
+        prompt: basePrompt,
+        productType: productType.trim() || undefined,
+        preferredStack: preferredStack.trim() || undefined,
+        cloudProvider: cloudProvider || undefined,
+        scale: scale || undefined,
+        tenancy: tenancy || undefined,
+        dataSensitivity: dataSensitivity || undefined,
+        templateId: selected?.id,
+      } satisfies GenerationRequest;
+      const response = await fetch("/api/v1/generation-jobs", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          prompt: basePrompt,
-          productType: productType.trim() || undefined,
-          preferredStack: preferredStack.trim() || undefined,
-          cloudProvider: cloudProvider || undefined,
-          scale: scale || undefined,
-          tenancy: tenancy || undefined,
-          dataSensitivity: dataSensitivity || undefined,
-          templateId: selected?.id,
-        } satisfies GenerationRequest),
+          idempotencyKey: crypto.randomUUID(),
+          request: architectureRequest,
+          mode: selected ? "deterministic" : "auto",
+        }),
       });
       const body = await response.json();
       if (!response.ok) throw new Error(generationErrorMessage(body));
-      setMessage("Laying out validated components and typed connections…");
-      await openDiagram(body.artifact.diagram, basePrompt, {
-        ir: body.artifact.ir,
-        presentation: body.artifact.presentation,
-        traceability: body.artifact.traceability,
-        checksums: body.artifact.checksums,
-        generationReceipt: body.artifact.generationReceipt,
-      });
+      const jobId = body.job?.id;
+      if (!jobId) throw new Error("Generation did not return a durable job ID.");
+      setActiveJobId(jobId);
+      void fetch(`/api/v1/generation-jobs/${jobId}/run`, { method: "POST", headers });
+
+      let completed;
+      for (let poll = 0; poll < 240; poll += 1) {
+        const statusResponse = await fetch(`/api/v1/generation-jobs/${jobId}`, { headers });
+        const statusBody = await statusResponse.json();
+        if (!statusResponse.ok) throw new Error(statusBody.error || "Generation status is unavailable.");
+        const job = statusBody.job;
+        setMessage(`${stageMessages[job.stage] ?? "Generating architecture…"} ${job.progress}%`);
+        if (job.status === "completed") { completed = job.result; break; }
+        if (job.status === "failed") throw new Error(job.error?.message || "Generation failed at a recoverable stage.");
+        if (job.status === "cancelled") throw new Error("Generation was cancelled. Completed checkpoints were retained.");
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      if (!completed?.artifact) throw new Error("Generation is still queued. Retry shortly; completed checkpoints are retained.");
+      setCompletedGeneration({ ...completed, sourcePrompt: basePrompt });
+      setState("ready");
+      setMessage(stageMessages.published);
     } catch (error) {
       setState("error");
       setMessage(error instanceof Error ? error.message : "Could not generate the diagram.");
     }
+  }
+
+  async function cancelGeneration() {
+    if (!activeJobId) return;
+    try {
+      const headers = await generationHeaders();
+      await fetch(`/api/v1/generation-jobs/${activeJobId}/cancel`, { method: "POST", headers });
+      setState("error");
+      setMessage("Generation was cancelled. Completed checkpoints were retained for retry.");
+    } catch (error) { setMessage(error instanceof Error ? error.message : "Cancellation could not be recorded."); }
+  }
+
+  async function retryGeneration() {
+    if (!activeJobId) return generate();
+    setState("generating");
+    setMessage("Retrying from the last valid checkpoint…");
+    try {
+      const headers = await generationHeaders();
+      const retry = await fetch(`/api/v1/generation-jobs/${activeJobId}/retry`, { method: "POST", headers });
+      if (!retry.ok) throw new Error((await retry.json()).error || "Generation could not be retried.");
+      void fetch(`/api/v1/generation-jobs/${activeJobId}/run`, { method: "POST", headers });
+      for (let poll = 0; poll < 240; poll += 1) {
+        const statusResponse = await fetch(`/api/v1/generation-jobs/${activeJobId}`, { headers });
+        const statusBody = await statusResponse.json();
+        const job = statusBody.job;
+        if (!statusResponse.ok) throw new Error(statusBody.error || "Generation status is unavailable.");
+        setMessage(`${stageMessages[job.stage] ?? "Generating architecture…"} ${job.progress}%`);
+        if (job.status === "completed") {
+          setCompletedGeneration({ ...job.result, sourcePrompt: prompt.trim() || selected?.description || "Architecture request" });
+          setState("ready");
+          setMessage(stageMessages.published);
+          return;
+        }
+        if (job.status === "failed") throw new Error(job.error?.message || "Generation retry failed.");
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+      throw new Error("Generation remains queued; try again shortly.");
+    } catch (error) { setState("error"); setMessage(error instanceof Error ? error.message : "Generation retry failed."); }
+  }
+
+  async function openCompletedGeneration() {
+    if (!completedGeneration) return;
+    const { artifact, sourcePrompt } = completedGeneration;
+    await openDiagram(artifact.diagram, sourcePrompt, artifact);
   }
 
   async function blankCanvas() {
@@ -170,7 +263,7 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
       <div className={styles.composer}>
         <label className="sr-only" htmlFor="architecture-prompt">Architecture prompt</label>
         <textarea id="architecture-prompt" maxLength={3000} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="A multi-tenant AI support platform using Next.js, FastAPI, PostgreSQL, Redis and OpenAI…" />
-        <div className={styles.composerFooter}><span className={styles.count}>{prompt.length.toLocaleString()} / 3,000</span><div><Button variant="tertiary" onClick={blankCanvas} disabled={!hydrated}><PencilRuler size={15} /> Blank canvas</Button> <Button onClick={generate} disabled={!hydrated || state === "generating"}>Generate architecture <ArrowRight size={15} /></Button></div></div>
+        <div className={styles.composerFooter}><span className={styles.count}>{prompt.length.toLocaleString()} / 3,000</span><div><Button variant="tertiary" onClick={blankCanvas} disabled={!hydrated || state === "generating"}><PencilRuler size={15} /> Blank canvas</Button> {state === "generating" ? <Button onClick={cancelGeneration}>Cancel generation</Button> : state === "error" && activeJobId ? <Button onClick={retryGeneration}>Retry generation <ArrowRight size={15} /></Button> : <Button onClick={generate} disabled={!hydrated}>Generate architecture <ArrowRight size={15} /></Button>}</div></div>
       </div>
       <span className={`${styles.handNote} ${styles.promptNote}`}>add context for a sharper first draft <ArrowBendRightDown size={29} weight="light" /></span>
       <fieldset className={styles.contextPanel}>
@@ -186,6 +279,15 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
         </div>
       </fieldset>
       {state !== "idle" && <div className={`${styles.status} ${state === "error" ? styles.error : ""}`} role="status">{state === "generating" && <span className={styles.spinner} />}{message}</div>}
+      {completedGeneration && <section className={styles.firstResult} aria-labelledby="first-result-title">
+        <div><span className={styles.kicker}>Explainable first result</span><h2 id="first-result-title">Review what shaped this architecture</h2></div>
+        <div className={styles.resultColumns}>
+          <div><strong>Facts</strong><ul>{completedGeneration.summary.facts.map((item) => <li key={item}>{item}</li>)}</ul></div>
+          <div><strong>Assumptions</strong><ul>{completedGeneration.summary.assumptions.map((item) => <li key={item}>{item}</li>)}</ul></div>
+          <div><strong>Unknowns</strong><ul>{completedGeneration.summary.unknowns.map((item) => <li key={item}>{item}</li>)}</ul></div>
+        </div>
+        <Button onClick={openCompletedGeneration}>Open validated architecture <ArrowRight size={15} /></Button>
+      </section>}
       <div className={styles.divider}>or begin from a trusted template</div>
       <span className={`${styles.handNote} ${styles.templateNote}`}>pick a validated starting point <ArrowBendRightDown size={29} weight="light" /></span>
       <div className={styles.templateGrid}>{templates.map((item) => <button className={`${styles.template} ${selectedTemplate === item.id ? styles.templateSelected : ""}`} key={item.id} onClick={() => setSelectedTemplate(selectedTemplate === item.id ? "" : item.id)} aria-pressed={selectedTemplate === item.id}><small>{item.category}</small><strong>{item.name}</strong><p>{item.description}</p><span>{item.diagram.nodes.length} components · {item.diagram.connectors.length} typed flows</span></button>)}</div>
