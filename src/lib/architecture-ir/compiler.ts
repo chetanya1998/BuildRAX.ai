@@ -35,10 +35,54 @@ function trafficProfile(scale = ""): ArchitectureIR["intent"]["trafficProfile"] 
   return "unknown";
 }
 
-function sensitivity(prompt: string): ArchitectureIR["constraints"]["dataSensitivity"] {
+function inferredSensitivity(prompt: string): ArchitectureIR["constraints"]["dataSensitivity"] {
   if (/health|payment|financial|secret|credential|restricted/i.test(prompt)) return "restricted";
   if (/personal|customer|private|sensitive|pii/i.test(prompt)) return "confidential";
   return "unspecified";
+}
+
+function splitRequirement(value: string, maxLength = 240) {
+  const chunks: string[] = [];
+  let remaining = value.trim();
+  while (remaining.length > maxLength) {
+    const candidate = remaining.slice(0, maxLength + 1);
+    const wordBoundary = candidate.lastIndexOf(" ");
+    const splitAt = wordBoundary >= Math.floor(maxLength * .55) ? wordBoundary : maxLength;
+    chunks.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
+/** Convert a raw description into IR-safe requirements without inventing facts. */
+export function functionalRequirementsFromDescription(description: string) {
+  const normalized = description.replace(/\r\n?/g, "\n").replace(/[\t ]+/g, " ").trim();
+  const statements = normalized
+    .split(/(?:\n+|(?<=[.!?])\s+)/)
+    .map((item) => item.replace(/^[-*•]\s*/, "").trim())
+    .filter(Boolean);
+  const requirements = (statements.length ? statements : [normalized]).flatMap((item) => splitRequirement(item));
+
+  // The IR contract allows at most 30 functional requirements. A description
+  // containing many short sentences still needs to be recoverable, so repack
+  // the original text into bounded chunks instead of dropping content.
+  return requirements.length <= 30 ? requirements : splitRequirement(normalized);
+}
+
+function boundedSummary(description: string) {
+  if (description.length <= 1200) return description;
+  const candidate = description.slice(0, 1200);
+  const wordBoundary = candidate.lastIndexOf(" ");
+  return candidate.slice(0, wordBoundary >= 900 ? wordBoundary : 1200).trim();
+}
+
+function explicitNonFunctionalRequirements(request: GenerationRequest) {
+  const requirements: string[] = [];
+  if (request.scale) requirements.push(`Scale target: ${request.scale}.`);
+  if (request.tenancy) requirements.push(`Tenancy model: ${request.tenancy}.`);
+  if (request.dataSensitivity) requirements.push(`Data sensitivity: ${request.dataSensitivity}.`);
+  return requirements;
 }
 
 export function buildArchitectureIR(input: GenerationRequest): ArchitectureIR {
@@ -47,26 +91,34 @@ export function buildArchitectureIR(input: GenerationRequest): ArchitectureIR {
   const template = getTemplate(templateId)!;
   const archetype = archetypes.find((item) => item.id === templateId)?.archetype ?? "general";
   const title = (request.productType || request.prompt.split(/[.!?\n]/)[0] || template.name).slice(0, 160);
-  const sensitive = sensitivity(request.prompt);
+  const sensitive = request.dataSensitivity ?? inferredSensitivity(request.prompt);
+  const promptDeclaresMultiTenant = /multi[- ]tenant/i.test(request.prompt);
+  const promptDeclaresSingleTenant = /single[- ]tenant/i.test(request.prompt);
+  const explicitTemplateIsMultiTenant = request.templateId === "multi-tenant-saas";
+  const multiTenant = request.tenancy
+    ? request.tenancy === "multi-tenant"
+    : promptDeclaresMultiTenant
+      ? true
+      : promptDeclaresSingleTenant
+        ? false
+        : explicitTemplateIsMultiTenant;
   const allIds = template.diagram.nodes.map((node) => node.id);
   const assumptions: ArchitectureIR["assumptions"] = template.diagram.assumptions.map((item) => ({ id: item.id, type: item.type, text: item.text, confidence: item.confidence, affectedComponents: item.affectedObjects }));
-  if (request.preferredStack) assumptions.push({ id: "preferred-stack", type: "stack", text: `Preferred stack: ${request.preferredStack}`, confidence: .9, affectedComponents: allIds });
-  if (request.cloudProvider) assumptions.push({ id: "cloud-provider", type: "cloud", text: `Preferred cloud: ${request.cloudProvider}`, confidence: .9, affectedComponents: allIds });
+  if (!request.scale) assumptions.push({ id: "scale-unknown", type: "scale", text: "Traffic and storage scale were not specified.", confidence: 1, affectedComponents: allIds });
+  if (!request.tenancy && !promptDeclaresMultiTenant && !promptDeclaresSingleTenant && !explicitTemplateIsMultiTenant) assumptions.push({ id: "tenancy-unknown", type: "tenancy", text: "The tenancy model was not specified.", confidence: 1, affectedComponents: allIds });
+  if (!request.dataSensitivity && sensitive === "unspecified") assumptions.push({ id: "sensitivity-unknown", type: "data-sensitivity", text: "Data sensitivity was not specified.", confidence: 1, affectedComponents: allIds });
 
   const ir: ArchitectureIR = {
     schemaVersion: ARCHITECTURE_IR_VERSION,
-    intent: { title, summary: request.prompt, archetype, trafficProfile: trafficProfile(request.scale) },
+    intent: { title, summary: boundedSummary(request.prompt), archetype, trafficProfile: trafficProfile(request.scale) },
     requirements: {
-      functional: [request.prompt],
-      nonFunctional: [
-        request.scale ? `Design for ${request.scale}.` : "Validate traffic and storage capacity before production.",
-        sensitive !== "unspecified" ? `Protect ${sensitive} data in transit and at rest.` : "Declare authentication and encryption at every trust boundary.",
-      ],
+      functional: functionalRequirementsFromDescription(request.prompt),
+      nonFunctional: explicitNonFunctionalRequirements(request),
     },
     constraints: {
       preferredStack: splitStack(request.preferredStack),
       cloudProvider: request.cloudProvider ?? "",
-      multiTenant: /multi[- ]tenant/i.test(request.prompt) || templateId === "multi-tenant-saas",
+      multiTenant,
       dataSensitivity: sensitive,
     },
     components: template.diagram.nodes.map((node) => ({

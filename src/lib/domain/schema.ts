@@ -5,6 +5,11 @@ export const SCHEMA_VERSION = "1.0.0" as const;
 const safeText = (max: number) =>
   z.string().trim().max(max).refine((value) => !/[<>]/.test(value), "HTML-like markup is not allowed");
 
+const rawArchitectureDescription = z.string()
+  .max(3000)
+  .refine((value) => value.trim().length >= 12, "Describe the system in at least 12 characters.")
+  .refine((value) => !/[<>]/.test(value), "HTML-like markup is not allowed");
+
 export const categorySchema = z.enum([
   "client",
   "networking",
@@ -141,11 +146,16 @@ export const changePlanSchema = z.object({
 }).strict();
 
 export const generationRequestSchema = z.object({
-  prompt: safeText(3000).min(12),
+  // `prompt` remains the raw, recoverable user description. The compiler
+  // derives bounded requirement items from it instead of treating the entire
+  // description as one Architecture IR requirement.
+  prompt: rawArchitectureDescription,
   productType: safeText(80).optional(),
   preferredStack: safeText(180).optional(),
   cloudProvider: safeText(80).optional(),
   scale: safeText(80).optional(),
+  tenancy: z.enum(["single-tenant", "multi-tenant"]).optional(),
+  dataSensitivity: z.enum(["public", "internal", "confidential", "restricted"]).optional(),
   templateId: z.string().max(80).optional(),
 }).strict();
 

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from "vitest";
-import handler from "./architecture-maintenance";
+import handler from "../../../netlify/functions/architecture-maintenance";
 
 afterEach(() => {
   vi.unstubAllEnvs();

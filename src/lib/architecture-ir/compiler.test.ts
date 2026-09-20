@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildArchitectureIR, compileArchitectureIR, compileArchitectureRequest, selectArchitectureTemplate } from "./compiler";
+import { buildArchitectureIR, compileArchitectureIR, compileArchitectureRequest, functionalRequirementsFromDescription, selectArchitectureTemplate } from "./compiler";
 import { validateArchitectureIR } from "./validator";
 
 describe("Architecture IR pipeline", () => {
@@ -58,5 +58,53 @@ describe("Architecture IR pipeline", () => {
 
   it("rejects markup-like prompt content at the input boundary", () => {
     expect(() => buildArchitectureIR({ prompt: "Build a platform <script>alert(1)</script>" })).toThrow();
+  });
+
+  it.each([239, 240, 241, 3000])("compiles a %i-character description into bounded requirements", (length) => {
+    const description = "a".repeat(length);
+    const ir = buildArchitectureIR({ prompt: description });
+    expect(ir.requirements.functional.length).toBeGreaterThan(0);
+    expect(ir.requirements.functional.every((item) => item.length <= 240)).toBe(true);
+    expect(ir.requirements.functional.join("")).toBe(description);
+    expect(ir.intent.summary.length).toBeLessThanOrEqual(1200);
+  });
+
+  it("splits prose at sentence and word boundaries", () => {
+    const description = `Build an order service. ${"Process authenticated checkout requests and retain audit evidence ".repeat(6)}`.trim();
+    const requirements = functionalRequirementsFromDescription(description);
+    expect(requirements[0]).toBe("Build an order service.");
+    expect(requirements.every((item) => item.length <= 240)).toBe(true);
+  });
+
+  it("keeps structured choices separate and lets explicit values override template inference", () => {
+    const ir = buildArchitectureIR({
+      prompt: "Build a multi-tenant service for sensitive customer information.",
+      templateId: "multi-tenant-saas",
+      preferredStack: "Next.js, PostgreSQL, Redis",
+      cloudProvider: "Provider-neutral",
+      scale: "small",
+      tenancy: "single-tenant",
+      dataSensitivity: "public",
+    });
+    expect(ir.constraints).toMatchObject({
+      preferredStack: ["Next.js", "PostgreSQL", "Redis"],
+      cloudProvider: "Provider-neutral",
+      multiTenant: false,
+      dataSensitivity: "public",
+    });
+    expect(ir.intent.trafficProfile).toBe("small");
+    expect(ir.requirements.nonFunctional).toEqual([
+      "Scale target: small.",
+      "Tenancy model: single-tenant.",
+      "Data sensitivity: public.",
+    ]);
+  });
+
+  it("leaves missing structured values unknown instead of inventing requirements", () => {
+    const ir = buildArchitectureIR({ prompt: "Build a service that accepts and processes work requests." });
+    expect(ir.intent.trafficProfile).toBe("unknown");
+    expect(ir.constraints).toMatchObject({ cloudProvider: "", multiTenant: false, dataSensitivity: "unspecified" });
+    expect(ir.requirements.nonFunctional).toEqual([]);
+    expect(ir.assumptions.map((item) => item.id)).toEqual(expect.arrayContaining(["scale-unknown", "tenancy-unknown", "sensitivity-unknown"]));
   });
 });
