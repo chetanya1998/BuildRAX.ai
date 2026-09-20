@@ -42,14 +42,22 @@ create temporary table traceability_fixture as select
   '{"schemaVersion":"1.0.0","sourceSetId":"eset_traceability","sources":[{"id":"src_traceability","type":"input","label":"Test input"}],"items":[]}'::jsonb evidence,
   '{"schemaVersion":"1.0.0","requirementSetId":"rset_traceability","items":[{"id":"req_traceability","kind":"functional","statement":"Retain traceability.","state":"stated","origin":"user-provided","confidence":1,"evidenceRefs":[],"architectureRefs":[]}],"conflicts":[]}'::jsonb requirements;
 alter table traceability_fixture add column ir_hash text, add column presentation_hash text, add column diagram_hash text,
-  add column evidence_hash text, add column requirements_hash text, add column request_hash text;
+  add column evidence_hash text, add column requirements_hash text, add column request_hash text,
+  add column changed_evidence jsonb, add column changed_evidence_hash text, add column changed_request_hash text;
 update traceability_fixture set
   ir_hash = public.canonical_jsonb_sha256(ir), presentation_hash = public.canonical_jsonb_sha256(presentation),
   diagram_hash = public.canonical_jsonb_sha256(diagram), evidence_hash = public.canonical_jsonb_sha256(evidence),
   requirements_hash = public.canonical_jsonb_sha256(requirements),
+  changed_evidence = jsonb_set(evidence, '{items}', '[{"id":"ev_changed","claim":"Changed.","category":"unknown","origin":"ai-suggestion","verification":"unknown","confidence":0,"locations":[]}]'::jsonb),
   request_hash = public.canonical_jsonb_sha256(jsonb_build_object(
     'ir', ir, 'presentation', presentation, 'diagram', diagram,
     'traceability', jsonb_build_object('schemaVersion', '1.0.0', 'evidence', evidence, 'requirements', requirements)
+  ));
+update traceability_fixture set
+  changed_evidence_hash = public.canonical_jsonb_sha256(changed_evidence),
+  changed_request_hash = public.canonical_jsonb_sha256(jsonb_build_object(
+    'ir', ir, 'presentation', presentation, 'diagram', diagram,
+    'traceability', jsonb_build_object('schemaVersion', '1.0.0', 'evidence', changed_evidence, 'requirements', requirements)
   ));
 grant select on traceability_fixture to authenticated;
 
@@ -94,17 +102,12 @@ select set_config('request.jwt.claim.sub', '77777777-7777-4777-8777-777777777777
 select throws_ok($test$
   select * from public.migrate_guest_architecture_v2(
     'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    public.canonical_jsonb_sha256(jsonb_build_object(
-      'ir', (select ir from traceability_fixture), 'presentation', (select presentation from traceability_fixture),
-      'diagram', (select diagram from traceability_fixture),
-      'traceability', jsonb_build_object('schemaVersion', '1.0.0', 'evidence', jsonb_set((select evidence from traceability_fixture), '{items}', '[{"id":"ev_changed","claim":"Changed.","category":"unknown","origin":"ai-suggestion","verification":"unknown","confidence":0,"locations":[]}]'::jsonb), 'requirements', (select requirements from traceability_fixture))
-    )), 'Traceability test',
+    (select changed_request_hash from traceability_fixture), 'Traceability test',
     (select ir from traceability_fixture), (select ir_hash from traceability_fixture),
     (select presentation from traceability_fixture), (select presentation_hash from traceability_fixture),
     (select diagram from traceability_fixture), (select diagram_hash from traceability_fixture),
     'manual-edit', '1.1.0', '1.0.0',
-    jsonb_set((select evidence from traceability_fixture), '{items}', '[{"id":"ev_changed","claim":"Changed.","category":"unknown","origin":"ai-suggestion","verification":"unknown","confidence":0,"locations":[]}]'::jsonb),
-    public.canonical_jsonb_sha256(jsonb_set((select evidence from traceability_fixture), '{items}', '[{"id":"ev_changed","claim":"Changed.","category":"unknown","origin":"ai-suggestion","verification":"unknown","confidence":0,"locations":[]}]'::jsonb)),
+    (select changed_evidence from traceability_fixture), (select changed_evidence_hash from traceability_fixture),
     (select requirements from traceability_fixture), (select requirements_hash from traceability_fixture), null
   )
 $test$, '22023', 'Traceability replay mismatch', 'an idempotency key cannot be replayed with different traceability');
