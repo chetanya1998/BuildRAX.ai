@@ -12,12 +12,32 @@ import { architectureIRFromDiagram, presentationFromDiagram, type ArchitecturePr
 import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { GenerationReceipt } from "@/lib/server/generation-receipt";
 import { getTemplate, templates } from "@/lib/domain/templates";
+import type { GenerationRequest } from "@/lib/domain/schema";
 import { saveDraft } from "@/lib/storage/drafts";
 import { useHydrated } from "@/lib/ui/use-hydrated";
 import styles from "./start.module.css";
 
-const preferenceOptions = ["Next.js", "Supabase", "AWS", "GCP", "Azure", "High scale", "Multi-tenant", "Sensitive data"];
 const anonymousSessionStorageKey = "buildrax-anonymous-session";
+
+const fieldLabels: Record<string, string> = {
+  prompt: "Architecture description",
+  productType: "Product type",
+  preferredStack: "Preferred stack",
+  cloudProvider: "Cloud provider",
+  scale: "Scale",
+  tenancy: "Tenancy",
+  dataSensitivity: "Data sensitivity",
+  templateId: "Template",
+};
+
+function generationErrorMessage(body: unknown) {
+  if (!body || typeof body !== "object") return "Generation failed.";
+  const response = body as { error?: string; stage?: string; fieldErrors?: Record<string, string[]> };
+  const firstFieldError = Object.entries(response.fieldErrors ?? {}).find(([, messages]) => messages.length > 0);
+  if (firstFieldError) return `${fieldLabels[firstFieldError[0]] ?? firstFieldError[0]}: ${firstFieldError[1][0]}`;
+  const stage = response.stage ? `${response.stage.replaceAll("-", " ")}: ` : "";
+  return `${stage}${response.error || "Generation failed."}`;
+}
 
 function anonymousSessionId() {
   const existing = localStorage.getItem(anonymousSessionStorageKey);
@@ -31,15 +51,16 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState(initialTemplate ?? "");
-  const [preferences, setPreferences] = useState<string[]>([]);
+  const [productType, setProductType] = useState("");
+  const [preferredStack, setPreferredStack] = useState("");
+  const [cloudProvider, setCloudProvider] = useState("");
+  const [scale, setScale] = useState("");
+  const [tenancy, setTenancy] = useState<GenerationRequest["tenancy"] | "">("");
+  const [dataSensitivity, setDataSensitivity] = useState<GenerationRequest["dataSensitivity"] | "">("");
   const [state, setState] = useState<"idle" | "generating" | "error">("idle");
   const [message, setMessage] = useState("");
   const hydrated = useHydrated();
   const selected = useMemo(() => getTemplate(selectedTemplate), [selectedTemplate]);
-
-  function togglePreference(value: string) {
-    setPreferences((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
-  }
 
   async function openDiagram(diagram: ReturnType<typeof createDiagram>, sourcePrompt?: string, artifact?: {
     ir: ArchitectureIR;
@@ -98,7 +119,7 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
     setState("generating");
     setMessage("Understanding the system and validating component boundaries…");
     try {
-      const basePrompt = prompt.trim() || selected!.description;
+      const basePrompt = prompt.trim().length ? prompt : selected!.description;
       const headers: Record<string, string> = { "content-type": "application/json" };
       if (!authenticated) {
         headers["x-buildrax-guest"] = "true";
@@ -107,10 +128,19 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
       const response = await fetch("/api/v1/ai/generations", {
         method: "POST",
         headers,
-        body: JSON.stringify({ prompt: basePrompt, preferredStack: preferences.join(", ") || undefined, templateId: selected?.id }),
+        body: JSON.stringify({
+          prompt: basePrompt,
+          productType: productType.trim() || undefined,
+          preferredStack: preferredStack.trim() || undefined,
+          cloudProvider: cloudProvider || undefined,
+          scale: scale || undefined,
+          tenancy: tenancy || undefined,
+          dataSensitivity: dataSensitivity || undefined,
+          templateId: selected?.id,
+        } satisfies GenerationRequest),
       });
       const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Generation failed.");
+      if (!response.ok) throw new Error(generationErrorMessage(body));
       setMessage("Laying out validated components and typed connections…");
       await openDiagram(body.artifact.diagram, basePrompt, {
         ir: body.artifact.ir,
@@ -139,7 +169,18 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
         <div className={styles.composerFooter}><span className={styles.count}>{prompt.length.toLocaleString()} / 3,000</span><div><Button variant="tertiary" onClick={blankCanvas} disabled={!hydrated}><PencilRuler size={15} /> Blank canvas</Button> <Button onClick={generate} disabled={!hydrated || state === "generating"}>Generate architecture <ArrowRight size={15} /></Button></div></div>
       </div>
       <span className={`${styles.handNote} ${styles.promptNote}`}>add context for a sharper first draft <ArrowBendRightDown size={29} weight="light" /></span>
-      <div className={styles.chips} aria-label="Architecture preferences">{preferenceOptions.map((item) => <button key={item} className={`${styles.chip} ${preferences.includes(item) ? styles.chipActive : ""}`} onClick={() => togglePreference(item)} aria-pressed={preferences.includes(item)}>{item}</button>)}</div>
+      <fieldset className={styles.contextPanel}>
+        <legend>Optional architecture context</legend>
+        <p>Leave a field unspecified when it is unknown. BuildRAX will not silently turn an unknown into a requirement.</p>
+        <div className={styles.contextGrid}>
+          <label>Product type<input value={productType} maxLength={80} onChange={(event) => setProductType(event.target.value)} placeholder="URL shortener" /></label>
+          <label>Preferred stack<input value={preferredStack} maxLength={180} onChange={(event) => setPreferredStack(event.target.value)} placeholder="Next.js, PostgreSQL, Redis" /></label>
+          <label>Cloud provider<select value={cloudProvider} onChange={(event) => setCloudProvider(event.target.value)}><option value="">Not specified</option><option value="AWS">AWS</option><option value="GCP">GCP</option><option value="Azure">Azure</option><option value="Provider-neutral">Provider-neutral</option></select></label>
+          <label>Expected scale<select value={scale} onChange={(event) => setScale(event.target.value)}><option value="">Not specified</option><option value="prototype">Prototype / pilot</option><option value="small">Small</option><option value="medium">Medium / growth</option><option value="large">Large / global</option></select></label>
+          <label>Tenancy<select value={tenancy} onChange={(event) => setTenancy(event.target.value as GenerationRequest["tenancy"] | "")}><option value="">Not specified</option><option value="single-tenant">Single-tenant</option><option value="multi-tenant">Multi-tenant</option></select></label>
+          <label>Data sensitivity<select value={dataSensitivity} onChange={(event) => setDataSensitivity(event.target.value as GenerationRequest["dataSensitivity"] | "")}><option value="">Not specified</option><option value="public">Public</option><option value="internal">Internal</option><option value="confidential">Confidential</option><option value="restricted">Restricted</option></select></label>
+        </div>
+      </fieldset>
       {state !== "idle" && <div className={`${styles.status} ${state === "error" ? styles.error : ""}`} role="status">{state === "generating" && <span className={styles.spinner} />}{message}</div>}
       <div className={styles.divider}>or begin from a trusted template</div>
       <span className={`${styles.handNote} ${styles.templateNote}`}>pick a validated starting point <ArrowBendRightDown size={29} weight="light" /></span>

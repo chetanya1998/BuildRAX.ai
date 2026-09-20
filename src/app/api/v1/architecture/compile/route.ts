@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ArchitectureIRValidationError, compileArchitectureRequest } from "@/lib/architecture-ir/compiler";
 import { generationRequestSchema } from "@/lib/domain/schema";
-import { apiError, readJson } from "@/lib/server/http";
+import { apiError, inputValidationError, readJson } from "@/lib/server/http";
 import { assertRateLimit } from "@/lib/server/rate-limit";
 import { createArchitectureSnapshot, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
 
@@ -12,7 +12,9 @@ export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
   try {
     assertRateLimit(request, "architecture-ir", 20, 60_000);
-    const input = generationRequestSchema.parse(await readJson(request));
+    const parsed = generationRequestSchema.safeParse(await readJson(request));
+    if (!parsed.success) return inputValidationError(parsed.error, requestId);
+    const input = parsed.data;
     const result = compileArchitectureRequest(input);
     const presentation = presentationFromDiagram(result.diagram);
     const artifact = await createArchitectureSnapshot({
@@ -34,8 +36,9 @@ export async function POST(request: Request) {
     }, { headers: { "cache-control": "no-store", "x-request-id": requestId } });
   } catch (error) {
     if (error instanceof ArchitectureIRValidationError) {
-      return NextResponse.json({ error: "Architecture validation failed.", validation: error.validation, requestId }, { status: 422, headers: { "x-request-id": requestId } });
+      return NextResponse.json({ error: "Architecture validation failed.", stage: "architecture-validation", validation: error.validation, requestId }, { status: 422, headers: { "x-request-id": requestId } });
     }
+    if (error && typeof error === "object" && "issues" in error) return NextResponse.json({ error: "The validated input could not be compiled into Architecture IR.", stage: "architecture-compilation", requestId }, { status: 422, headers: { "x-request-id": requestId } });
     return apiError(error);
   }
 }
