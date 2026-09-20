@@ -90,8 +90,21 @@ export const evidenceItemSchema = z.object({
   if (item.origin === "user-input" && item.verification !== "user-provided") {
     ctx.addIssue({ code: "custom", path: ["verification"], message: "Explicit user input must remain labelled user-provided." });
   }
+  if (item.verification === "user-provided" && item.origin !== "user-input") {
+    ctx.addIssue({ code: "custom", path: ["origin"], message: "Only explicit user input may be labelled user-provided." });
+  }
   if (item.origin === "user-input" && !item.locations.some((location) => location.type === "input")) {
     ctx.addIssue({ code: "custom", path: ["locations"], message: "User-provided evidence requires an input location." });
+  }
+  const requiredLocation = item.origin === "document-source"
+    ? "document"
+    : item.origin === "code-detector"
+      ? "repository"
+      : item.origin === "runtime-observation"
+        ? "runtime"
+        : undefined;
+  if (requiredLocation && !item.locations.some((location) => location.type === requiredLocation)) {
+    ctx.addIssue({ code: "custom", path: ["locations"], message: `${item.origin} evidence requires a ${requiredLocation} location.` });
   }
   if (item.verification === "verified-within-scope") {
     if (item.origin !== "code-detector") {

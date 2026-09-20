@@ -60,6 +60,46 @@ describe("Evidence IR and Requirement IR", () => {
     if (!result.success) expect(result.error.issues.map((issue) => issue.message).join(" ")).toMatch(/AI suggestions cannot claim/i);
   });
 
+  it("rejects non-user evidence labelled as user-provided", () => {
+    const result = evidenceIRSchema.safeParse({
+      schemaVersion: EVIDENCE_IR_VERSION,
+      sourceSetId,
+      sources: [{ id: sourceId, type: "repository", label: "Repository fixture", version: "abc123" }],
+      items: [{
+        id: "ev_code_claim01",
+        claim: "A Next.js route handles POST requests.",
+        category: "component",
+        origin: "code-detector",
+        verification: "user-provided",
+        confidence: 1,
+        locations: [{ type: "repository", sourceId, commit: "abc123", path: "src/app/api/orders/route.ts", startLine: 4, endLine: 12 }],
+      }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.map((issue) => issue.message)).toContain("Only explicit user input may be labelled user-provided.");
+  });
+
+  it("requires origin-appropriate source locations", () => {
+    const result = evidenceIRSchema.safeParse({
+      schemaVersion: EVIDENCE_IR_VERSION,
+      sourceSetId,
+      sources: [{ id: sourceId, type: "document", label: "Architecture specification" }],
+      items: [{
+        id: "ev_document_claim01",
+        claim: "The specification requires single sign-on.",
+        category: "requirement",
+        origin: "document-source",
+        verification: "source-observed",
+        confidence: 1,
+        locations: [],
+      }],
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) expect(result.error.issues.map((issue) => issue.message)).toContain("document-source evidence requires a document location.");
+  });
+
   it("accepts code verification only with detector scope and a repository location", () => {
     const valid = {
       schemaVersion: EVIDENCE_IR_VERSION,
