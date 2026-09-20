@@ -145,7 +145,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B00 — Verify the current baseline
 
 **Depends on:** None.  
-**Status:** Not started.
+**Status:** Verified locally on 16 September 2026. See [Day 01 baseline verification](DAY-01-BASELINE-VERIFICATION.md). Production verification is not claimed.
 
 **Implement:** Read current progress, inspect the audit findings, and run focused reproductions. Record each existing capability as verified, regression, incomplete, or staging-unverified. Resolve conflicting progress notes from source and tests.
 
@@ -154,7 +154,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B01 — Fix long descriptions and structured input
 
 **Depends on:** B00.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 16 September 2026 in `feat/b01-structured-input`. See [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md). Merge, deployment, and production verification are not claimed.
 
 **Implement:** Separate raw description from bounded requirement fields. Preserve input on errors. Pass cloud, stack, scale, tenancy, and sensitivity as separate optional values. Report the failing stage.
 

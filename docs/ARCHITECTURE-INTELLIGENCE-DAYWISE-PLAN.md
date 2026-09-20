@@ -64,6 +64,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 2 — Separate user facts from assumptions
 
+**Progress:** B01 structured-input groundwork is implemented and locally verified on branch `feat/b01-structured-input`; see [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md). The Evidence IR and Requirement IR records described below remain Day 03 / B02 work.
+
 **User outcome:** BuildRAX can explain what the user asked for and where each fact came from.
 
 **Session 2A — what and how:** Add the small records for evidence and requirements: stable IDs, source locations, user-provided facts, inferred suggestions and explicit unknowns.
@@ -630,4 +632,3 @@ Next session and files to read:
 ```
 
 This document is a plan. It marks no implementation or live integration complete. The existing detailed technical plan remains available for reference; this daywise plan supplies the plain-language execution order.
-
