@@ -172,7 +172,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B03 — Persist and link the new representations
 
 **Depends on:** B02.  
-**Status:** Not started.
+**Status:** Implemented on 20 September 2026 in `feat/m1-b03-b05-foundations`; application checks pass, while database execution is environment-blocked because local Supabase is unavailable. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
 
 **Implement:** Extend the existing artifact/version graph with immutable evidence and requirement references. Migrate older IR through adapters without inventing evidence. Add component/flow references and presentation override metadata only where needed.
 
@@ -181,7 +181,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B04 — Build the Context Compiler and budget manager
 
 **Depends on:** B02.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b03-b05-foundations`. See [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md).
 
 **Implement:** Normalize and deduplicate text; preserve sections, tables, code and source locations. Rank context by task. Add configurable input/output budgets and omitted-reference metadata. Budget rules include prompt/schema overhead.
 
@@ -190,7 +190,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B05 — Create rule and pattern registries
 
 **Depends on:** B02.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 20 September 2026 in `feat/m1-b03-b05-foundations`. See [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
 
 **Implement:** Convert existing templates into versioned pattern definitions. Implement proposal-only rules for files, jobs, repeated reads, public APIs, critical external dependencies, queues, sensitive data and static delivery. Expand toward the 12 requested patterns after migrating existing ones.
 

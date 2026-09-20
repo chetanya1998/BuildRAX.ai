@@ -96,6 +96,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 4 — Save the new information safely
 
+**Progress:** B03 is implemented on branch `feat/m1-b03-b05-foundations`; application checks pass, but the database tests remain environment-blocked until local Supabase is running. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
+
 **User outcome:** Evidence and requirements survive editing, signup and reopening.
 
 **Session 4A — what and how:** Link evidence and requirement artifacts to the existing immutable version graph. Add a compatible reader for old projects and migrations for the new references.
@@ -110,6 +112,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 5 — Send only useful information to AI
 
+**Progress:** B04 is implemented and locally verified on branch `feat/m1-b03-b05-foundations`; see [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md).
+
 **User outcome:** Lower AI cost while retaining the facts needed for each task.
 
 **Session 5A — what and how:** Build the shared input router and context preparation for prompt/existing-project input. Remove duplicates and repeated noise while keeping headings, tables, code and source references.
@@ -123,6 +127,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 **Done when:** Verbose and dense fixtures retain important facts; budgets include instructions and schema overhead; no mandatory constraint disappears silently.
 
 ## Day 6 — Turn existing knowledge into reusable building blocks
+
+**Progress:** B05 is implemented and locally verified on branch `feat/m1-b03-b05-foundations`; see [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
 
 **User outcome:** Reliable starting designs do not need a model to rediscover common patterns.
 

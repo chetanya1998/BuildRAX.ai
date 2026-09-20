@@ -30,6 +30,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       artifact: {
         ir: result.ir,
+        traceability: result.traceability,
         presentation: result.presentation,
         diagram: result.diagram,
         checksums: result.artifact.checksums,

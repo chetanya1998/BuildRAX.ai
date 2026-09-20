@@ -4,6 +4,8 @@ import { diagramSchema, type Diagram } from "@/lib/domain/schema";
 import { architecturePresentationSchema, type ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
 import { migrateArchitectureIR, type ArchitectureIR } from "@/lib/architecture-ir/schema";
 import { createSupabaseServerClient } from "./server";
+import { readArchitectureVersion } from "./architecture-artifacts";
+import type { TraceabilityBundle } from "@/lib/intelligence/schema";
 
 export type PersistedProjectSummary = {
   id: string;
@@ -27,6 +29,7 @@ export type PersistedArchitecture = {
   ir: ArchitectureIR;
   presentation: ArchitecturePresentation;
   irVersion: number;
+  traceability?: TraceabilityBundle;
   document: string;
   documentVersion: number;
   documentSource: "user-edit" | "ai-generated" | "guest-migration" | "legacy";
@@ -83,21 +86,21 @@ export async function loadProjectArchitecture(projectId: string): Promise<Persis
     .limit(1)
     .maybeSingle();
   if (diagramError || !diagram) return null;
-  const [{ data: artifactRows, error: versionError }, { data: documentRow }] = await Promise.all([
-    supabase.rpc("read_architecture_version", { target_diagram: diagram.id, target_version: diagram.current_version }),
+  const [snapshotResult, { data: documentRow }] = await Promise.all([
+    readArchitectureVersion(supabase, diagram.id, diagram.current_version).catch(() => null),
     supabase.from("documents").select("current_version, document_versions(markdown, version, source)").eq("diagram_id", diagram.id).maybeSingle(),
   ]);
-  const version = artifactRows?.[0];
-  if (versionError || !version?.diagram_payload || !version.ir_payload || !version.presentation_payload) return null;
+  if (!snapshotResult) return null;
 
-  const normalized = normalizeDiagram(version.diagram_payload, diagram as DiagramRow);
+  const normalized = normalizeDiagram(snapshotResult.materializedDiagram, diagram as DiagramRow);
   const documentVersions = documentRow?.document_versions as unknown as Array<{ markdown: string; version: number; source: "user-edit" | "ai-generated" | "guest-migration" | "legacy" }> | undefined;
   const currentDocument = documentVersions?.find((item) => item.version === documentRow?.current_version);
   return {
     diagram: normalized,
-    ir: migrateArchitectureIR(version.ir_payload),
-    presentation: architecturePresentationSchema.parse(version.presentation_payload),
-    irVersion: Number(version.ir_version),
+    ir: migrateArchitectureIR(snapshotResult.ir),
+    traceability: snapshotResult.traceability,
+    presentation: architecturePresentationSchema.parse(snapshotResult.presentation),
+    irVersion: Number(snapshotResult.irVersion),
     document: currentDocument?.markdown ?? "",
     documentVersion: Number(documentRow?.current_version ?? 0),
     documentSource: currentDocument?.source ?? "legacy",

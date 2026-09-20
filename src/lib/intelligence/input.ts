@@ -100,6 +100,7 @@ export function buildInputTraceability(input: GenerationRequest): TraceabilityBu
       origin: "user-provided",
       confidence: 1,
       evidenceRefs: [evidenceId],
+      architectureRefs: [],
     });
   });
 
@@ -125,6 +126,7 @@ export function buildInputTraceability(input: GenerationRequest): TraceabilityBu
         origin: "user-provided",
         confidence: 1,
         evidenceRefs: [evidenceId],
+        architectureRefs: [],
       });
       return;
     }
@@ -136,6 +138,7 @@ export function buildInputTraceability(input: GenerationRequest): TraceabilityBu
       origin: "unknown",
       confidence: 0,
       evidenceRefs: [],
+      architectureRefs: [],
       question,
     });
   });

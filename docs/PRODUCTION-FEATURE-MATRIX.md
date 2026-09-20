@@ -7,3 +7,6 @@ This matrix distinguishes implementation milestones from hosted user features. A
 | Day 01 / B00 — Current implementation baseline | Pending until merged | Not applicable | Internal verification only | [Day 01 baseline](DAY-01-BASELINE-VERIFICATION.md) |
 | Day 02 / B01 — Structured architecture input | Pending until merged | Not deployed | Available only on `feat/b01-structured-input` | [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md) |
 | Day 03 / B02 — Evidence and Requirement IR | Pending until merged | Not deployed | Internal contract only on `feat/b02-evidence-requirement-ir` | [Day 03 Evidence and Requirement IR](DAY-03-EVIDENCE-REQUIREMENT-IR.md) |
+| Day 04 / B03 — Persisted traceability | Pending until merged; DB verification blocked | Not deployed | Internal persistence work on `feat/m1-b03-b05-foundations` | [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md) |
+| Day 05 / B04 — Context Compiler | Pending until merged | Not deployed | Internal compiler on `feat/m1-b03-b05-foundations` | [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md) |
+| Day 06 / B05 — Rules and patterns | Pending until merged | Not deployed | Internal registries on `feat/m1-b03-b05-foundations` | [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md) |

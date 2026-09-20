@@ -10,9 +10,11 @@ import {
 } from "./schema";
 import { validateArchitectureIR, type IRValidationFinding } from "./validator";
 import { parsePrivateAssetReference } from "@/lib/storage/asset-references";
+import { traceabilityBundleSchema, type TraceabilityBundle } from "@/lib/intelligence/schema";
 
 export const ARCHITECTURE_PRESENTATION_VERSION = "1.0.0" as const;
-export const ARCHITECTURE_SNAPSHOT_VERSION = "1.0.0" as const;
+export const LEGACY_ARCHITECTURE_SNAPSHOT_VERSION = "1.0.0" as const;
+export const ARCHITECTURE_SNAPSHOT_VERSION = "1.1.0" as const;
 
 const pointSchema = z.object({ x: z.number().finite(), y: z.number().finite() }).strict();
 const dimensionsSchema = z.object({
@@ -64,14 +66,51 @@ export const architectureSnapshotSchema = z.object({
   diagramVersion: z.number().int().min(1),
   irVersion: z.number().int().min(1),
   ir: architectureIRSchema,
+  traceability: traceabilityBundleSchema.optional(),
   presentation: architecturePresentationSchema,
   materializedDiagram: diagramSchema,
   checksums: z.object({
     ir: checksumSchema,
     presentation: checksumSchema,
     diagram: checksumSchema,
+    evidence: checksumSchema.optional(),
+    requirements: checksumSchema.optional(),
   }).strict(),
+}).strict().superRefine((snapshot, ctx) => {
+  if (!snapshot.traceability && (snapshot.checksums.evidence || snapshot.checksums.requirements)) {
+    ctx.addIssue({ code: "custom", path: ["checksums"], message: "Traceability checksums require traceability artifacts." });
+  }
+  if (snapshot.traceability && (!snapshot.checksums.evidence || !snapshot.checksums.requirements)) {
+    ctx.addIssue({ code: "custom", path: ["checksums"], message: "Traceability artifacts require evidence and requirement checksums." });
+  }
+  if (!snapshot.traceability) return;
+  const componentIds = new Set(snapshot.ir.components.map((component) => component.id));
+  const flowIds = new Set(snapshot.ir.flows.map((flow) => flow.id));
+  snapshot.traceability.requirements.items.forEach((requirement, index) => {
+    requirement.architectureRefs.forEach((reference) => {
+      const exists = reference.kind === "component" ? componentIds.has(reference.id) : flowIds.has(reference.id);
+      if (!exists) ctx.addIssue({ code: "custom", path: ["traceability", "requirements", "items", index, "architectureRefs"], message: `Requirement references unknown ${reference.kind} ${reference.id}.` });
+    });
+  });
+});
+
+const legacyArchitectureSnapshotSchema = z.object({
+  schemaVersion: z.literal(LEGACY_ARCHITECTURE_SNAPSHOT_VERSION),
+  diagramId: z.string().min(1).max(120),
+  diagramVersion: z.number().int().min(1),
+  irVersion: z.number().int().min(1),
+  ir: architectureIRSchema,
+  presentation: architecturePresentationSchema,
+  materializedDiagram: diagramSchema,
+  checksums: z.object({ ir: checksumSchema, presentation: checksumSchema, diagram: checksumSchema }).strict(),
 }).strict();
+
+export function migrateArchitectureSnapshot(input: unknown): ArchitectureSnapshot {
+  const current = architectureSnapshotSchema.safeParse(input);
+  if (current.success) return current.data;
+  const legacy = legacyArchitectureSnapshotSchema.parse(input);
+  return architectureSnapshotSchema.parse({ ...legacy, schemaVersion: ARCHITECTURE_SNAPSHOT_VERSION });
+}
 
 export type ArchitecturePresentation = z.infer<typeof architecturePresentationSchema>;
 export type ArchitectureSnapshot = z.infer<typeof architectureSnapshotSchema>;
@@ -105,14 +144,16 @@ export async function canonicalSha256(value: unknown) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function assertArchitecturePayloadSizes(ir: unknown, presentation: unknown, diagram: unknown) {
+export function assertArchitecturePayloadSizes(ir: unknown, presentation: unknown, diagram: unknown, traceability?: TraceabilityBundle) {
   const encoder = new TextEncoder();
   const irBytes = encoder.encode(canonicalStringify(ir)).byteLength;
   const presentationBytes = encoder.encode(canonicalStringify(presentation)).byteLength;
   const diagramBytes = encoder.encode(canonicalStringify(diagram)).byteLength;
+  const traceabilityBytes = traceability ? encoder.encode(canonicalStringify(traceability)).byteLength : 0;
   if (irBytes > 256_000) throw new Error("Architecture IR exceeds 256 KB.");
-  if (irBytes + presentationBytes + diagramBytes > 1_000_000) throw new Error("Architecture snapshot exceeds 1 MB.");
-  return { irBytes, presentationBytes, diagramBytes, totalBytes: irBytes + presentationBytes + diagramBytes };
+  if (traceabilityBytes > 512_000) throw new Error("Architecture traceability exceeds 512 KB.");
+  if (irBytes + presentationBytes + diagramBytes + traceabilityBytes > 1_000_000) throw new Error("Architecture snapshot exceeds 1 MB.");
+  return { irBytes, presentationBytes, diagramBytes, traceabilityBytes, totalBytes: irBytes + presentationBytes + diagramBytes + traceabilityBytes };
 }
 
 export function presentationFromDiagram(diagramInput: Diagram): ArchitecturePresentation {
@@ -322,29 +363,36 @@ export async function createArchitectureSnapshot(options: {
   irVersion: number;
   ir: unknown;
   presentation: unknown;
+  traceability?: unknown;
   createdAt?: string;
   updatedAt?: string;
 }): Promise<ArchitectureSnapshot> {
   const ir = architectureIRSchema.parse(options.ir);
   const presentation = architecturePresentationSchema.parse(options.presentation);
+  const traceability = options.traceability === undefined ? undefined : traceabilityBundleSchema.parse(options.traceability);
   const materializedDiagram = materializeArchitecture(ir, presentation, {
     id: options.diagramId,
     version: options.diagramVersion,
     createdAt: options.createdAt,
     updatedAt: options.updatedAt,
   });
+  const evidenceChecksum = traceability ? await canonicalSha256(traceability.evidence) : undefined;
+  const requirementsChecksum = traceability ? await canonicalSha256(traceability.requirements) : undefined;
   return architectureSnapshotSchema.parse({
     schemaVersion: ARCHITECTURE_SNAPSHOT_VERSION,
     diagramId: options.diagramId,
     diagramVersion: options.diagramVersion,
     irVersion: options.irVersion,
     ir,
+    traceability,
     presentation,
     materializedDiagram,
     checksums: {
       ir: await canonicalSha256(ir),
       presentation: await canonicalSha256(presentation),
       diagram: await canonicalSha256(materializedDiagram),
+      evidence: evidenceChecksum,
+      requirements: requirementsChecksum,
     },
   });
 }

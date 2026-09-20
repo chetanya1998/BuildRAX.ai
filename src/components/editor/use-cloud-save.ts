@@ -4,27 +4,29 @@ import { useEffect, useRef, useState } from "react";
 import { architectureIRFromDiagram, presentationFromDiagram, type ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
 import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { Diagram } from "@/lib/domain/schema";
+import type { TraceabilityBundle } from "@/lib/intelligence/schema";
 import { clearQueuedProjectSave, loadQueuedProjectSave, queueProjectSave, type RecoveryRecord } from "@/lib/storage/drafts";
 import { CloudSaveCoordinator, CloudSaveFailure, cloudResponseFailure, type CloudRequest, type CloudResult, type CloudSaveState } from "@/lib/storage/cloud-save-coordinator";
 import { persistPrivatePresentationImages } from "@/lib/storage/private-assets";
 
 type Value = { diagram: Diagram };
-type Prepared = CloudRequest<Value> & { ir: ArchitectureIR; presentation: ArchitecturePresentation };
-type Result = CloudResult & { ir: ArchitectureIR; diagram: Diagram };
+type Prepared = CloudRequest<Value> & { ir: ArchitectureIR; presentation: ArchitecturePresentation; traceability?: TraceabilityBundle };
+type Result = CloudResult & { ir: ArchitectureIR; diagram: Diagram; traceability?: TraceabilityBundle };
 
-export function useCloudSave({ enabled, diagram, recovery, recoveredUnsynced, getIR, getIrVersion, applySuccess }: {
+export function useCloudSave({ enabled, diagram, recovery, recoveredUnsynced, getIR, getTraceability, getIrVersion, applySuccess }: {
   enabled: boolean;
   diagram: Diagram;
   recovery?: RecoveryRecord;
   recoveredUnsynced: boolean;
   getIR: () => ArchitectureIR;
+  getTraceability: () => TraceabilityBundle | undefined;
   getIrVersion: () => number;
   applySuccess: (request: Prepared, result: Result) => void;
 }) {
   const [state, setState] = useState<CloudSaveState>(enabled ? "idle" : "saved");
   const [message, setMessage] = useState("");
-  const callbacks = useRef({ getIR, getIrVersion, applySuccess });
-  useEffect(() => { callbacks.current = { getIR, getIrVersion, applySuccess }; }, [getIR, getIrVersion, applySuccess]);
+  const callbacks = useRef({ getIR, getTraceability, getIrVersion, applySuccess });
+  useEffect(() => { callbacks.current = { getIR, getTraceability, getIrVersion, applySuccess }; }, [getIR, getTraceability, getIrVersion, applySuccess]);
   const coordinator = useRef<CloudSaveCoordinator<Value> | null>(null);
   const previous = useRef(diagram);
   const latest = useRef(diagram);
@@ -45,24 +47,24 @@ export function useCloudSave({ enabled, diagram, recovery, recoveredUnsynced, ge
       build: (value, context) => {
         const ir = architectureIRFromDiagram(value.diagram, callbacks.current.getIR());
         const presentation = presentationFromDiagram(value.diagram);
-        return { ...context, value, ir, presentation } as Prepared;
+        return { ...context, value, ir, presentation, traceability: callbacks.current.getTraceability() } as Prepared;
       },
       send: async (raw) => {
         const request = raw as Prepared;
         const presentation = await persistPrivatePresentationImages({ diagramId: request.value.diagram.id }, request.presentation);
         const response = await fetch(`/api/v1/diagrams/${request.value.diagram.id}`, {
           method: "PUT", headers: { "content-type": "application/json" },
-          body: JSON.stringify({ idempotencyKey: request.idempotencyKey, baseVersion: request.baseVersion, baseIrVersion: request.baseIrVersion, ir: request.ir, presentation }),
+          body: JSON.stringify({ idempotencyKey: request.idempotencyKey, baseVersion: request.baseVersion, baseIrVersion: request.baseIrVersion, ir: request.ir, presentation, traceability: request.traceability }),
         });
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw await cloudResponseFailure(response, body);
         const saved = body.saved?.[0];
         if (!saved?.version || !body.snapshot?.materializedDiagram || !body.snapshot?.ir) throw new CloudSaveFailure("fatal", "Cloud save returned an incomplete result. Local recovery is preserved.");
-        return { version: Number(saved.version), irVersion: Number(saved.ir_version ?? body.snapshot.irVersion), ir: body.snapshot.ir, diagram: body.snapshot.materializedDiagram } as Result;
+        return { version: Number(saved.version), irVersion: Number(saved.ir_version ?? body.snapshot.irVersion), ir: body.snapshot.ir, diagram: body.snapshot.materializedDiagram, traceability: body.snapshot.traceability } as Result;
       },
       persist: (raw) => {
         const request = raw as Prepared;
-        return queueProjectSave({ diagramId: request.value.diagram.id, idempotencyKey: request.idempotencyKey, baseVersion: request.baseVersion, baseIrVersion: request.baseIrVersion, localRevision: request.localRevision, ir: request.ir, presentation: request.presentation, diagram: request.value.diagram }, accountRecovery.scope);
+        return queueProjectSave({ diagramId: request.value.diagram.id, idempotencyKey: request.idempotencyKey, baseVersion: request.baseVersion, baseIrVersion: request.baseIrVersion, localRevision: request.localRevision, ir: request.ir, traceability: request.traceability, presentation: request.presentation, diagram: request.value.diagram }, accountRecovery.scope);
       },
       clear: (request) => clearQueuedProjectSave(request.value.diagram.id, accountRecovery.scope, request.idempotencyKey),
       onSuccess: (request, result) => { suppressNext.current = true; callbacks.current.applySuccess(request as Prepared, result as Result); },
@@ -77,7 +79,7 @@ export function useCloudSave({ enabled, diagram, recovery, recoveredUnsynced, ge
         return;
       }
       if (!active) return;
-      if (queued) await machine.replay({ idempotencyKey: queued.idempotencyKey, localRevision: queued.localRevision, baseVersion: queued.baseVersion, baseIrVersion: queued.baseIrVersion, value: { diagram: queued.diagram }, ir: queued.ir, presentation: queued.presentation } as Prepared);
+      if (queued) await machine.replay({ idempotencyKey: queued.idempotencyKey, localRevision: queued.localRevision, baseVersion: queued.baseVersion, baseIrVersion: queued.baseIrVersion, value: { diagram: queued.diagram }, ir: queued.ir, traceability: queued.traceability, presentation: queued.presentation } as Prepared);
       if (active && (changedWhileStarting.current || recoveredUnsynced) && (!queued || changedWhileStarting.current || accountRecovery.revision > queued.localRevision)) machine.change({ diagram: latest.current });
       if (active && !queued && !recoveredUnsynced) setState("saved");
       ready.current = true;
