@@ -1,6 +1,6 @@
 # Day 04 / B03 — Persisted architecture traceability
 
-Implemented and application-verified locally on 21 September 2026. Database/RLS validation is pending CI because the local Docker daemon is unresponsive.
+Implemented and application-verified locally on 21 September 2026. Database/RLS validation passed in PR CI; the local Docker daemon remained unresponsive.
 
 ## Branch brief
 
@@ -32,8 +32,8 @@ The database extension keeps browser sessions read-only on traceability links, u
 - `npm test` — pass: 21 files and 106 tests.
 - `npm run build` — pass; 24 static pages generated.
 - `npm run release:scan` — pass; 191 files and 11 uniquely timestamped migrations.
-- `npm run db:test` — **Pending CI**. The local Docker daemon became unresponsive before pgTAP execution. The 21 new structural, access-control, round-trip, replay, and immutability assertions are present but are not claimed as passed locally.
+- `npm run db:test` — pass in GitHub Supabase CI: all 21 new structural, access-control, round-trip, replay, and immutability assertions passed. The local Docker daemon became unresponsive before pgTAP execution, so this result is not claimed as a local run.
 
 ## Remaining verification
 
-B03 must not be merged until the PR's Supabase migration/RLS job passes. A staging save/read/restore check under two workspaces remains required before staging or production status is claimed.
+B03's PR Supabase migration/RLS gate passed. A staging save/read/restore check under two workspaces remains required before staging or production status is claimed.
