@@ -145,7 +145,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B00 — Verify the current baseline
 
 **Depends on:** None.  
-**Status:** Not started.
+**Status:** Verified locally on 16 September 2026. See [Day 01 baseline verification](DAY-01-BASELINE-VERIFICATION.md). Production verification is not claimed.
 
 **Implement:** Read current progress, inspect the audit findings, and run focused reproductions. Record each existing capability as verified, regression, incomplete, or staging-unverified. Resolve conflicting progress notes from source and tests.
 

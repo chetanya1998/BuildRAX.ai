@@ -469,6 +469,7 @@ Database migrations run in order:
 7. `202609120007_document_persistence.sql`
 8. `202609120008_archive_delivery_hardening.sql`
 9. `202609120009_release_verification.sql`
+10. `202609150010_fix_guest_migration_origin_conflict.sql`
 
 ```bash
 npx supabase start
@@ -494,15 +495,15 @@ These check TypeScript contracts, common correctness issues, units/APIs, product
 
 Coverage includes IR migration, checksum/compiler determinism, semantic versus visual changes, AI repair/failure, catalog/icon/ellipse regressions, canvas placement/selection/movement/resizing/connections, documents, guest migration, multi-tab conflict, tenant denial, history, archive, and accessibility.
 
-Latest local source verification completed on 12 September 2026:
+Latest B00 local source verification completed on 16 September 2026. See [`docs/DAY-01-BASELINE-VERIFICATION.md`](docs/DAY-01-BASELINE-VERIFICATION.md) for the command-by-command and manual evidence:
 
 - 80 unit and integration tests passed;
 - 25 Chromium journeys passed and 1 conditional journey was skipped;
 - lint, TypeScript checks, and the production build passed;
 - the release-readiness scan passed; and
-- the production dependency audit reported no high-severity vulnerability.
+- the supplemental mobile run reproduced the known unnamed-action and unavailable-storage regressions.
 
-The PostgreSQL/pgTAP suite still needs to run against an available local or staging Supabase instance. During the latest verification, no database was reachable at the normal local Supabase port, so this README does not claim that the Day 5–7 migrations have executed in a live environment.
+The production dependency audit was not rerun during B00; its last recorded result remains the 12 September audit. The PostgreSQL/pgTAP suite still needs to run against an available local or staging Supabase instance. During B00, no database was reachable at the normal local Supabase port, so this README does not claim that the migrations have executed in a live environment.
 
 GitHub Actions runs quality, Chromium browser, and isolated Supabase jobs on `fresh-variant` pushes and pull requests.
 
