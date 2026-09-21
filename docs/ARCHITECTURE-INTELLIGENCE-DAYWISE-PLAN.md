@@ -112,6 +112,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 5 — Send only useful information to AI
 
+**Progress:** B04 is implemented and locally verified on branch `feat/b04-context-compiler`; see [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md).
+
 **User outcome:** Lower AI cost while retaining the facts needed for each task.
 
 **Session 5A — what and how:** Build the shared input router and context preparation for prompt/existing-project input. Remove duplicates and repeated noise while keeping headings, tables, code and source references.

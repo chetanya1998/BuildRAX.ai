@@ -172,7 +172,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B03 — Persist and link the new representations
 
 **Depends on:** B02.  
-**Status:** Implemented and application-verified on 21 September 2026 in `feat/b03-persist-traceability`; database/RLS validation is pending CI because the local Docker daemon is unresponsive. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
+**Status:** Merged to `main` on 21 September 2026 from `feat/b03-persist-traceability`; application and database/RLS CI passed. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
 
 **Implement:** Extend the existing artifact/version graph with immutable evidence and requirement references. Migrate older IR through adapters without inventing evidence. Add component/flow references and presentation override metadata only where needed.
 
@@ -181,7 +181,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B04 — Build the Context Compiler and budget manager
 
 **Depends on:** B02.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 21 September 2026 in `feat/b04-context-compiler`. See [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md).
 
 **Implement:** Normalize and deduplicate text; preserve sections, tables, code and source locations. Rank context by task. Add configurable input/output budgets and omitted-reference metadata. Budget rules include prompt/schema overhead.
 

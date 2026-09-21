@@ -2,11 +2,22 @@
 
 ## Unreleased
 
+### Architecture intelligence context
+
+#### Day 05 · B04 — Context Compiler and budgets
+
+- Status: Implemented and verified locally
+- Branch: `feat/b04-context-compiler`
+- User impact: Produces task-specific, source-aware context within configurable
+  budgets and fails explicitly when mandatory constraints cannot fit.
+- Automatic checks: See `docs/DAY-05-CONTEXT-COMPILER.md`.
+- Production verification: Not claimed.
+
 ### Architecture intelligence persistence
 
 #### Day 04 · B03 — Persisted evidence and requirements
 
-- Status: Implemented and application-verified; database validation pending CI
+- Status: Merged; application and database CI verified
 - Branch: `feat/b03-persist-traceability`
 - User impact: Carries evidence, requirements, and semantic references through
   recovery, saving, migration, history, restore, and readback.
