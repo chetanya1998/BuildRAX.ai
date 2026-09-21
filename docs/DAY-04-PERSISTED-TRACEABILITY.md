@@ -7,7 +7,7 @@ Implemented and application-verified locally on 21 September 2026. Database/RLS 
 - Branch: `feat/b03-persist-traceability`
 - Base: merged Day 03 / B02 on `main`
 - Purpose: attach Evidence IR and Requirement IR to the existing immutable architecture-version graph without replacing saving, recovery, or history.
-- Delivery state: planned feature PR; not merged, deployed, or production-verified.
+- Delivery state: merged to `main`; not deployed or production-verified.
 
 ## User outcome
 
