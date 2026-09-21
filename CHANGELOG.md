@@ -2,11 +2,22 @@
 
 ## Unreleased
 
+### Architecture intelligence patterns
+
+#### Day 06 · B05 — Rules and reusable patterns
+
+- Status: Implemented and verified locally
+- Branch: `feat/b05-rule-pattern-registries`
+- User impact: Adds 12 versioned architecture patterns and eight explainable,
+  proposal-only rules while keeping explicit user constraints authoritative.
+- Automatic checks: See `docs/DAY-06-RULE-PATTERN-REGISTRIES.md`.
+- Production verification: Not claimed.
+
 ### Architecture intelligence context
 
 #### Day 05 · B04 — Context Compiler and budgets
 
-- Status: Implemented and verified locally
+- Status: Merged; application and CI verified
 - Branch: `feat/b04-context-compiler`
 - User impact: Produces task-specific, source-aware context within configurable
   budgets and fails explicitly when mandatory constraints cannot fit.
