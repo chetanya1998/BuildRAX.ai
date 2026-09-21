@@ -3,24 +3,23 @@ import { createConnector, createDiagram, createNode } from "@/lib/domain/factory
 import { diagramSchema, generationRequestSchema, type Diagram, type GenerationRequest } from "@/lib/domain/schema";
 import { getTemplate } from "@/lib/domain/templates";
 import { functionalRequirementsFromDescription } from "@/lib/intelligence/input";
+import { selectTemplatePattern } from "@/lib/intelligence/patterns";
 import { ARCHITECTURE_COMPILER_VERSION, ARCHITECTURE_IR_VERSION, SEMANTIC_CATALOG_VERSION, architectureIRSchema, migrateArchitectureIR, type ArchitectureIR } from "./schema";
 import { validateArchitectureIR, type IRValidationResult } from "./validator";
 
-const archetypes: Array<{ id: string; archetype: ArchitectureIR["intent"]["archetype"]; patterns: RegExp[] }> = [
-  { id: "multi-tenant-saas", archetype: "saas", patterns: [/\bsaas\b/i, /multi[- ]tenant/i] },
-  { id: "ai-rag", archetype: "ai-rag", patterns: [/\brag\b/i, /retrieval/i, /\bai\b/i, /\bllm\b/i] },
-  { id: "ecommerce", archetype: "commerce", patterns: [/e-?commerce/i, /checkout/i, /shopping/i] },
-  { id: "event-driven", archetype: "event-driven", patterns: [/event[- ]driven/i, /event broker/i] },
-  { id: "realtime", archetype: "realtime", patterns: [/real[- ]time/i, /websocket/i, /collaboration/i] },
-  { id: "data-pipeline", archetype: "data-pipeline", patterns: [/data pipeline/i, /streaming ingestion/i, /analytics pipeline/i] },
-  { id: "microservices", archetype: "microservices", patterns: [/microservice/i] },
-  { id: "mobile-backend", archetype: "mobile", patterns: [/mobile/i, /ios/i, /android/i] },
-];
+const archetypes: Record<string, ArchitectureIR["intent"]["archetype"]> = {
+  "multi-tenant-saas": "saas",
+  "ai-rag": "ai-rag",
+  ecommerce: "commerce",
+  "event-driven": "event-driven",
+  realtime: "realtime",
+  "data-pipeline": "data-pipeline",
+  microservices: "microservices",
+  "mobile-backend": "mobile",
+};
 
 export function selectArchitectureTemplate(request: GenerationRequest) {
-  if (request.templateId && getTemplate(request.templateId)) return request.templateId;
-  const searchable = `${request.prompt} ${request.productType ?? ""}`;
-  return archetypes.find((candidate) => candidate.patterns.some((pattern) => pattern.test(searchable)))?.id ?? "multi-tenant-saas";
+  return selectTemplatePattern(request);
 }
 
 function splitStack(value = "") {
@@ -63,7 +62,7 @@ export function buildArchitectureIR(input: GenerationRequest): ArchitectureIR {
   const request = generationRequestSchema.parse(input);
   const templateId = selectArchitectureTemplate(request);
   const template = getTemplate(templateId)!;
-  const archetype = archetypes.find((item) => item.id === templateId)?.archetype ?? "general";
+  const archetype = archetypes[templateId] ?? "general";
   const title = (request.productType || request.prompt.split(/[.!?\n]/)[0] || template.name).slice(0, 160);
   const sensitive = request.dataSensitivity ?? inferredSensitivity(request.prompt);
   const promptDeclaresMultiTenant = /multi[- ]tenant/i.test(request.prompt);

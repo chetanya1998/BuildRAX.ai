@@ -7,7 +7,7 @@ Implemented and verified locally on 21 September 2026.
 - Branch: `feat/b04-context-compiler`
 - Base: merged Day 04 / B03 on `main`.
 - Purpose: produce small, task-specific, traceable context without silently losing mandatory restrictions.
-- Delivery state: individual planned-feature branch; not merged, deployed, or production-verified.
+- Delivery state: merged to `main`; not deployed or production-verified.
 
 ## User outcome
 

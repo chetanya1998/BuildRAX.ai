@@ -181,7 +181,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B04 — Build the Context Compiler and budget manager
 
 **Depends on:** B02.  
-**Status:** Implemented and verified locally on 21 September 2026 in `feat/b04-context-compiler`. See [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md).
+**Status:** Merged to `main` on 21 September 2026 from `feat/b04-context-compiler`; application and CI checks passed. See [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md).
 
 **Implement:** Normalize and deduplicate text; preserve sections, tables, code and source locations. Rank context by task. Add configurable input/output budgets and omitted-reference metadata. Budget rules include prompt/schema overhead.
 
@@ -190,7 +190,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B05 — Create rule and pattern registries
 
 **Depends on:** B02.  
-**Status:** Not started.
+**Status:** Implemented and verified locally on 21 September 2026 in `feat/b05-rule-pattern-registries`. See [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
 
 **Implement:** Convert existing templates into versioned pattern definitions. Implement proposal-only rules for files, jobs, repeated reads, public APIs, critical external dependencies, queues, sensitive data and static delivery. Expand toward the 12 requested patterns after migrating existing ones.
 

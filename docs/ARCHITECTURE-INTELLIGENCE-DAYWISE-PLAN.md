@@ -128,6 +128,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 6 — Turn existing knowledge into reusable building blocks
 
+**Progress:** B05 is implemented and locally verified on branch `feat/b05-rule-pattern-registries`; see [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
+
 **User outcome:** Reliable starting designs do not need a model to rediscover common patterns.
 
 **Session 6A — what and how:** Convert existing templates into versioned patterns with required/optional components, known risks and questions. Add proposal-only rules for uploads, background jobs, public APIs and sensitive data.
