@@ -14,7 +14,10 @@ export const generationReceiptSchema = z.object({
 export type GenerationReceipt = z.infer<typeof generationReceiptSchema>;
 
 function secret() {
-  return process.env.GENERATION_RECEIPT_SECRET || process.env.RATE_LIMIT_HMAC_SECRET || "local-development-receipt-only";
+  const configured = process.env.GENERATION_RECEIPT_SECRET || (process.env.NODE_ENV !== "production" ? process.env.RATE_LIMIT_HMAC_SECRET : undefined);
+  if (configured) return configured;
+  if (process.env.NODE_ENV === "production") throw new Error("GENERATION_RECEIPT_SECRET must be configured in production.");
+  return "local-development-receipt-only";
 }
 
 function message(receipt: Omit<GenerationReceipt, "signature">) {

@@ -199,7 +199,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B06 — Consolidate the AI gateway
 
 **Depends on:** B04.  
-**Status:** Implemented and locally verified on 21 September 2026 in `feat/b06-controlled-ai-gateway`; GitHub CI is required before merge. See [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
+**Status:** Merged to `main` on 21 September 2026 from `feat/b06-controlled-ai-gateway`; application and CI checks passed. See [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
 
 **Implement:** Wrap the existing provider behind task contracts. Centralize structured output, timeouts, bounded retry, cancellation, token/cost metadata and request IDs. Add production configuration validation and deterministic no-key behavior.
 
@@ -208,7 +208,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B07 — Add resumable generation jobs
 
 **Depends on:** B03, B06.  
-**Status:** Not started.
+**Status:** Implemented and application-verified locally on 22 September 2026 in `feat/b07-resumable-generation-jobs`; database CI is required before merge. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
 
 **Implement:** Use durable PostgreSQL jobs and stage artifacts with leases. Add create/status/cancel/retry APIs. Choose polling first for current hosting; run long work in a bounded worker. Retain valid prior stages and reject stale completions.
 

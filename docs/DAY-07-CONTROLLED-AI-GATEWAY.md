@@ -7,7 +7,7 @@ Implemented and verified locally on 21 September 2026.
 - Branch: `feat/b06-controlled-ai-gateway`
 - Base: merged Day 06 / B05 on `main` (`a503057`).
 - Purpose: route every model-capable task through one validated, observable, cancellable boundary.
-- Delivery state: individual planned-feature branch; not merged, deployed, or production-verified.
+- Delivery state: merged to `main` on 21 September 2026; not deployed or production-verified.
 
 ## User outcome
 
