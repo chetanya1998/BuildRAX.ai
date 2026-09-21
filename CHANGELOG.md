@@ -2,11 +2,23 @@
 
 ## Unreleased
 
+### Controlled AI execution
+
+#### Day 07 · B06 — Controlled AI gateway
+
+- Status: Implemented and verified locally
+- Branch: `feat/b06-controlled-ai-gateway`
+- User impact: Routes synthesis, change planning, review, documentation,
+  requirement extraction, and explanation through one validated, cancellable,
+  usage-aware boundary.
+- Automatic checks: See `docs/DAY-07-CONTROLLED-AI-GATEWAY.md`.
+- Production verification: Not claimed.
+
 ### Architecture intelligence patterns
 
 #### Day 06 · B05 — Rules and reusable patterns
 
-- Status: Implemented and verified locally
+- Status: Merged; application and CI verified
 - Branch: `feat/b05-rule-pattern-registries`
 - User impact: Adds 12 versioned architecture patterns and eight explainable,
   proposal-only rules while keeping explicit user constraints authoritative.

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generationRequestSchema } from "@/lib/domain/schema";
 import { classifyAIError, AISemanticValidationError } from "@/lib/ai/errors";
-import { generateArchitecture } from "@/lib/ai/generation";
+import { runArchitectureSynthesis } from "@/lib/ai/gateway";
 import { apiError, HttpError, inputValidationError, readJson } from "@/lib/server/http";
 import { recordGenerationRun } from "@/lib/server/ai-runs";
 import { assertRateLimit } from "@/lib/server/rate-limit";
@@ -19,7 +19,8 @@ export async function POST(request: Request) {
     const parsed = generationRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) return inputValidationError(parsed.error, requestId);
     const input = parsed.data;
-    const result = await generateArchitecture(input, { requestId });
+    const gateway = await runArchitectureSynthesis(input, { requestId, timeoutMs: 25_000, signal: request.signal });
+    const result = gateway.data;
     const generationReceipt = createGenerationReceipt({
       requestId,
       irChecksum: result.artifact.checksums.ir,
@@ -47,6 +48,10 @@ export async function POST(request: Request) {
         attempts: result.attempts,
         promptVersion: result.promptVersion,
         compilerVersion: ARCHITECTURE_COMPILER_VERSION,
+        usage: gateway.meta.usage,
+        successfulCalls: gateway.meta.successfulCalls,
+        repairCalls: gateway.meta.repairCalls,
+        gatewayVersion: gateway.meta.gatewayVersion,
       },
     }, { headers: { "cache-control": "no-store", "x-request-id": requestId } });
   } catch (error) {

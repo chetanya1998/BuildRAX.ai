@@ -190,7 +190,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B05 — Create rule and pattern registries
 
 **Depends on:** B02.  
-**Status:** Implemented and verified locally on 21 September 2026 in `feat/b05-rule-pattern-registries`. See [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
+**Status:** Merged to `main` on 21 September 2026 from `feat/b05-rule-pattern-registries`; application and CI checks passed. See [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
 
 **Implement:** Convert existing templates into versioned pattern definitions. Implement proposal-only rules for files, jobs, repeated reads, public APIs, critical external dependencies, queues, sensitive data and static delivery. Expand toward the 12 requested patterns after migrating existing ones.
 
@@ -199,7 +199,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B06 — Consolidate the AI gateway
 
 **Depends on:** B04.  
-**Status:** Not started.
+**Status:** Implemented and locally verified on 21 September 2026 in `feat/b06-controlled-ai-gateway`; GitHub CI is required before merge. See [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
 
 **Implement:** Wrap the existing provider behind task contracts. Centralize structured output, timeouts, bounded retry, cancellation, token/cost metadata and request IDs. Add production configuration validation and deterministic no-key behavior.
 
