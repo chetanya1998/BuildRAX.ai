@@ -7,7 +7,7 @@ Implemented and verified locally on 21 September 2026.
 - Branch: `feat/b05-rule-pattern-registries`
 - Base: merged Day 05 / B04 on `main`.
 - Purpose: make common architecture starting points and deterministic suggestions versioned, explainable, and proposal-only.
-- Delivery state: individual planned-feature branch; not merged, deployed, or production-verified.
+- Delivery state: merged to `main` on 21 September 2026; not deployed or production-verified.
 
 ## User outcome
 

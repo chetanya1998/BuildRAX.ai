@@ -128,7 +128,7 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 6 — Turn existing knowledge into reusable building blocks
 
-**Progress:** B05 is implemented and locally verified on branch `feat/b05-rule-pattern-registries`; see [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
+**Progress:** B05 was merged to `main` on 21 September 2026 from `feat/b05-rule-pattern-registries`; see [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md).
 
 **User outcome:** Reliable starting designs do not need a model to rediscover common patterns.
 
@@ -143,6 +143,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 **Done when:** All 12 specified pattern families have fixtures; rules have match/no-match tests; explicit user restrictions win over pattern defaults.
 
 ## Day 7 — Put AI requests through one controlled service
+
+**Progress:** B06 is implemented and locally verified on branch `feat/b06-controlled-ai-gateway`; GitHub CI is required before merge. See [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
 
 **User outcome:** All AI features follow the same rules for output, cost and errors.
 

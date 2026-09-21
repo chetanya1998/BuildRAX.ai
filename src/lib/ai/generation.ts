@@ -9,6 +9,8 @@ import { AIOutputError, AISemanticValidationError } from "./errors";
 import { getAIProvider, type ArchitectureAIProvider } from "./provider";
 import { buildInputTraceability } from "@/lib/intelligence/input";
 import type { TraceabilityBundle } from "@/lib/intelligence/schema";
+import type { ContextPack } from "@/lib/intelligence/context";
+import type { AIUsage } from "./provider";
 
 export const ARCHITECTURE_PROMPT_VERSION = "architecture-v1";
 
@@ -18,6 +20,8 @@ export type GenerationContext = {
   requestId: string;
   promptVersion: typeof ARCHITECTURE_PROMPT_VERSION;
   repairReason?: string;
+  contextPack?: ContextPack;
+  signal?: AbortSignal;
 };
 
 export type GenerationResult = {
@@ -31,6 +35,9 @@ export type GenerationResult = {
   provider: string;
   model: string;
   promptVersion: typeof ARCHITECTURE_PROMPT_VERSION;
+  usage: AIUsage;
+  successfulCalls: number;
+  repairCalls: number;
 };
 
 export function validateGeneratedIR(candidate: unknown): { ir: ArchitectureIR; validation: IRValidationResult } {
@@ -51,9 +58,18 @@ export function validateGeneratedIR(candidate: unknown): { ir: ArchitectureIR; v
  * This is the complete, allow-listed context supplied to an AI provider. It
  * deliberately excludes account, browser, analytics and local-draft data.
  */
-export function buildGenerationContext(request: GenerationRequest, requestId: string): GenerationContext {
+export function buildGenerationContext(request: GenerationRequest, requestId: string, options: { contextPack?: ContextPack; signal?: AbortSignal } = {}): GenerationContext {
   generationRequestSchema.parse(request);
-  return { requestId, promptVersion: ARCHITECTURE_PROMPT_VERSION };
+  return { requestId, promptVersion: ARCHITECTURE_PROMPT_VERSION, contextPack: options.contextPack, signal: options.signal };
+}
+
+function addUsage(left: AIUsage, right: AIUsage): AIUsage {
+  return {
+    inputTokens: left.inputTokens + right.inputTokens,
+    outputTokens: left.outputTokens + right.outputTokens,
+    totalTokens: left.totalTokens + right.totalTokens,
+    estimatedCostUsd: left.estimatedCostUsd === null || right.estimatedCostUsd === null ? null : left.estimatedCostUsd + right.estimatedCostUsd,
+  };
 }
 
 export function normalizeGeneratedDiagram(candidate: unknown): Diagram {
@@ -111,16 +127,18 @@ export function validateGeneratedDiagram(candidate: unknown): Diagram {
 
 export async function generateArchitecture(
   input: GenerationRequest,
-  options: { provider?: ArchitectureAIProvider; requestId?: string } = {},
+  options: { provider?: ArchitectureAIProvider; requestId?: string; contextPack?: ContextPack; signal?: AbortSignal } = {},
 ): Promise<GenerationResult> {
   const request = generationRequestSchema.parse(input);
   const provider = options.provider ?? await getAIProvider();
-  const context = buildGenerationContext(request, options.requestId ?? crypto.randomUUID());
+  const context = buildGenerationContext(request, options.requestId ?? crypto.randomUUID(), { contextPack: options.contextPack, signal: options.signal });
   const traceability = buildInputTraceability(request);
+  let firstUsage: AIUsage = { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 };
 
   try {
-    const candidate = await provider.generate(request, context);
-    const { ir, validation } = validateGeneratedIR(candidate);
+    const providerResult = await provider.generate(request, context);
+    firstUsage = providerResult.usage;
+    const { ir, validation } = validateGeneratedIR(providerResult.output);
     const diagram = validateGeneratedDiagram(compileArchitectureIR(ir));
     const presentation = presentationFromDiagram(diagram);
     const artifact = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, traceability, presentation, createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
@@ -135,12 +153,15 @@ export async function generateArchitecture(
       provider: provider.id,
       model: provider.model,
       promptVersion: context.promptVersion,
+      usage: providerResult.usage,
+      successfulCalls: 1,
+      repairCalls: 0,
     };
   } catch (error) {
     if (!(error instanceof AIOutputError || error instanceof AISemanticValidationError)) throw error;
     const reason = error instanceof AISemanticValidationError ? error.reasons.join(" ") : "Return a complete schema-valid architecture.";
     const repaired = await provider.repair(request, { ...context, repairReason: reason });
-    const { ir, validation } = validateGeneratedIR(repaired);
+    const { ir, validation } = validateGeneratedIR(repaired.output);
     const diagram = validateGeneratedDiagram(compileArchitectureIR(ir));
     const presentation = presentationFromDiagram(diagram);
     const artifact = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, traceability, presentation, createdAt: diagram.createdAt, updatedAt: diagram.updatedAt });
@@ -155,6 +176,9 @@ export async function generateArchitecture(
       provider: provider.id,
       model: provider.model,
       promptVersion: context.promptVersion,
+      usage: addUsage(firstUsage, repaired.usage),
+      successfulCalls: 1,
+      repairCalls: 1,
     };
   }
 }
