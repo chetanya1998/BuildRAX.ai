@@ -144,7 +144,7 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 7 — Put AI requests through one controlled service
 
-**Progress:** B06 is implemented and locally verified on branch `feat/b06-controlled-ai-gateway`; GitHub CI is required before merge. See [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
+**Progress:** B06 was merged to `main` on 21 September 2026 from `feat/b06-controlled-ai-gateway`; see [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md).
 
 **User outcome:** All AI features follow the same rules for output, cost and errors.
 
@@ -159,6 +159,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 **Done when:** Invalid outputs fail safely; enabled production features reject missing secrets; request IDs and actual model usage are recorded without private content.
 
 ## Day 8 — Resume long work from the failed step
+
+**Progress:** B07 is implemented and application-verified locally on branch `feat/b07-resumable-generation-jobs`; database CI is required before merge. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
 
 **User outcome:** A failed final step does not force the user to start again.
 

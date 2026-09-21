@@ -10,4 +10,5 @@ This matrix distinguishes implementation milestones from hosted user features. A
 | Day 04 / B03 — Persisted traceability | Merged; application and database CI passed | Not deployed | Internal persistence capability on `main` | [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md) |
 | Day 05 / B04 — Context Compiler | Merged; application and CI checks passed | Not deployed | Internal compiler on `main` | [Day 05 Context Compiler](DAY-05-CONTEXT-COMPILER.md) |
 | Day 06 / B05 — Rules and patterns | Merged; application and CI checks passed | Not deployed | Internal registries on `main` | [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md) |
-| Day 07 / B06 — Controlled AI gateway | Pending until merged | Not deployed | Internal gateway on `feat/b06-controlled-ai-gateway` | [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md) |
+| Day 07 / B06 — Controlled AI gateway | Merged; application and CI checks passed | Not deployed | Internal gateway on `main` | [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md) |
+| Day 08 / B07 — Resumable generation jobs | Pending until merged | Worker disabled | Internal durable workflow on `feat/b07-resumable-generation-jobs` | [Day 08 resumable jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md) |

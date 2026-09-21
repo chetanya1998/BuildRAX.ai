@@ -4,9 +4,19 @@
 
 ### Controlled AI execution
 
+#### Day 08 · B07 — Resumable generation jobs
+
+- Status: Implemented and application-verified locally; database CI pending
+- Branch: `feat/b07-resumable-generation-jobs`
+- User impact: Persists bounded generation stages so interruption, cancellation,
+  retry, and duplicate delivery cannot discard valid checkpoints or publish a
+  stale result.
+- Automatic checks: See `docs/DAY-08-RESUMABLE-GENERATION-JOBS.md`.
+- Production verification: Worker remains disabled.
+
 #### Day 07 · B06 — Controlled AI gateway
 
-- Status: Implemented and verified locally
+- Status: Merged; application and CI verified
 - Branch: `feat/b06-controlled-ai-gateway`
 - User impact: Routes synthesis, change planning, review, documentation,
   requirement extraction, and explanation through one validated, cancellable,
