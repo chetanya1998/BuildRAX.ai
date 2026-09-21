@@ -3,6 +3,7 @@ import Dexie from "dexie";
 import { beforeAll, describe, expect, it } from "vitest";
 import { createDiagram } from "@/lib/domain/factory";
 import { architectureIRFromDiagram, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
+import { buildInputTraceability } from "@/lib/intelligence/input";
 import { clearQueuedProjectSave, loadDraft, loadQueuedProjectSave, loadRecovery, loadRecoveryConflict, preserveRecoveryConflict, queueProjectSave, recoveryArchitecture, recoveryKey, RecoveryConflictError, resolveRecoveryConflict, saveDraft, saveRecovery, type RecoveryRecord, type RecoveryScope } from "./drafts";
 
 const guest: RecoveryScope = { kind: "guest" };
@@ -63,6 +64,18 @@ describe("browser recovery records", () => {
     await saveRecovery({ ...record, document: "" }, 1);
     expect((await loadRecovery(guest, record.diagram.id))?.document).toBe("");
     expect(window.localStorage.getItem(`buildrax-document:${record.diagram.id}`)).toBe("old text");
+  });
+
+  it("round-trips traceability through recovery and queued cloud saves", async () => {
+    const record = fixture(account);
+    const traceability = buildInputTraceability({ prompt: "Build a secure service with background jobs." });
+    const architecture = { ...record.architecture, traceability };
+    await saveRecovery({ ...record, architecture }, 0);
+    expect((await loadRecovery(account, record.diagram.id))?.architecture.traceability).toEqual(traceability);
+
+    const queued = { diagramId: record.diagram.id, diagram: record.diagram, idempotencyKey: crypto.randomUUID(), baseVersion: 1, baseIrVersion: 1, localRevision: 1, ir: architecture.ir, presentation: architecture.presentation, traceability };
+    await queueProjectSave(queued, account);
+    expect((await loadQueuedProjectSave(record.diagram.id, account))?.traceability).toEqual(traceability);
   });
 
   it("preserves document images, primitive images, and the original signed generation while editing", async () => {

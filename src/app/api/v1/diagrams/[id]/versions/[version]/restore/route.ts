@@ -28,11 +28,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       diagramVersion: currentResult.data.current_version + 1,
       irVersion: currentResult.data.current_ir_version + 1,
       ir,
+      traceability: source.traceability,
       presentation: source.presentation,
       createdAt: currentResult.data.created_at,
     });
     try {
-      assertArchitecturePayloadSizes(ir, source.presentation, snapshot.materializedDiagram);
+      assertArchitecturePayloadSizes(ir, source.presentation, snapshot.materializedDiagram, source.traceability);
     } catch (error) {
       throw new HttpError(413, error instanceof Error ? error.message : "Architecture snapshot is too large.");
     }
@@ -41,8 +42,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       baseIrVersion: currentResult.data.current_ir_version,
       ir,
       presentation: source.presentation,
+      ...(source.traceability ? { traceability: source.traceability } : {}),
     });
-    const { data, error } = await supabase.rpc("save_architecture_snapshot", {
+    const rpcName = source.traceability ? "save_architecture_snapshot_v2" : "save_architecture_snapshot";
+    const rpcInput: Record<string, unknown> = {
       target_diagram: id,
       base_version: currentResult.data.current_version,
       base_ir_version: currentResult.data.current_ir_version,
@@ -58,7 +61,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       compiler_version: ARCHITECTURE_COMPILER_VERSION,
       catalog_version: SEMANTIC_CATALOG_VERSION,
       ai_request_id: null,
+    };
+    if (source.traceability) Object.assign(rpcInput, {
+      evidence_payload: source.traceability.evidence,
+      evidence_checksum: snapshot.checksums.evidence,
+      requirement_payload: source.traceability.requirements,
+      requirement_checksum: snapshot.checksums.requirements,
     });
+    const { data, error } = await supabase.rpc(rpcName, rpcInput);
     if (error?.code === "40001") return NextResponse.json({ error: "Version conflict" }, { status: 409 });
     if (error?.code === "22023" && error.message.includes("Idempotency")) return NextResponse.json({ error: "Idempotency key conflict" }, { status: 409 });
     if (error?.code === "P0001" && error.message.includes("rate limit")) return NextResponse.json({ error: "Too many restore requests. Retry shortly." }, { status: 429, headers: { "retry-after": "60" } });

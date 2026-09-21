@@ -96,6 +96,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 4 — Save the new information safely
 
+**Progress:** B03 is implemented and application-verified on branch `feat/b03-persist-traceability`; database/RLS validation is pending CI because the local Docker daemon is unresponsive. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
+
 **User outcome:** Evidence and requirements survive editing, signup and reopening.
 
 **Session 4A — what and how:** Link evidence and requirement artifacts to the existing immutable version graph. Add a compatible reader for old projects and migrations for the new references.

@@ -13,6 +13,7 @@ import type { ArchitectureIR } from "@/lib/architecture-ir/schema";
 import type { GenerationReceipt } from "@/lib/server/generation-receipt";
 import { getTemplate, templates } from "@/lib/domain/templates";
 import type { GenerationRequest } from "@/lib/domain/schema";
+import type { TraceabilityBundle } from "@/lib/intelligence/schema";
 import { saveDraft } from "@/lib/storage/drafts";
 import { useHydrated } from "@/lib/ui/use-hydrated";
 import styles from "./start.module.css";
@@ -65,7 +66,8 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
   async function openDiagram(diagram: ReturnType<typeof createDiagram>, sourcePrompt?: string, artifact?: {
     ir: ArchitectureIR;
     presentation: ArchitecturePresentation;
-    checksums?: { ir: string; presentation: string; diagram: string };
+    traceability?: TraceabilityBundle;
+    checksums?: { ir: string; presentation: string; diagram: string; evidence?: string; requirements?: string };
     generationReceipt?: GenerationReceipt;
   }) {
     const resolvedArtifact = artifact ?? {
@@ -81,7 +83,7 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
           // The diagram ID is already a UUID and remains stable if this exact
           // creation request is replayed after an uncertain network response.
           idempotencyKey: diagram.id,
-          artifact: { ir: resolvedArtifact.ir, presentation: resolvedArtifact.presentation, diagram },
+          artifact: { ir: resolvedArtifact.ir, presentation: resolvedArtifact.presentation, traceability: resolvedArtifact.traceability, diagram },
           generationReceipt: resolvedArtifact.generationReceipt,
         }),
       });
@@ -98,6 +100,7 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
         ir: resolvedArtifact.ir,
         presentation: resolvedArtifact.presentation,
         irVersion: 1,
+        traceability: resolvedArtifact.traceability,
         checksums: resolvedArtifact.checksums,
         generationReceipt: resolvedArtifact.generationReceipt,
       },
@@ -145,6 +148,7 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
       await openDiagram(body.artifact.diagram, basePrompt, {
         ir: body.artifact.ir,
         presentation: body.artifact.presentation,
+        traceability: body.artifact.traceability,
         checksums: body.artifact.checksums,
         generationReceipt: body.artifact.generationReceipt,
       });

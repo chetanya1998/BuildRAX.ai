@@ -4,6 +4,7 @@ import { generationRequestSchema } from "@/lib/domain/schema";
 import { apiError, inputValidationError, readJson } from "@/lib/server/http";
 import { assertRateLimit } from "@/lib/server/rate-limit";
 import { createArchitectureSnapshot, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
+import { buildInputTraceability } from "@/lib/intelligence/input";
 
 export const maxDuration = 10;
 
@@ -16,18 +17,21 @@ export async function POST(request: Request) {
     if (!parsed.success) return inputValidationError(parsed.error, requestId);
     const input = parsed.data;
     const result = compileArchitectureRequest(input);
+    const traceability = buildInputTraceability(input);
     const presentation = presentationFromDiagram(result.diagram);
     const artifact = await createArchitectureSnapshot({
       diagramId: result.diagram.id,
       diagramVersion: 1,
       irVersion: 1,
       ir: result.ir,
+      traceability,
       presentation,
       createdAt: result.diagram.createdAt,
       updatedAt: result.diagram.updatedAt,
     });
     return NextResponse.json({
       ir: artifact.ir,
+      traceability: artifact.traceability,
       presentation: artifact.presentation,
       diagram: artifact.materializedDiagram,
       checksums: artifact.checksums,

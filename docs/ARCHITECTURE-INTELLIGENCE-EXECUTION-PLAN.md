@@ -172,7 +172,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B03 — Persist and link the new representations
 
 **Depends on:** B02.  
-**Status:** Not started.
+**Status:** Implemented and application-verified on 21 September 2026 in `feat/b03-persist-traceability`; database/RLS validation is pending CI because the local Docker daemon is unresponsive. See [Day 04 persisted traceability](DAY-04-PERSISTED-TRACEABILITY.md).
 
 **Implement:** Extend the existing artifact/version graph with immutable evidence and requirement references. Migrate older IR through adapters without inventing evidence. Add component/flow references and presentation override metadata only where needed.
 

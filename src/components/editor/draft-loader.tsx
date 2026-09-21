@@ -41,6 +41,7 @@ export function DraftLoader({ draftId, migrate = false }: { draftId: string; mig
             artifact: {
               ir: currentArchitecture.ir,
               presentation: persistedPresentation,
+              traceability: currentArchitecture.traceability,
               diagram: currentDraft.diagram,
             },
             generationReceipt: currentArchitecture.generationReceipt,
@@ -50,6 +51,7 @@ export function DraftLoader({ draftId, migrate = false }: { draftId: string; mig
               architecture: {
                 ir: currentDraft.generationOrigin.architecture.ir,
                 presentation: currentDraft.generationOrigin.architecture.presentation,
+                traceability: currentDraft.generationOrigin.architecture.traceability,
                 generationReceipt: currentDraft.generationOrigin.architecture.generationReceipt,
               },
             } : undefined,
@@ -59,13 +61,16 @@ export function DraftLoader({ draftId, migrate = false }: { draftId: string; mig
         if (!response.ok || !body.migration?.project_id) throw new Error(body.error ?? "Your draft could not be migrated.");
         {
           const expectedSnapshot = await createArchitectureSnapshot({ diagramId: currentDraft.diagram.id, diagramVersion: 1, irVersion: 1,
-            ir: currentArchitecture.ir, presentation: persistedPresentation, createdAt: currentDraft.diagram.createdAt, updatedAt: currentDraft.diagram.updatedAt });
+            ir: currentArchitecture.ir, traceability: currentArchitecture.traceability, presentation: persistedPresentation, createdAt: currentDraft.diagram.createdAt, updatedAt: currentDraft.diagram.updatedAt });
           const [expectedIr, expectedPresentation, expectedDiagram, expectedDocument] = await Promise.all([
             canonicalSha256(currentArchitecture.ir), canonicalSha256(persistedPresentation), canonicalSha256(expectedSnapshot.materializedDiagram), canonicalSha256(persistedDocument),
           ]);
           const actual = body.checksums;
           if (!actual || actual.ir !== expectedIr || actual.presentation !== expectedPresentation || actual.diagram !== expectedDiagram || body.verification?.documentChecksum !== expectedDocument) {
             throw new Error("The saved architecture could not be completely verified. Your browser copy was retained.");
+          }
+          if (currentArchitecture.traceability && (actual.evidence !== expectedSnapshot.checksums.evidence || actual.requirements !== expectedSnapshot.checksums.requirements)) {
+            throw new Error("The saved evidence and requirements could not be verified. Your browser copy was retained.");
           }
           if (currentDraft.generationOrigin) {
             const originSnapshot = await createArchitectureSnapshot({ diagramId: currentDraft.generationOrigin.diagram.id, diagramVersion: 1, irVersion: 1,
@@ -89,5 +94,5 @@ export function DraftLoader({ draftId, migrate = false }: { draftId: string; mig
   if (draft === undefined) return <div className={styles.state}><span className={styles.spinner} /><strong>Recovering your local architecture…</strong><p>The diagram remains in this browser until you choose to save it.</p></div>;
   if (migrate && migrationMessage) return <div className={styles.state}><span className={styles.spinner} /><strong>{migrationMessage}</strong><p>Your browser copy is retained until the workspace migration succeeds.</p>{migrationMessage.includes("safe") && <ButtonLink href={`/draft/${draftId}`}>Return to local draft</ButtonLink>}</div>;
   if (draft === null) return <div className={styles.state}><strong>This local draft is not available.</strong><p>It may belong to another browser or have been cleared.</p><ButtonLink href="/start">Create a new architecture</ButtonLink></div>;
-  return <ArchitectureEditor initialDiagram={draft.diagram} initialIR={draft.architecture?.ir} initialIrVersion={draft.architecture?.irVersion} />;
+  return <ArchitectureEditor initialDiagram={draft.diagram} initialIR={draft.architecture?.ir} initialTraceability={draft.architecture?.traceability} initialIrVersion={draft.architecture?.irVersion} />;
 }

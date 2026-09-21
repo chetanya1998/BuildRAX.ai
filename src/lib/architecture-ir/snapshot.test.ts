@@ -7,10 +7,12 @@ import {
   canonicalSha256,
   canonicalStringify,
   createArchitectureSnapshot,
+  migrateArchitectureSnapshot,
   materializeArchitecture,
   presentationFromDiagram,
   validateArchitectureArtifact,
 } from "./snapshot";
+import { buildInputTraceability } from "@/lib/intelligence/input";
 
 describe("Architecture snapshot contracts", () => {
   it("canonicalizes object keys before hashing", async () => {
@@ -48,6 +50,52 @@ describe("Architecture snapshot contracts", () => {
     });
     expect(snapshot.materializedDiagram.connectors[0].style).toBe("dashed");
     expect(snapshot.checksums.ir).toHaveLength(64);
+  });
+
+  it("round-trips traceability checksums and semantic references across versions", async () => {
+    const request = { prompt: "Build a multi-tenant SaaS product with asynchronous jobs." };
+    const ir = buildArchitectureIR(request);
+    const diagram = compileArchitectureIR(ir, { id: "diagram-traceability" });
+    const traceability = buildInputTraceability(request);
+    traceability.requirements.items[0].architectureRefs = [{ kind: "component", id: ir.components[0].id }];
+    const first = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, traceability, presentation: presentationFromDiagram(diagram) });
+    const second = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 2, irVersion: 1, ir, traceability, presentation: presentationFromDiagram(diagram) });
+
+    expect(first.checksums.evidence).toHaveLength(64);
+    expect(first.checksums.requirements).toHaveLength(64);
+    expect(second.traceability?.requirements.items[0].architectureRefs).toEqual([{ kind: "component", id: ir.components[0].id }]);
+    expect(second.checksums.requirements).toBe(first.checksums.requirements);
+  });
+
+  it("upgrades legacy snapshots without inventing traceability", async () => {
+    const ir = buildArchitectureIR({ prompt: "Build a secure API service with background jobs." });
+    const diagram = compileArchitectureIR(ir, { id: "legacy-snapshot" });
+    const current = await createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, presentation: presentationFromDiagram(diagram) });
+    const legacyIR = {
+      ...ir,
+      schemaVersion: "1.0.0",
+      flows: ir.flows.map((flow) => Object.fromEntries(
+        Object.entries(flow).filter(([key]) => key !== "sourcePort" && key !== "targetPort"),
+      )),
+      provenance: { strategy: "deterministic-template", templateId: ir.provenance.templateId },
+    };
+    const legacy = { ...current, schemaVersion: "1.0.0" as const, ir: legacyIR, traceability: undefined, checksums: {
+      ir: current.checksums.ir, presentation: current.checksums.presentation, diagram: current.checksums.diagram,
+    } };
+    const migrated = migrateArchitectureSnapshot(JSON.parse(JSON.stringify(legacy)));
+    expect(migrated.schemaVersion).toBe("1.1.0");
+    expect(migrated.ir.schemaVersion).toBe(ARCHITECTURE_IR_VERSION);
+    expect(migrated.ir.flows.every((flow) => flow.sourcePort === "out" && flow.targetPort === "in")).toBe(true);
+    expect(migrated.traceability).toBeUndefined();
+  });
+
+  it("rejects traceability references to missing architecture objects", async () => {
+    const request = { prompt: "Build a secure API service with background jobs." };
+    const ir = buildArchitectureIR(request);
+    const diagram = compileArchitectureIR(ir);
+    const traceability = buildInputTraceability(request);
+    traceability.requirements.items[0].architectureRefs = [{ kind: "flow", id: "missing-flow" }];
+    await expect(createArchitectureSnapshot({ diagramId: diagram.id, diagramVersion: 1, irVersion: 1, ir, traceability, presentation: presentationFromDiagram(diagram) })).rejects.toThrow(/unknown flow/i);
   });
 
   it("rejects presentation references that do not exist in IR", () => {
