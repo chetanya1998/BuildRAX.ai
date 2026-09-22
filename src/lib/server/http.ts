@@ -17,7 +17,7 @@ export async function readJson(request: Request) {
 }
 
 export class HttpError extends Error {
-  constructor(public status: number, message: string) { super(message); }
+  constructor(public status: number, message: string, public headers?: HeadersInit) { super(message); }
 }
 
 export function inputValidationError(error: z.ZodError, requestId?: string) {
@@ -33,7 +33,7 @@ export function inputValidationError(error: z.ZodError, requestId?: string) {
 }
 
 export function apiError(error: unknown) {
-  if (error instanceof HttpError) return NextResponse.json({ error: error.message }, { status: error.status });
+  if (error instanceof HttpError) return NextResponse.json({ error: error.message }, { status: error.status, headers: error.headers });
   if (error && typeof error === "object" && "issues" in error) return NextResponse.json({ error: "Request validation failed.", details: error }, { status: 422 });
   console.error("BuildRAX API failure", error instanceof Error ? { name: error.name, message: error.message } : "Unknown failure");
   return NextResponse.json({ error: "The request could not be completed safely." }, { status: 500 });

@@ -59,8 +59,9 @@ export async function processGenerationJob(options: { jobId: string; subjectKey:
   const requestPayload = existing.request_payload as { request?: unknown; mode?: unknown };
   const request = generationRequestSchema.parse(requestPayload.request);
   const useProvider = requestedMode === "provider" || (requestedMode === "auto" && providerEnabled && !request.templateId);
+  const provider = useProvider ? "openai" : "deterministic";
   const workerId = crypto.randomUUID();
-  const lease = await leaseGenerationJob({ jobId: options.jobId, subjectKey: options.subjectKey, workerId });
+  const lease = await leaseGenerationJob({ jobId: options.jobId, subjectKey: options.subjectKey, workerId, provider });
   if (!lease) return readGenerationJob(options.jobId, options.subjectKey);
   const activeLease = lease;
 

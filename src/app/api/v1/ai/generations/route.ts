@@ -4,7 +4,7 @@ import { classifyAIError, AISemanticValidationError } from "@/lib/ai/errors";
 import { runArchitectureSynthesis } from "@/lib/ai/gateway";
 import { apiError, HttpError, inputValidationError, readJson } from "@/lib/server/http";
 import { recordGenerationRun } from "@/lib/server/ai-runs";
-import { assertRateLimit } from "@/lib/server/rate-limit";
+import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { ARCHITECTURE_COMPILER_VERSION } from "@/lib/architecture-ir/schema";
 import { createGenerationReceipt } from "@/lib/server/generation-receipt";
 
@@ -15,7 +15,13 @@ export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
   let run: { provider: string; model: string; promptVersion: string; attempts: number } | undefined;
   try {
-    assertRateLimit(request, "generation");
+    const provider = process.env.OPENAI_API_KEY ? "openai" : "deterministic";
+    await assertSharedRateLimit(request, "generation", {
+      limit: 5,
+      windowSeconds: 600,
+      costUnits: provider === "openai" ? 1 : 0,
+      provider: provider === "openai" ? provider : undefined,
+    });
     const parsed = generationRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) return inputValidationError(parsed.error, requestId);
     const input = parsed.data;

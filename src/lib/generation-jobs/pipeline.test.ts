@@ -54,6 +54,7 @@ describe("resumable generation pipeline", () => {
   it("runs every deterministic stage and records zero model usage", async () => {
     await processGenerationJob({ jobId, subjectKey });
 
+    expect(store.leaseGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ provider: "deterministic" }));
     expect(store.checkpointGenerationJob.mock.calls.map(([entry]) => entry.stage)).toEqual([
       "evidence", "requirements", "context", "synthesis", "validation", "layout",
     ]);
@@ -85,6 +86,7 @@ describe("resumable generation pipeline", () => {
 
     await expect(processGenerationJob({ jobId, subjectKey })).rejects.toThrow("OPENAI_API_KEY");
 
+    expect(store.leaseGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ provider: "openai" }));
     expect(store.failGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ jobId, runVersion: 1, errorClass: "configuration" }));
   });
 

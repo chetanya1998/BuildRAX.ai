@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const jobs = vi.hoisted(() => ({
-  resolveGenerationJobIdentity: vi.fn(),
+  resolveRequestIdentity: vi.fn(),
   createGenerationJob: vi.fn(),
   readGenerationJob: vi.fn(),
   cancelGenerationJob: vi.fn(),
   retryGenerationJob: vi.fn(),
   processGenerationJob: vi.fn(),
 }));
-vi.mock("@/lib/generation-jobs/identity", () => ({ resolveGenerationJobIdentity: jobs.resolveGenerationJobIdentity }));
+vi.mock("@/lib/server/request-identity", () => ({ resolveRequestIdentity: jobs.resolveRequestIdentity }));
 vi.mock("@/lib/generation-jobs/store", () => ({
   createGenerationJob: jobs.createGenerationJob,
   readGenerationJob: jobs.readGenerationJob,
@@ -23,7 +23,7 @@ import { POST as cancelJob } from "./[id]/cancel/route";
 import { POST as retryJob } from "./[id]/retry/route";
 
 const jobId = "33333333-3333-4333-8333-333333333333";
-const identity = { subjectKey: "a".repeat(64), userId: "11111111-1111-4111-8111-111111111111", workspaceId: null };
+const identity = { kind: "user", subjectKey: "a".repeat(64), userId: "11111111-1111-4111-8111-111111111111", workspaceId: null };
 const params = { params: Promise.resolve({ id: jobId }) };
 const record = {
   id: jobId,
@@ -48,7 +48,7 @@ const record = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  jobs.resolveGenerationJobIdentity.mockResolvedValue(identity);
+  jobs.resolveRequestIdentity.mockResolvedValue(identity);
   jobs.readGenerationJob.mockResolvedValue(record);
 });
 
@@ -59,7 +59,7 @@ describe("generation job routes", () => {
       body: JSON.stringify({ request: { prompt: "short" } }),
     }));
     expect(response.status).toBe(422);
-    expect(jobs.resolveGenerationJobIdentity).not.toHaveBeenCalled();
+    expect(jobs.resolveRequestIdentity).not.toHaveBeenCalled();
   });
 
   it("creates an authenticated idempotent job", async () => {

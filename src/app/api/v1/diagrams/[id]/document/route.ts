@@ -3,7 +3,7 @@ import { z } from "zod";
 import { canonicalSha256 } from "@/lib/architecture-ir/snapshot";
 import { apiError, HttpError, readJson } from "@/lib/server/http";
 import { verifyPrivateAssetReferences } from "@/lib/server/private-assets";
-import { assertRateLimit } from "@/lib/server/rate-limit";
+import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -40,7 +40,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    assertRateLimit(request, "document-save", 60, 60_000);
+    await assertSharedRateLimit(request, "document-save", { limit: 60, windowSeconds: 60 });
     const id = z.string().uuid().parse((await params).id);
     const body = saveRequest.parse(await readJson(request));
     if (/data:image\//.test(body.markdown)) throw new HttpError(422, "Document images must be uploaded before saving.");

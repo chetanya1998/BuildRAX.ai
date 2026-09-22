@@ -5,7 +5,7 @@ import { architectureIRSchema } from "@/lib/architecture-ir/schema";
 import { runArchitectureReview } from "@/lib/ai/gateway";
 import { diagramSchema } from "@/lib/domain/schema";
 import { apiError, HttpError, readJson } from "@/lib/server/http";
-import { assertRateLimit } from "@/lib/server/rate-limit";
+import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const requestSchema = z.object({
@@ -18,7 +18,8 @@ const requestSchema = z.object({
 
 export async function POST(request: Request) {
   try {
-    assertRateLimit(request, "review", 12);
+    const provider = process.env.OPENAI_API_KEY ? "openai" : "deterministic";
+    await assertSharedRateLimit(request, "review", { limit: 12, windowSeconds: 600, costUnits: provider === "openai" ? 1 : 0, provider: provider === "openai" ? provider : undefined });
     const body = requestSchema.parse(await readJson(request));
     const ir = body.ir ?? architectureIRFromDiagram(body.diagram);
     if (body.presentation) {

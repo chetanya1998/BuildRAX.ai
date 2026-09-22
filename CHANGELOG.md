@@ -4,9 +4,18 @@
 
 ### Controlled AI execution
 
+#### Day 09 · O01 — Shared limits and concurrency
+
+- Status: Implementation and verification in progress
+- Branch: `feat/o01-shared-limits-concurrency`
+- User impact: Adds signed guest identity, atomic shared request windows,
+  bounded queue admission, and provider concurrency/cost leases across instances.
+- Automatic checks: See `docs/DAY-09-SHARED-ADMISSION-CONTROL.md`.
+- Production verification: Multi-instance load remains an O03 release gate.
+
 #### Day 08 · B07 — Resumable generation jobs
 
-- Status: Implemented and application-verified locally; database CI pending
+- Status: Merged; application and database CI verified
 - Branch: `feat/b07-resumable-generation-jobs`
 - User impact: Persists bounded generation stages so interruption, cancellation,
   retry, and duplicate delivery cannot discard valid checkpoints or publish a

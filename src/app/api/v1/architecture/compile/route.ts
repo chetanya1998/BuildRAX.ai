@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { ArchitectureIRValidationError, compileArchitectureRequest } from "@/lib/architecture-ir/compiler";
 import { generationRequestSchema } from "@/lib/domain/schema";
 import { apiError, inputValidationError, readJson } from "@/lib/server/http";
-import { assertRateLimit } from "@/lib/server/rate-limit";
+import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { createArchitectureSnapshot, presentationFromDiagram } from "@/lib/architecture-ir/snapshot";
 import { buildInputTraceability } from "@/lib/intelligence/input";
 
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
   const startedAt = Date.now();
   const requestId = crypto.randomUUID();
   try {
-    assertRateLimit(request, "architecture-ir", 20, 60_000);
+    await assertSharedRateLimit(request, "architecture-ir", { limit: 20, windowSeconds: 60 });
     const parsed = generationRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) return inputValidationError(parsed.error, requestId);
     const input = parsed.data;

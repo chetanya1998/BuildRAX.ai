@@ -18,8 +18,6 @@ import { saveDraft } from "@/lib/storage/drafts";
 import { useHydrated } from "@/lib/ui/use-hydrated";
 import styles from "./start.module.css";
 
-const anonymousSessionStorageKey = "buildrax-anonymous-session";
-
 const fieldLabels: Record<string, string> = {
   prompt: "Architecture description",
   productType: "Product type",
@@ -38,14 +36,6 @@ function generationErrorMessage(body: unknown) {
   if (firstFieldError) return `${fieldLabels[firstFieldError[0]] ?? firstFieldError[0]}: ${firstFieldError[1][0]}`;
   const stage = response.stage ? `${response.stage.replaceAll("-", " ")}: ` : "";
   return `${stage}${response.error || "Generation failed."}`;
-}
-
-function anonymousSessionId() {
-  const existing = localStorage.getItem(anonymousSessionStorageKey);
-  if (existing) return existing;
-  const created = crypto.randomUUID();
-  localStorage.setItem(anonymousSessionStorageKey, created);
-  return created;
 }
 
 export function StartExperience({ initialTemplate, authenticated = false }: { initialTemplate?: string; authenticated?: boolean }) {
@@ -125,8 +115,11 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
       const basePrompt = prompt.trim().length ? prompt : selected!.description;
       const headers: Record<string, string> = { "content-type": "application/json" };
       if (!authenticated) {
-        headers["x-buildrax-guest"] = "true";
-        headers["x-buildrax-anonymous-session"] = anonymousSessionId();
+        const guestSession = await fetch("/api/v1/guest-session", { method: "POST" });
+        if (!guestSession.ok) {
+          const body = await guestSession.json();
+          throw new Error(body.error || "A secure guest session could not be created.");
+        }
       }
       const response = await fetch("/api/v1/ai/generations", {
         method: "POST",
