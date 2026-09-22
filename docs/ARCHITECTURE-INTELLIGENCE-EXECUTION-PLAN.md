@@ -425,7 +425,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### O01 — Add distributed limits and admission control
 
 **Depends on:** B06, B07.  
-**Status:** In progress on 22 September 2026 in `feat/o01-shared-limits-concurrency`; hosted multi-instance load remains an O03 release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
+**Status:** Implemented and application/database CI verified on 22 September 2026 in `feat/o01-shared-limits-concurrency` (PR #19); hosted multi-instance load remains an O03 release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
 
 **Implement:** Replace process-local limits with a Redis-compatible adapter and signed guest identities. Add user/workspace/route/provider limits, provider concurrency leases, queue capacity, cost ceilings and Retry-After. Meter actual usage through the gateway.
 

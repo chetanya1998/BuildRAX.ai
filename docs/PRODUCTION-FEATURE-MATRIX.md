@@ -12,4 +12,4 @@ This matrix distinguishes implementation milestones from hosted user features. A
 | Day 06 / B05 — Rules and patterns | Merged; application and CI checks passed | Not deployed | Internal registries on `main` | [Day 06 rule and pattern registries](DAY-06-RULE-PATTERN-REGISTRIES.md) |
 | Day 07 / B06 — Controlled AI gateway | Merged; application and CI checks passed | Not deployed | Internal gateway on `main` | [Day 07 controlled AI gateway](DAY-07-CONTROLLED-AI-GATEWAY.md) |
 | Day 08 / B07 — Resumable generation jobs | Merged; application and database CI passed | Worker disabled | Internal durable workflow on `main` | [Day 08 resumable jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md) |
-| Day 09 / O01 — Shared limits and concurrency | In progress | Not deployed or load-tested | Internal admission controls on `feat/o01-shared-limits-concurrency` | [Day 09 shared admission](DAY-09-SHARED-ADMISSION-CONTROL.md) |
+| Day 09 / O01 — Shared limits and concurrency | PR #19 ready; application and database CI passed | Not deployed or load-tested | Internal admission controls on `feat/o01-shared-limits-concurrency` | [Day 09 shared admission](DAY-09-SHARED-ADMISSION-CONTROL.md) |

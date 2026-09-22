@@ -6,7 +6,7 @@
 
 #### Day 09 · O01 — Shared limits and concurrency
 
-- Status: Implementation and verification in progress
+- Status: PR #19 ready; application, browser, and database CI verified
 - Branch: `feat/o01-shared-limits-concurrency`
 - User impact: Adds signed guest identity, atomic shared request windows,
   bounded queue admission, and provider concurrency/cost leases across instances.

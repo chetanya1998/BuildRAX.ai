@@ -1,13 +1,13 @@
 # Day 09 / O01 — Shared limits and concurrency
 
-Implementation in progress on 22 September 2026.
+Implemented and verified on 22 September 2026.
 
 ## Branch brief
 
 - Branch: `feat/o01-shared-limits-concurrency`
 - Base: Day 08 / B07 merged on `main`.
 - Purpose: share request, queue, concurrency, and cost admission across application instances.
-- Delivery state: implemented locally; verification and pull request pending.
+- Delivery state: pull request #19 is open with application, browser, migration, RLS, security, and deploy-preview checks passing; not merged or production-verified.
 
 ## User outcome
 
@@ -22,12 +22,12 @@ Guests receive an expiring HMAC-signed, HttpOnly identity cookie and authenticat
 | Queue, concurrency, expiring lease, and cost admission | [database migration](../supabase/migrations/202609220013_shared_admission_control.sql) |
 | Cross-session admission and capacity assertions | [database tests](../supabase/tests/database/006_shared_admission_control.sql) |
 
-## Verification target
+## Verification
 
-- Signed-token validity, tampering, expiry, cookie issuance, and authenticated precedence.
-- Atomic multi-scope rejection without partially consuming another scope.
-- Idempotent admission, bounded queueing, concurrency and cost deferral, capacity release, and actual usage metering.
-- Full lint, type, unit, build, clean migration, RLS, and database test gates.
+- Signed-token validity, tampering, expiry, cookie issuance, and authenticated precedence pass.
+- Atomic multi-scope rejection, idempotent admission, bounded queueing, concurrency/cost deferral, capacity release, and actual usage metering pass in clean database CI.
+- `release:check` passes: 228-file scan, 13 unique migrations, lint, typecheck, 32 test files / 166 tests, and a 27-page production build.
+- GitHub quality, browser, Supabase migration/RLS, GitGuardian, Netlify header/redirect, and deploy-preview checks pass.
 
 ## Scope boundary
 
