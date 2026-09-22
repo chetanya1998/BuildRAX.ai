@@ -7,7 +7,7 @@ Implemented and verified on 22 September 2026.
 - Branch: `feat/o01-shared-limits-concurrency`
 - Base: Day 08 / B07 merged on `main`.
 - Purpose: share request, queue, concurrency, and cost admission across application instances.
-- Delivery state: pull request #19 is open with application, browser, migration, RLS, security, and deploy-preview checks passing; not merged or production-verified.
+- Delivery state: pull request #19 was merged to `main` with application, browser, migration, RLS, security, and deploy-preview checks passing; not production-verified.
 
 ## User outcome
 

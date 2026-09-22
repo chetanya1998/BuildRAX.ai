@@ -160,7 +160,7 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 8 — Resume long work from the failed step
 
-**Progress:** B07 is implemented and application-verified locally on branch `feat/b07-resumable-generation-jobs`; database CI is required before merge. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
+**Progress:** B07 was merged to `main` on 22 September 2026 from `feat/b07-resumable-generation-jobs`; application and database/RLS CI passed. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
 
 **User outcome:** A failed final step does not force the user to start again.
 
@@ -176,7 +176,7 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 9 — Protect the service when users arrive together
 
-**Progress:** O01 is implemented and application/database CI verified on branch `feat/o01-shared-limits-concurrency` in PR #19; hosted multi-instance load remains an O03 release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
+**Progress:** O01 was merged to `main` on 22 September 2026 from `feat/o01-shared-limits-concurrency`; application and database/RLS CI passed. Hosted multi-instance load remains an O03 release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
 
 **User outcome:** Traffic is shared fairly and excess work queues visibly.
 
@@ -191,6 +191,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 **Done when:** Two server instances share limits; crashed workers release capacity; exhausted capacity queues or rejects honestly; costly public requests fail safely if protection is unavailable.
 
 ## Day 10 — Complete the new prompt-to-canvas journey
+
+**Progress:** B08 is implemented and application/browser verified locally on branch `feat/b08-complete-generation-workflow`; pull-request database CI is required before merge. See [Day 10 complete generation workflow](DAY-10-COMPLETE-GENERATION-WORKFLOW.md).
 
 **User outcome:** The user sees real progress and receives an explainable first architecture.
 
