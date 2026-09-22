@@ -176,6 +176,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 9 — Protect the service when users arrive together
 
+**Progress:** O01 is implemented and application/database CI verified on branch `feat/o01-shared-limits-concurrency` in PR #19; hosted multi-instance load remains an O03 release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
+
 **User outcome:** Traffic is shared fairly and excess work queues visibly.
 
 **Session 9A — what and how:** Replace process-local rate limits with shared TTL-backed limits. Issue signed guest identities; apply limits by user, workspace, route and provider.

@@ -3,17 +3,22 @@ import "server-only";
 import { canonicalSha256 } from "@/lib/architecture-ir/snapshot";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { HttpError } from "@/lib/server/http";
-import type { GenerationJobIdentity } from "./identity";
+import type { RequestIdentity } from "@/lib/server/request-identity";
 import type { GenerationJobRecord, GenerationMode } from "./schema";
 
 function adminClient() {
   const admin = createSupabaseAdminClient();
-  if (!admin) throw new HttpError(503, "Durable generation storage is not configured.");
+  if (!admin) throw new HttpError(503, "Durable generation storage is not configured.", { "retry-after": "30" });
   return admin;
 }
 
+function boundedEnvironmentInteger(name: string, fallback: number, minimum: number, maximum: number) {
+  const parsed = Number(process.env[name] ?? fallback);
+  return Number.isSafeInteger(parsed) && parsed >= minimum && parsed <= maximum ? parsed : fallback;
+}
+
 export async function createGenerationJob(options: {
-  identity: GenerationJobIdentity;
+  identity: RequestIdentity;
   idempotencyKey: string;
   request: unknown;
   mode: GenerationMode;
@@ -28,10 +33,22 @@ export async function createGenerationJob(options: {
     request_checksum: checksum,
     request_payload: payload,
     generation_mode: options.mode,
+    estimated_cost_units: options.mode === "deterministic" ? 0 : 1,
+    subject_request_limit: options.identity.kind === "user" ? 20 : 5,
+    workspace_request_limit: 100,
+    window_seconds: 600,
+    queue_limit: boundedEnvironmentInteger("GENERATION_QUEUE_CAPACITY", 100, 1, 10_000),
   });
+  if (error?.code === "P0001") {
+    const retryAfter = error.message.match(/:(\d+)$/)?.[1] ?? "60";
+    const message = error.message.includes("queue")
+      ? "Generation capacity is full. Retry shortly."
+      : "Generation rate limit reached.";
+    throw new HttpError(429, message, { "retry-after": retryAfter });
+  }
   if (error?.code === "22023" && /Idempotency/.test(error.message)) throw new HttpError(409, "Idempotency key conflict.");
   if (error) throw new HttpError(500, "Generation job could not be created.");
-  const row = data?.[0] as { job_id: string; job_status: string; job_progress: number } | undefined;
+  const row = data?.[0] as { job_id: string; job_status: string; job_progress: number; retry_after_seconds: number } | undefined;
   if (!row) throw new HttpError(500, "Generation job creation returned no job.");
   return row;
 }
@@ -55,12 +72,15 @@ export async function listQueuedGenerationJobs(limit = 2) {
   return (data ?? []) as Array<{ id: string; subject_key: string }>;
 }
 
-export async function leaseGenerationJob(options: { jobId: string; subjectKey: string; workerId: string }) {
+export async function leaseGenerationJob(options: { jobId: string; subjectKey: string; workerId: string; provider: string }) {
   const { data, error } = await adminClient().rpc("lease_generation_job", {
     worker_id: options.workerId,
     target_job: options.jobId,
     target_subject: options.subjectKey,
+    provider_name: options.provider,
     lease_seconds: 55,
+    max_concurrency: boundedEnvironmentInteger("GENERATION_PROVIDER_CONCURRENCY", 4, 1, 1_000),
+    max_cost_units: boundedEnvironmentInteger("GENERATION_PROVIDER_COST_CAPACITY", 100, 0, 1_000_000),
   });
   if (error) throw new HttpError(error.code === "22023" ? 422 : 500, "Generation job could not be leased.");
   return data?.[0] as { job_id: string; request_payload: unknown; generation_mode: GenerationMode; resume_stage: string; run_version: number; attempts: number } | undefined;

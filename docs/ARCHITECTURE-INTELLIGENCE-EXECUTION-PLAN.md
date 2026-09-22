@@ -208,7 +208,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B07 — Add resumable generation jobs
 
 **Depends on:** B03, B06.  
-**Status:** Implemented and application-verified locally on 22 September 2026 in `feat/b07-resumable-generation-jobs`; database CI is required before merge. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
+**Status:** Merged to `main` on 22 September 2026 from `feat/b07-resumable-generation-jobs`; application and database/RLS CI passed. See [Day 08 resumable generation jobs](DAY-08-RESUMABLE-GENERATION-JOBS.md).
 
 **Implement:** Use durable PostgreSQL jobs and stage artifacts with leases. Add create/status/cancel/retry APIs. Choose polling first for current hosting; run long work in a bounded worker. Retain valid prior stages and reject stale completions.
 
@@ -425,7 +425,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### O01 — Add distributed limits and admission control
 
 **Depends on:** B06, B07.  
-**Status:** Not started.
+**Status:** Implemented and application/database CI verified on 22 September 2026 in `feat/o01-shared-limits-concurrency` (PR #19); hosted multi-instance load remains an O03 release-gate check. See [Day 09 shared admission control](DAY-09-SHARED-ADMISSION-CONTROL.md).
 
 **Implement:** Replace process-local limits with a Redis-compatible adapter and signed guest identities. Add user/workspace/route/provider limits, provider concurrency leases, queue capacity, cost ceilings and Retry-After. Meter actual usage through the gateway.
 

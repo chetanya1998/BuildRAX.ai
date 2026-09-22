@@ -48,7 +48,9 @@ describe("new architecture journey", () => {
   });
 
   it("sends architecture context as separate fields", async () => {
-    vi.mocked(fetch).mockResolvedValue(new Response(JSON.stringify({
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(JSON.stringify({ expiresAt: Date.now() + 60_000 }), { status: 201 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
       error: "Check the architecture inputs and try again.",
       stage: "input-validation",
       fieldErrors: { scale: ["Unsupported scale."] },
@@ -64,8 +66,9 @@ describe("new architecture journey", () => {
     fireEvent.change(screen.getByLabelText("Data sensitivity"), { target: { value: "confidential" } });
     fireEvent.click(screen.getByRole("button", { name: /generate architecture/i }));
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
-    const [, init] = vi.mocked(fetch).mock.calls[0];
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetch).mock.calls[0]).toEqual(["/api/v1/guest-session", { method: "POST" }]);
+    const [, init] = vi.mocked(fetch).mock.calls[1];
     expect(JSON.parse(String(init?.body))).toEqual({
       prompt: description,
       productType: "Support platform",
