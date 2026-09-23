@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   quality:
@@ -49,7 +50,14 @@ jobs:
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
           version: latest
-      - run: supabase start
+      # Authenticate image pulls so shared GitHub runner IPs do not consume the
+      # anonymous GHCR quota. Database tests only need the Postgres container.
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - run: supabase db start
       - run: supabase test db
       - if: always()
         run: supabase stop --no-backup
