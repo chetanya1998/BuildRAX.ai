@@ -217,7 +217,7 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### B08 — Connect the staged prompt pipeline
 
 **Depends on:** B03–B07.  
-**Status:** Implemented and application/browser verified locally on `feat/b08-complete-generation-workflow`; database CI is required before merge. See [Day 10 complete generation workflow](DAY-10-COMPLETE-GENERATION-WORKFLOW.md).
+**Status:** Implemented and application/browser/database CI verified in PR #20 on `feat/b08-complete-generation-workflow`; explicit merge approval is pending. See [Day 10 complete generation workflow](DAY-10-COMPLETE-GENERATION-WORKFLOW.md).
 
 **Implement:** Route prompt/existing architecture through evidence, requirements, context, patterns, rules, optional ambiguity resolution, validation and compilation. Add actual progress, cancel, retry and first-result facts/assumptions/unknowns.
 

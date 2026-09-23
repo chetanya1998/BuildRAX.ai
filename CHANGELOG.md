@@ -6,7 +6,7 @@
 
 #### Day 10 · B08 — Complete generation workflow
 
-- Status: Implemented; application and browser verification passed, database CI pending
+- Status: PR #20 ready; application, browser, and database CI verified
 - Branch: `feat/b08-complete-generation-workflow`
 - User impact: Connects durable generation stages to real progress, cancel/retry,
   explainable first-result review, and save/reload after explicit user inspection.

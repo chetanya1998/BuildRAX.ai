@@ -7,7 +7,7 @@ Implemented and application-verified on 23 September 2026.
 - Branch: `feat/b08-complete-generation-workflow`
 - Base: Day 09 / O01 merged on `main`.
 - Purpose: connect the staged intelligence pipeline to an explainable prompt-to-canvas experience.
-- Delivery state: implementation and local application/browser verification are complete; the additive database migration still requires the pull-request database gate before merge.
+- Delivery state: pull request #20 is open with application, browser, migration/RLS, security, and deploy-preview checks passing; explicit merge approval is pending.
 
 ## User outcome
 
@@ -32,7 +32,7 @@ The pipeline now checkpoints evidence, requirements, bounded context, determinis
 - The 27-page optimized production build passes.
 - The complete browser journey passes in desktop Chromium and mobile WebKit.
 - Deterministic pipeline coverage proves zero model calls/tokens; the shared gateway contract still caps successful provider calls at two and separately caps repairs at one.
-- Local Supabase connected but the Docker pgTAP run stalled before returning results. `007_generation_workflow.sql` is therefore a required pull-request database gate, not a claimed local pass.
+- Local Supabase connected but the Docker pgTAP run stalled before returning results. The clean pull-request Supabase migration/RLS gate passed `007_generation_workflow.sql`; no local database pass is claimed.
 
 ## Scope boundary
 

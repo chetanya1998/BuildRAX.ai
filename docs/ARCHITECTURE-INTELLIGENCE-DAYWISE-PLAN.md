@@ -192,7 +192,7 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 10 — Complete the new prompt-to-canvas journey
 
-**Progress:** B08 is implemented and application/browser verified locally on branch `feat/b08-complete-generation-workflow`; pull-request database CI is required before merge. See [Day 10 complete generation workflow](DAY-10-COMPLETE-GENERATION-WORKFLOW.md).
+**Progress:** B08 is implemented and application/browser/database CI verified on branch `feat/b08-complete-generation-workflow` in PR #20; explicit merge approval is pending. See [Day 10 complete generation workflow](DAY-10-COMPLETE-GENERATION-WORKFLOW.md).
 
 **User outcome:** The user sees real progress and receives an explainable first architecture.
 
