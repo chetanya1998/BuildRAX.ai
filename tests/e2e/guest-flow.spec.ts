@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+import { generateInspectAndOpen, installGenerationJobFixture } from "./generation-job-fixture";
+
+test.beforeEach(async ({ page }) => { await installGenerationJobFixture(page); });
 
 test("landing keeps the prompt out of the hero and routes into onboarding", async ({ page }) => {
   await page.goto("/");
@@ -11,9 +14,7 @@ test("landing keeps the prompt out of the hero and routes into onboarding", asyn
 
 test("a template can create a recoverable guest canvas", async ({ page }) => {
   await page.goto("/start?template=multi-tenant-saas");
-  const generateButton = page.getByRole("button", { name: /generate architecture/i });
-  await expect(generateButton).toBeEnabled();
-  await generateButton.click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   await expect(page.getByLabel("Canvas tools")).toBeVisible();
   await expect(page.getByText("Tenant service")).toBeVisible();
@@ -31,7 +32,7 @@ test("template library opens a populated canvas directly", async ({ page }) => {
 test("the desktop editor selects without disrupting the canvas and edits a semantic label inline", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Mobile intentionally does not expose the full drawing inspector.");
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   await expect(page.getByText("Inspector", { exact: true })).toHaveCount(0);
   await page.getByText("Tenant service", { exact: true }).click();
@@ -114,7 +115,7 @@ test("freehand captures a continuous smooth stroke across its live preview", asy
 test("documentation supports markdown writing, slash inserts, and a live canvas embed", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full document workspace is desktop-first.");
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
 
   await page.getByRole("button", { name: "Docs" }).click();
@@ -139,7 +140,7 @@ test("documentation supports markdown writing, slash inserts, and a live canvas 
 test("documentation controls expose tooltips and perform their editing actions", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "The full document workspace is desktop-first.");
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   await page.getByText("Tenant service", { exact: true }).click();
   await page.getByRole("button", { name: "Docs" }).click();
@@ -302,7 +303,7 @@ test("mobile components palette keeps the search and category hierarchy readable
 test("desktop component nodes resize and connector handles create an edge", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Mobile intentionally supports light editing only.");
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
 
   const service = page.locator('[data-id="saas-service"]');
@@ -341,7 +342,7 @@ test("desktop component nodes resize and connector handles create an edge", asyn
 test("pointer selection moves nodes, supports multi-selection, and exposes persistent node styles", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Desktop owns marquee selection and node styling.");
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
 
   const pointer = page.getByRole("button", { name: "Pointer / select" });
@@ -403,7 +404,7 @@ test("pointer selection moves nodes, supports multi-selection, and exposes persi
 test("pointer drag creates an area selection across canvas nodes", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Desktop owns marquee selection.");
   await page.goto("/start?template=multi-tenant-saas");
-  await page.getByRole("button", { name: /generate architecture/i }).click();
+  await generateInspectAndOpen(page);
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
   await page.getByRole("button", { name: "Pointer / select" }).click();
 

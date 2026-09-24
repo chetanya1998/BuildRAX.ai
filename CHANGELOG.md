@@ -4,9 +4,18 @@
 
 ### Controlled AI execution
 
+#### Day 10 · B08 — Complete generation workflow
+
+- Status: PR #20 ready; application, browser, and database CI verified
+- Branch: `feat/b08-complete-generation-workflow`
+- User impact: Connects durable generation stages to real progress, cancel/retry,
+  explainable first-result review, and save/reload after explicit user inspection.
+- Automatic checks: See `docs/DAY-10-COMPLETE-GENERATION-WORKFLOW.md`.
+- Production verification: Worker remains disabled; hosted load is not claimed.
+
 #### Day 09 · O01 — Shared limits and concurrency
 
-- Status: PR #19 ready; application, browser, and database CI verified
+- Status: Merged; application, browser, and database CI verified
 - Branch: `feat/o01-shared-limits-concurrency`
 - User impact: Adds signed guest identity, atomic shared request windows,
   bounded queue admission, and provider concurrency/cost leases across instances.

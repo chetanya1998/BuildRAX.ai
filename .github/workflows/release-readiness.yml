@@ -41,7 +41,7 @@ jobs:
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf
         with:
           version: latest
-      - run: supabase start
+      - run: bash scripts/start-supabase-db.sh
       - run: supabase test db
       - run: supabase db lint --local --level warning
       - if: always()

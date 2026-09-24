@@ -49,7 +49,9 @@ jobs:
       - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
         with:
           version: latest
-      - run: supabase start
+      # Database tests only need Postgres. The helper falls back across the
+      # official mirrors when a shared GitHub runner hits a registry rate limit.
+      - run: bash scripts/start-supabase-db.sh
       - run: supabase test db
       - if: always()
         run: supabase stop --no-backup

@@ -46,7 +46,7 @@ export const DEFAULT_CONTEXT_BUDGETS: Record<ContextTask, ContextBudget> = {
   explanation: { inputTokens: 8_000, outputTokens: 3_000 },
 };
 
-const omittedContextSchema = z.object({
+export const omittedContextSchema = z.object({
   id: z.string().min(1).max(120),
   sourceRefs: z.array(z.string().min(1).max(120)),
   reason: z.enum(["duplicate", "budget", "lower-relevance"]),
@@ -59,18 +59,20 @@ const compiledContextBlockSchema = contextBlockSchema.extend({
   estimatedTokens: z.number().int().min(1),
 }).strict();
 
+export const compiledContextBudgetSchema = contextBudgetSchema.extend({
+  instructionTokens: z.number().int().min(0),
+  schemaTokens: z.number().int().min(0),
+  contentTokens: z.number().int().min(0),
+  usedInputTokens: z.number().int().min(0),
+  remainingInputTokens: z.number().int().min(0),
+}).strict();
+
 export const contextPackSchema = z.object({
   schemaVersion: z.literal(CONTEXT_PACK_VERSION),
   task: contextTaskSchema,
   blocks: z.array(compiledContextBlockSchema).max(MAX_CONTEXT_BLOCKS),
   omitted: z.array(omittedContextSchema).max(5_000),
-  budget: contextBudgetSchema.extend({
-    instructionTokens: z.number().int().min(0),
-    schemaTokens: z.number().int().min(0),
-    contentTokens: z.number().int().min(0),
-    usedInputTokens: z.number().int().min(0),
-    remainingInputTokens: z.number().int().min(0),
-  }).strict(),
+  budget: compiledContextBudgetSchema,
 }).strict().superRefine((pack, ctx) => {
   const ids = new Set<string>();
   [...pack.blocks, ...pack.omitted].forEach((item, index) => {

@@ -56,12 +56,16 @@ describe("resumable generation pipeline", () => {
 
     expect(store.leaseGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ provider: "deterministic" }));
     expect(store.checkpointGenerationJob.mock.calls.map(([entry]) => entry.stage)).toEqual([
-      "evidence", "requirements", "context", "synthesis", "validation", "layout",
+      "evidence", "requirements", "context", "rules", "synthesis", "validation", "layout",
     ]);
     const completed = store.completeGenerationJob.mock.calls[0][0].result;
     expect(completed.meta).toMatchObject({ provider: "deterministic", successfulCalls: 0, repairCalls: 0 });
     expect(completed.meta.usage.totalTokens).toBe(0);
     expect(completed.artifact.traceability.requirements.items.length).toBeGreaterThan(0);
+    expect(completed.proposals.patterns).toEqual(expect.arrayContaining([expect.objectContaining({ patternId: "multi-tenant-saas" })]));
+    expect(completed.proposals.rules).toHaveLength(8);
+    expect(completed.summary.facts.length).toBeGreaterThan(0);
+    expect(completed.summary.unknowns.length).toBeGreaterThan(0);
     expect(store.failGenerationJob).not.toHaveBeenCalled();
   });
 
@@ -111,6 +115,17 @@ describe("resumable generation pipeline", () => {
 
   it("fails safely when a retained checkpoint is corrupt", async () => {
     store.readGenerationStages.mockResolvedValue(new Map([["evidence", { schemaVersion: "invalid" }]]));
+
+    await expect(processGenerationJob({ jobId, subjectKey })).rejects.toMatchObject({ name: "ZodError" });
+    expect(store.failGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ jobId, runVersion: 1 }));
+    expect(store.completeGenerationJob).not.toHaveBeenCalled();
+  });
+
+  it("rejects a forged retained rules checkpoint before synthesis", async () => {
+    store.readGenerationStages.mockResolvedValue(new Map([["rules", {
+      patterns: [{ patternId: "invented-pattern", score: -1, matchedTerms: [], explicit: false, conflicts: [] }],
+      rules: [],
+    }]]));
 
     await expect(processGenerationJob({ jobId, subjectKey })).rejects.toMatchObject({ name: "ZodError" });
     expect(store.failGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ jobId, runVersion: 1 }));
