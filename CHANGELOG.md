@@ -2,11 +2,23 @@
 
 ## Unreleased
 
+### Predictable canvas interactions
+
+#### Day 11 · F01 — Canvas interaction states and feedback
+
+- Status: Implemented and verified locally
+- Branch: `feat/f01-canvas-interaction-states`
+- User impact: Keeps selection, pan, placement, connection, text, drawing, and
+  eraser behavior mutually consistent with cursor, hints, Escape, and input
+  focus.
+- Automatic checks: See `docs/DAY-11-CANVAS-INTERACTION-STATES.md`.
+- Production verification: Not deployed or staging-tested.
+
 ### Controlled AI execution
 
 #### Day 10 · B08 — Complete generation workflow
 
-- Status: PR #20 ready; application, browser, and database CI verified
+- Status: Merged; application, browser, and database CI verified
 - Branch: `feat/b08-complete-generation-workflow`
 - User impact: Connects durable generation stages to real progress, cancel/retry,
   explainable first-result review, and save/reload after explicit user inspection.

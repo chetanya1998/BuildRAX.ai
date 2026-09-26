@@ -63,7 +63,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -80,6 +80,7 @@ import { recoveryKey, type RecoveryRecord, type RecoveryScope } from "@/lib/stor
 import { privateAssetRenderUrl } from "@/lib/storage/asset-references";
 import { persistPrivateDocumentImages } from "@/lib/storage/private-assets";
 import { EditorRecoveryGate, useEditorRecovery } from "./editor-recovery";
+import { canvasInteractionReducer, hasTransientInteraction, initialCanvasInteraction, interactionHint, interactionName, type CanvasPoint, type CanvasTool, type DrawDraft, type PrimitiveTool } from "./canvas-interaction";
 import { useCloudSave } from "./use-cloud-save";
 import { PrimitiveNode, type PrimitiveFlowNode } from "./primitive-node";
 import { SemanticNode, type SemanticFlowNode } from "./semantic-node";
@@ -87,7 +88,6 @@ import { SemanticCatalogIcon } from "./semantic-catalog-icon";
 import styles from "./editor.module.css";
 
 type EditorNode = SemanticFlowNode | PrimitiveFlowNode;
-type Tool = "select" | "pan" | "rectangle" | "circle" | "diamond" | "frame" | "line" | "arrow" | "text" | "freehand" | "eraser";
 type Panel = "components" | "review" | "docs" | "export" | "history" | null;
 type VersionSummary = {
   version: number;
@@ -98,9 +98,6 @@ type VersionSummary = {
   ir_state: string;
   created_at: string;
 };
-type PrimitiveTool = Exclude<Tool, "select" | "pan" | "eraser" | "circle"> | "ellipse" | "image";
-type CanvasPoint = { x: number; y: number };
-type DrawDraft = { kind: PrimitiveTool; start: CanvasPoint; current: CanvasPoint; points: CanvasPoint[]; lockAspect?: boolean; style?: Record<string, string> };
 type ArrowStyle = "start" | "end" | "both" | "none";
 type ArrowTexture = "solid" | "dashed" | "dotted";
 
@@ -314,7 +311,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-  const [tool, setTool] = useState<Tool>("select");
+  const [interaction, dispatchInteraction] = useReducer(canvasInteractionReducer, initialCanvasInteraction);
+  const { tool, drawDraft, pendingComponentType, editingTextId, renamingNodeId, pendingConnectionSourceId } = interaction;
   const [panel, setPanel] = useState<Panel>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
@@ -339,15 +337,10 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const [message, setMessage] = useState("");
   const [aiExpanded, setAiExpanded] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(false);
-  const [drawDraft, setDrawDraft] = useState<DrawDraft | null>(null);
   const [renderNodes, setRenderNodes] = useState<EditorNode[]>([]);
-  const [pendingComponentType, setPendingComponentType] = useState<string | null>(null);
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>("end");
   const [arrowTexture, setArrowTexture] = useState<ArrowTexture>("solid");
-  const [editingTextId, setEditingTextId] = useState<string | null>(null);
-  const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
   const [quickInsertPosition, setQuickInsertPosition] = useState<CanvasPoint | null>(null);
-  const [pendingConnectionSourceId, setPendingConnectionSourceId] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<{ id: string; url: string } | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
   const [componentDetached, setComponentDetached] = useState(false);
@@ -467,7 +460,9 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     .filter((key) => category === "all" || key === category)
     .map((key) => ({ key, items: filteredCatalog.filter((item) => item.category === key) }))
     .filter((group) => group.items.length > 0);
+  const pendingComponent = pendingComponentType ? catalogByType.get(pendingComponentType) : undefined;
   const quickInsertSource = pendingConnectionSourceId ? diagram.nodes.find((item) => item.id === pendingConnectionSourceId) : undefined;
+  const toolHint = interactionHint(interaction, pendingComponent?.name);
   const slashMatch = docs.match(/(?:^|\s)\/([a-z]*)$/i);
   const slashQuery = slashMatch?.[1]?.toLowerCase() ?? "";
   const semanticMermaid = useMemo(() => architectureIRToMermaid(architectureIRFromDiagram(diagram, irBase.current)), [diagram]);
@@ -477,6 +472,10 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     const ids = id && (latest.current.nodes.some((node) => node.id === id) || latest.current.primitives.some((item) => item.id === id)) ? [id] : [];
     selectedNodeIdsRef.current = ids;
     setSelectedNodeIds(ids);
+  }, []);
+
+  const activateTool = useCallback((nextTool: CanvasTool) => {
+    dispatchInteraction({ type: "activate-tool", tool: nextTool });
   }, []);
 
   const commit = useCallback((next: Diagram | ((current: Diagram) => Diagram)) => {
@@ -506,7 +505,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     if (readOnly) return;
     selectOnly(id);
     setInspectorOpen(false);
-    setEditingTextId(id);
+    dispatchInteraction({ type: "begin-text-edit", id });
   }, [readOnly, selectOnly]);
 
   const updatePrimitiveText = useCallback((id: string, text: string) => {
@@ -516,7 +515,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   const finishPrimitiveTextEdit = useCallback(() => {
     const snapshot = textEditSnapshot.current;
-    setEditingTextId(null);
+    dispatchInteraction({ type: "finish-text-edit" });
     if (readOnly || !snapshot) return;
     textEditSnapshot.current = null;
     setPast((items) => [...items.slice(-49), snapshot]);
@@ -526,7 +525,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   const cancelPrimitiveTextEdit = useCallback(() => {
     const snapshot = textEditSnapshot.current;
-    setEditingTextId(null);
+    dispatchInteraction({ type: "finish-text-edit" });
     if (!snapshot) return;
     textEditSnapshot.current = null;
     setDiagram(snapshot);
@@ -543,9 +542,9 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   const finishNodeRename = useCallback(() => {
     const snapshot = textEditSnapshot.current;
+    dispatchInteraction({ type: "finish-node-rename" });
     if (readOnly || !snapshot) return;
     textEditSnapshot.current = null;
-    setRenamingNodeId(null);
     setPast((items) => [...items.slice(-49), snapshot]);
     setFuture([]);
     setDiagram((current) => diagramSchema.parse(persisted ? { ...current, updatedAt: new Date().toISOString() } : bump(current)));
@@ -553,9 +552,9 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   const cancelNodeRename = useCallback(() => {
     const snapshot = textEditSnapshot.current;
+    dispatchInteraction({ type: "finish-node-rename" });
     if (!snapshot) return;
     textEditSnapshot.current = null;
-    setRenamingNodeId(null);
     setDiagram(snapshot);
   }, []);
 
@@ -606,28 +605,28 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      if (event.defaultPrevented || readOnly || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
       const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, [contenteditable='true']")) return;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
       event.preventDefault();
       setPanel("components");
       window.setTimeout(() => componentSearchRef.current?.focus(), 0);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
-      return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || (target instanceof HTMLElement && target.isContentEditable);
+      return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (readOnly || isTypingTarget(event.target)) return;
+      if (event.defaultPrevented || readOnly || isTypingTarget(event.target)) return;
       const key = event.key.toLowerCase();
       if ((event.metaKey || event.ctrlKey) && key === "z") { event.preventDefault(); if (event.shiftKey) redo(); else undo(); return; }
       if ((event.metaKey || event.ctrlKey) && key === "y") { event.preventDefault(); redo(); return; }
-      if ((event.metaKey || event.ctrlKey) && key === "k") { event.preventDefault(); setAiExpanded(true); return; }
       if ((event.metaKey || event.ctrlKey) && key === "d") { event.preventDefault(); duplicateSelected(); return; }
+      if (event.metaKey || event.ctrlKey || event.altKey) return;
       if (event.key === "Backspace" || event.key === "Delete") { event.preventDefault(); removeSelected(); return; }
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) && selectedNodeIdsRef.current.length) {
         event.preventDefault();
@@ -635,26 +634,32 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
         nudgeSelection(event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0, event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0);
         return;
       }
-      if (key === "v") setTool("select");
-      if (key === "h") setTool("pan");
-      if (key === "n") setPanel((current) => current === "components" ? null : "components");
-      if (key === "c") setTool("arrow");
-      if (key === "s") setTool("rectangle");
+      if (key === "v") activateTool("select");
+      if (key === "h") activateTool("pan");
+      if (key === "n") { activateTool("select"); setPanel((current) => current === "components" ? null : "components"); }
+      if (key === "c") activateTool("arrow");
+      if (key === "s") activateTool("rectangle");
       if (key === "enter" && (selectedNode || selectedConnector)) setInspectorOpen(true);
-      if (key === "r") setTool("rectangle");
-      if (key === "o") setTool("circle");
-      if (key === "d") setTool("diamond");
-      if (key === "f") setTool("frame");
-      if (key === "l") setTool("line");
-      if (key === "a") setTool("arrow");
-      if (key === "t") setTool("text");
-      if (key === "p") setTool("freehand");
+      if (key === "r") activateTool("rectangle");
+      if (key === "o") activateTool("circle");
+      if (key === "d") activateTool("diamond");
+      if (key === "f") activateTool("frame");
+      if (key === "l") activateTool("line");
+      if (key === "a") activateTool("arrow");
+      if (key === "t") activateTool("text");
+      if (key === "p") activateTool("freehand");
+      if (key === "x") activateTool("eraser");
       if (key === "escape") {
-        if (pendingComponentType) { setPendingComponentType(null); setMessage("Component placement cancelled."); return; }
-        if (drawDraft) { setDrawDraft(null); setMessage("Drawing cancelled."); return; }
+        if (hasTransientInteraction(interaction)) {
+          dispatchInteraction({ type: "cancel" });
+          setQuickInsertPosition(null);
+          setPanel(null);
+          setMessage("Canvas action cancelled.");
+          return;
+        }
         if (panel) { setPanel(null); return; }
         if (inspectorOpen) { setInspectorOpen(false); return; }
-        setTool("select"); selectOnly(null);
+        activateTool("select"); selectOnly(null);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -732,24 +737,24 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     const connector = createConnector(crypto.randomUUID(), source.id, target.id, connectorType, connectorType === "control-plane" ? "relationship" : "HTTPS");
     commit((current) => ({ ...current, connectors: [...current.connectors, connector] }));
     selectOnly(connector.id);
+    dispatchInteraction({ type: "finish-connection" });
     setInspectorOpen(true);
     setMessage(validation.valid ? "Connection created. Select it to edit its details." : `Connection added as an explicit relationship. Advisory: ${validation.reason}`);
   }
 
   function onConnectStart(_: MouseEvent | TouchEvent, { nodeId }: { nodeId: string | null }) {
-    setPendingConnectionSourceId(nodeId);
+    dispatchInteraction({ type: "begin-connection", sourceId: nodeId });
   }
 
   function onConnectEnd(event: MouseEvent | TouchEvent, connectionState: { isValid: boolean | null }) {
     const sourceId = pendingConnectionSourceId;
-    if (!sourceId || connectionState.isValid) { setPendingConnectionSourceId(null); return; }
+    if (!sourceId || connectionState.isValid) { dispatchInteraction({ type: "finish-connection" }); return; }
     const point = event instanceof MouseEvent
       ? { x: event.clientX, y: event.clientY }
       : event.changedTouches[0] ? { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY } : null;
     if (!point) return;
     setQuickInsertPosition(instance?.screenToFlowPosition(point) ?? { x: 240, y: 180 });
     setPanel("components");
-    setMessage("Choose a component to connect to this node.");
   }
 
   function addComponent(semanticType: string, dropPosition?: { x: number; y: number }) {
@@ -768,8 +773,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     commit((current) => ({ ...current, nodes: [...current.nodes, node], connectors: connector ? [...current.connectors, connector] : current.connectors }));
     selectOnly(connector?.id ?? node.id);
     setPanel(null);
-    setPendingComponentType(null);
-    setPendingConnectionSourceId(null);
+    dispatchInteraction({ type: "cancel" });
     if (connector) { setInspectorOpen(true); setMessage(validation?.valid ? "Connection created. Select it to edit its details." : "Connection created as a control-plane relationship. Choose its type in the inspector."); }
   }
 
@@ -781,9 +785,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       setQuickInsertPosition(null);
       return;
     }
-    setPendingComponentType(semanticType);
+    dispatchInteraction({ type: "begin-component-placement", componentType: semanticType });
     setPanel(null);
-    setMessage(`Click the canvas to place ${item.name}.`);
   }
 
   function beginComponentPaletteDrag(event: React.PointerEvent<HTMLButtonElement>) {
@@ -800,8 +803,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     const id = crypto.randomUUID();
     commit((current) => ({ ...current, primitives: [...current.primitives, { id, kind, position, dimensions, text: "", style }] }));
     selectOnly(id);
-    if (kind === "text") setEditingTextId(id);
-    if (kind !== "freehand") setTool("select");
+    if (kind === "text") dispatchInteraction({ type: "begin-text-edit", id });
+    else if (kind !== "freehand") activateTool("select");
   }
 
   function addImage(file?: File) {
@@ -896,15 +899,14 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     if (readOnly || (!drawableTools.includes(tool as PrimitiveTool) && tool !== "circle") || !isPaneEvent(event)) return;
     const point = canvasPoint(event);
     const kind: PrimitiveTool = tool === "circle" ? "ellipse" : tool as PrimitiveTool;
-    setDrawDraft({ kind, start: point, current: point, points: [point], lockAspect: tool === "circle" || kind === "diamond" || event.shiftKey, style: kind === "arrow" ? { arrowStyle, arrowTexture } : tool === "circle" ? { shape: "circle" } : {} });
+    dispatchInteraction({ type: "begin-drawing", draft: { kind, start: point, current: point, points: [point], lockAspect: tool === "circle" || kind === "diamond" || event.shiftKey, style: kind === "arrow" ? { arrowStyle, arrowTexture } : tool === "circle" ? { shape: "circle" } : {} } });
   }
 
   function updateDrawing(event: React.MouseEvent) {
     if (!drawDraft) return;
     const nativeEvent = event.nativeEvent as PointerEvent;
     const coalesced = typeof nativeEvent.getCoalescedEvents === "function" ? nativeEvent.getCoalescedEvents() : [nativeEvent];
-    setDrawDraft((current) => {
-      if (!current) return current;
+    dispatchInteraction({ type: "update-drawing", update: (current) => {
       if (current.kind !== "freehand") return { ...current, current: canvasPoint(event) };
       const points = [...current.points];
       for (const nativeEvent of coalesced) {
@@ -913,7 +915,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
         if (!previous || Math.hypot(previous.x - point.x, previous.y - point.y) >= 1) points.push(point);
       }
       return { ...current, current: points.at(-1) ?? current.current, points };
-    });
+    } });
   }
 
   function finishDrawing() {
@@ -924,11 +926,18 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     // same turn, which was deselecting newly created text objects.
     window.setTimeout(() => { ignoreNextPaneClick.current = false; }, 180);
     const draft = drawDraft;
-    setDrawDraft(null);
+    dispatchInteraction({ type: "finish-drawing", keepTool: draft.kind === "freehand" });
     if (draft.kind === "freehand" && draft.points.length < 2) { setMessage("Drag to draw freehand ink."); return; }
     const bounds = draftBounds(draft);
     const relativePoints = draft.points.map((point) => ({ x: Number((point.x - bounds.position.x).toFixed(2)), y: Number((point.y - bounds.position.y).toFixed(2)) }));
     addPrimitive(draft.kind, bounds.position, bounds.dimensions, draft.kind === "freehand" ? { points: JSON.stringify(relativePoints) } : draft.style ?? {});
+  }
+
+  function cancelPointerInteraction() {
+    if (!drawDraft && !pendingConnectionSourceId) return;
+    dispatchInteraction({ type: "cancel" });
+    setQuickInsertPosition(null);
+    setMessage("Pointer action cancelled safely.");
   }
 
   function onCanvasDragOver(event: React.DragEvent) {
@@ -950,12 +959,12 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     commit((current) => ({ ...current, nodes: current.nodes.filter((node) => node.id !== id), primitives: current.primitives.filter((item) => item.id !== id), connectors: current.connectors.filter((edge) => edge.id !== id && edge.source !== id && edge.target !== id) }));
     selectOnly(null);
     setInspectorOpen(false);
-    if (!keepTool) setTool("select");
+    if (!keepTool) activateTool("select");
   }
 
   function removeSelected() {
     const ids = selectedNodeIds.length ? selectedNodeIds : selectedId ? [selectedId] : [];
-    if (!ids.length) { setTool("eraser"); setMessage("Select an object to delete it."); return; }
+    if (!ids.length) { activateTool("eraser"); return; }
     commit((current) => ({
       ...current,
       nodes: current.nodes.filter((node) => !ids.includes(node.id)),
@@ -964,7 +973,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     }));
     selectOnly(null);
     setInspectorOpen(false);
-    if (tool !== "eraser") setTool("select");
+    if (tool !== "eraser") activateTool("select");
   }
 
   function updateSelected(patch: Record<string, string>) {
@@ -1235,7 +1244,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     const anchor = document.createElement("a"); anchor.href = dataUrl; anchor.download = safeFilename(diagram.title, format); anchor.click();
   }
 
-  const toolbar: Array<{ tool: Exclude<Tool, "select" | "pan">; label: string; icon: React.ReactNode }> = [
+  const toolbar: Array<{ tool: Exclude<CanvasTool, "select" | "pan">; label: string; icon: React.ReactNode }> = [
     { tool: "rectangle", label: "Rectangle (R)", icon: <Square size={17} /> }, { tool: "circle", label: "Circle (O)", icon: <Circle size={17} /> },
     { tool: "diamond", label: "Diamond (D)", icon: <Diamond size={17} /> }, { tool: "frame", label: "Frame (F)", icon: <Frame size={17} /> },
     { tool: "line", label: "Line (L) — place a relationship", icon: <Minus size={17} /> }, { tool: "arrow", label: "Arrow (A) — place a directional arrow", icon: <ArrowRight size={17} /> },
@@ -1271,17 +1280,17 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
         <button onClick={localRecovery.retry}>Retry local save</button>
       </div>}
       {persisted && cloudSave.message && <div className={styles.cloudWarning} role="status">{cloudSave.message}</div>}
-      <div className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-tool={tool} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick}>
-        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={(event, node) => { if (tool === "eraser") removeById(node.id, true); else { if (event.shiftKey || event.metaKey || event.ctrlKey) setSelectedId(node.id); else selectOnly(node.id); setInspectorOpen(false); } }} onNodeDoubleClick={(_, node) => { selectOnly(node.id); if (node.type === "semantic") { setRenamingNodeId(node.id); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
+      <div className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-tool={tool} data-interaction={interactionName(interaction)} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick} onPointerCancel={cancelPointerInteraction}>
+        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={(event, node) => { if (tool === "eraser") removeById(node.id, true); else { if (event.shiftKey || event.metaKey || event.ctrlKey) setSelectedId(node.id); else selectOnly(node.id); setInspectorOpen(false); } }} onNodeDoubleClick={(_, node) => { selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>
       </div>
       <div className={styles.mobileNotice}>Mobile light-edit mode: pan, zoom, select and edit labels. Use desktop for drawing and connection creation.</div>
-      {!readOnly && <><input ref={imageInputRef} className={styles.visuallyHidden} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={(event) => { addImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /><div className={styles.toolbar} aria-label="Canvas tools">{toolbar.map((item, index) => { const isDrawingFreehand = item.tool === "freehand" && drawDraft?.kind === "freehand"; const label = isDrawingFreehand ? "Drawing freehand — release to finish" : item.label; return <span key={item.tool} style={{ display: "contents" }}>{index === 3 || index === 7 || index === 9 ? <span className={styles.toolDivider} /> : null}<button className={`${styles.tool} ${tool === item.tool ? styles.toolActive : ""} ${isDrawingFreehand ? styles.toolDrawing : ""}`} title={label} data-tooltip={label} aria-label={label} onClick={() => { setTool(item.tool); if (item.tool === "eraser") setMessage("Eraser is on. Click objects to remove them; choose another tool to stop."); }}>{item.icon}</button></span>; })}<span className={styles.toolDivider} /><button className={styles.tool} title="Add image" data-tooltip="Add image" aria-label="Add image" onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} /></button><button className={`${styles.tool} ${panel === "components" ? styles.toolActive : ""}`} title="Components (N)" data-tooltip="Components (N)" aria-label="Open semantic components" onClick={() => setPanel(panel === "components" ? null : "components")}><Boxes size={18} /></button></div></>}
+      {!readOnly && <><input ref={imageInputRef} className={styles.visuallyHidden} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={(event) => { addImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /><div className={styles.toolbar} aria-label="Canvas tools">{toolbar.map((item, index) => { const isDrawingFreehand = item.tool === "freehand" && drawDraft?.kind === "freehand"; const label = isDrawingFreehand ? "Drawing freehand — release to finish" : item.label; return <span key={item.tool} style={{ display: "contents" }}>{index === 3 || index === 7 || index === 9 ? <span className={styles.toolDivider} /> : null}<button className={`${styles.tool} ${tool === item.tool ? styles.toolActive : ""} ${isDrawingFreehand ? styles.toolDrawing : ""}`} title={label} data-tooltip={label} aria-label={label} aria-pressed={tool === item.tool} onClick={() => activateTool(item.tool)}>{item.icon}</button></span>; })}<span className={styles.toolDivider} /><button className={styles.tool} title="Add image" data-tooltip="Add image" aria-label="Add image" onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} /></button><button className={`${styles.tool} ${panel === "components" ? styles.toolActive : ""}`} title="Components (N)" data-tooltip="Components (N)" aria-label="Open semantic components" aria-pressed={panel === "components"} onClick={() => setPanel(panel === "components" ? null : "components")}><Boxes size={18} /></button></div><div className={styles.toolHint} role="status" aria-live="polite" data-interaction={interactionName(interaction)}>{toolHint}</div></>}
       {!readOnly && tool === "arrow" && <div className={styles.arrowPicker} role="group" aria-label="Arrow style"><button className={arrowStyle === "end" ? styles.pickerActive : ""} aria-label="End arrow" onClick={() => setArrowStyle("end")}>→</button><button className={arrowStyle === "start" ? styles.pickerActive : ""} aria-label="Start arrow" onClick={() => setArrowStyle("start")}>←</button><button className={arrowStyle === "both" ? styles.pickerActive : ""} aria-label="Both-end arrow" onClick={() => setArrowStyle("both")}>↔</button><button className={arrowStyle === "none" ? styles.pickerActive : ""} aria-label="Headless arrow" onClick={() => setArrowStyle("none")}>—</button><span className={styles.bottomDivider} />{(["solid", "dashed", "dotted"] as const).map((texture) => <button key={texture} className={arrowTexture === texture ? styles.pickerActive : ""} aria-label={`${texture} arrow`} onClick={() => setArrowTexture(texture)}>{texture === "solid" ? "━" : texture === "dashed" ? "┄" : "┈"}</button>)}</div>}
       {!readOnly && selectedPrimitive?.kind === "text" && <div className={styles.textFormatBar} role="group" aria-label="Text formatting"><button aria-label="Decrease font size" onClick={() => updateSelectedPrimitiveStyle({ fontSize: String(Math.max(12, Number(selectedPrimitive.style.fontSize ?? 20) - 2)) })}>A−</button><span>{selectedPrimitive.style.fontSize ?? "20"} px</span><button aria-label="Increase font size" onClick={() => updateSelectedPrimitiveStyle({ fontSize: String(Math.min(48, Number(selectedPrimitive.style.fontSize ?? 20) + 2)) })}>A+</button><span className={styles.bottomDivider} />{(["hand", "sans", "serif", "mono"] as const).map((font) => <button key={font} className={selectedPrimitive.style.fontFamily === font || (!selectedPrimitive.style.fontFamily && font === "sans") ? styles.pickerActive : ""} aria-label={`${font} font`} onClick={() => updateSelectedPrimitiveStyle({ fontFamily: font })}>{font === "hand" ? "✎" : font === "sans" ? "Aa" : font === "serif" ? "Ag" : "<>"}</button>)}<span className={styles.bottomDivider} /><button className={selectedPrimitive.style.fontWeight === "bold" ? styles.pickerActive : ""} aria-label="Bold text" onClick={() => updateSelectedPrimitiveStyle({ fontWeight: selectedPrimitive.style.fontWeight === "bold" ? "normal" : "bold" })}><Bold size={14} /></button><button className={selectedPrimitive.style.fontStyle === "italic" ? styles.pickerActive : ""} aria-label="Italic text" onClick={() => updateSelectedPrimitiveStyle({ fontStyle: selectedPrimitive.style.fontStyle === "italic" ? "normal" : "italic" })}><Italic size={14} /></button><button className={selectedPrimitive.style.textDecoration === "underline" ? styles.pickerActive : ""} aria-label="Underline text" onClick={() => updateSelectedPrimitiveStyle({ textDecoration: selectedPrimitive.style.textDecoration === "underline" ? "none" : "underline" })}><Underline size={14} /></button><label title="Text color"><span className={styles.textColorSwatch} style={{ background: selectedPrimitive.style.color ?? "#111827" }} /><input type="color" aria-label="Text color" value={selectedPrimitive.style.color ?? "#111827"} onChange={(event) => updateSelectedPrimitiveStyle({ color: event.target.value })} /></label></div>}
       {!readOnly && (selectedNode || selectedPrimitive) && <div className={styles.layerControls} role="group" aria-label="Selection actions">{selectedNode && <button aria-label="Edit node style" title="Edit node style" data-tooltip="Edit node style" onClick={() => setInspectorOpen(true)}><SlidersHorizontal size={15} /></button>}<button aria-label="Bring to front" title="Bring to front" data-tooltip="Bring to front" onClick={() => moveSelectedLayer("front")}><BringToFront size={15} /></button><button aria-label="Send to back" title="Send to back" data-tooltip="Send to back" onClick={() => moveSelectedLayer("back")}><SendToBack size={15} /></button></div>}
-      <div className={styles.bottomBar}><button className={tool === "select" ? styles.bottomToolActive : ""} title="Pointer / select (V)" data-tooltip="Pointer / select (V)" aria-label="Pointer / select" onClick={() => { setTool("select"); setDrawDraft(null); setEditingTextId(null); }}><MousePointer2 size={15} /></button><button className={tool === "pan" ? styles.bottomToolActive : ""} title="Hand / pan (H)" data-tooltip="Hand / pan (H)" aria-label="Hand / pan" onClick={() => setTool("pan")}><Hand size={15} /></button><span className={styles.bottomDivider} /><button title={showMiniMap ? "Hide mini map" : "Show mini map"} data-tooltip={showMiniMap ? "Hide mini map" : "Show mini map"} aria-label="Toggle mini map" onClick={() => setShowMiniMap((current) => !current)}><Map size={15} /></button><button title="Undo" data-tooltip="Undo" aria-label="Undo" onClick={undo} disabled={!past.length}><Undo2 size={15} /></button><button title="Redo" data-tooltip="Redo" aria-label="Redo" onClick={redo} disabled={!future.length}><Redo2 size={15} /></button><span className={styles.bottomDivider} /><button title="Zoom out" data-tooltip="Zoom out" aria-label="Zoom out" onClick={() => instance?.zoomOut()}><ZoomOut size={15} /></button><button className={styles.zoom} title="Fit canvas" data-tooltip="Fit canvas" onClick={() => instance?.fitView({ padding: .18, duration: 300, maxZoom: 1 })}>{zoom}%</button><button title="Zoom in" data-tooltip="Zoom in" aria-label="Zoom in" onClick={() => instance?.zoomIn()}><ZoomIn size={15} /></button></div>
+      <div className={styles.bottomBar}><button className={tool === "select" ? styles.bottomToolActive : ""} title="Pointer / select (V)" data-tooltip="Pointer / select (V)" aria-label="Pointer / select" aria-pressed={tool === "select"} onClick={() => activateTool("select")}><MousePointer2 size={15} /></button><button className={tool === "pan" ? styles.bottomToolActive : ""} title="Hand / pan (H)" data-tooltip="Hand / pan (H)" aria-label="Hand / pan" aria-pressed={tool === "pan"} onClick={() => activateTool("pan")}><Hand size={15} /></button><span className={styles.bottomDivider} /><button title={showMiniMap ? "Hide mini map" : "Show mini map"} data-tooltip={showMiniMap ? "Hide mini map" : "Show mini map"} aria-label="Toggle mini map" onClick={() => setShowMiniMap((current) => !current)}><Map size={15} /></button><button title="Undo" data-tooltip="Undo" aria-label="Undo" onClick={undo} disabled={!past.length}><Undo2 size={15} /></button><button title="Redo" data-tooltip="Redo" aria-label="Redo" onClick={redo} disabled={!future.length}><Redo2 size={15} /></button><span className={styles.bottomDivider} /><button title="Zoom out" data-tooltip="Zoom out" aria-label="Zoom out" onClick={() => instance?.zoomOut()}><ZoomOut size={15} /></button><button className={styles.zoom} title="Fit canvas" data-tooltip="Fit canvas" onClick={() => instance?.fitView({ padding: .18, duration: 300, maxZoom: 1 })}>{zoom}%</button><button title="Zoom in" data-tooltip="Zoom in" aria-label="Zoom in" onClick={() => instance?.zoomIn()}><ZoomIn size={15} /></button></div>
       {diagram.assumptions.length > 0 && <div className={styles.assumptions}><strong>{diagram.assumptions.length} assumptions</strong><br />{diagram.assumptions[0].text}</div>}
       {!readOnly && (aiExpanded ? <div className={`${styles.aiBar} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.aiBarWithInspector : ""}`}><Sparkles size={14} /><input autoFocus value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") requestChange(); if (event.key === "Escape") setAiExpanded(false); }} placeholder="Describe an architecture change…" aria-label="AI architecture change" /><button className={styles.aiSend} onClick={requestChange} aria-label="Preview AI change"><Send size={14} /></button><button className={styles.aiClose} onClick={() => setAiExpanded(false)} aria-label="Collapse AI change input"><X size={14} /></button></div> : <button className={`${styles.aiLauncher} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.aiLauncherWithInspector : ""}`} onClick={() => setAiExpanded(true)} aria-label="Open AI architecture change" aria-expanded="false"><Sparkles size={15} /><span>Ask AI</span></button>)}
       {panel === "components" && <aside className={`${styles.componentPalette} ${componentDetached ? styles.componentPaletteDetached : ""} ${draggingComponentPalette ? styles.componentPaletteMoving : ""}`} aria-label={quickInsertPosition ? "Connect a component" : "Semantic components"} style={componentDetached ? { left: componentPalettePosition.x, top: componentPalettePosition.y } : undefined}>
@@ -1290,7 +1299,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
           <div className={styles.panelActions}>
             {componentDetached && <button className={styles.paletteMoveHandle} aria-label="Move components palette" title="Drag to move palette" onPointerDown={beginComponentPaletteDrag}><GripVertical size={16} /></button>}
             <button className={styles.close} title={componentDetached ? "Dock components" : "Detach components"} onClick={() => setComponentDetached((current) => !current)} aria-label={componentDetached ? "Dock components" : "Detach components"}><PanelRightClose size={14} /></button>
-            <button className={styles.close} onClick={() => { setPanel(null); setQuickInsertPosition(null); setPendingConnectionSourceId(null); }} aria-label="Close components"><X size={14} /></button>
+            <button className={styles.close} onClick={() => { setPanel(null); setQuickInsertPosition(null); dispatchInteraction({ type: "finish-connection" }); }} aria-label="Close components"><X size={14} /></button>
           </div>
         </header>
         {quickInsertPosition && <div className={styles.quickInsertNotice}>Pick a target to place it at the cursor and create a connection.</div>}
@@ -1300,7 +1309,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
             {categoryKeys.map((key) => { const meta = categoryMeta[key]; const count = nodeCatalog.filter((item) => item.category === key).length; return <button key={key} className={category === key ? styles.categoryRailActive : ""} onClick={() => setCategory(key)} aria-label={`Filter ${meta.label} components, ${count} available`} title={`${meta.label} · ${count} components`} style={{ "--category-color": meta.color } as React.CSSProperties}><span className={styles.categoryMarker} /><span>{meta.label}</span><em>{count}</em></button>; })}
           </nav>
           <section className={styles.componentResults} aria-label="Component results">
-            <div className={styles.paletteSearch}><Search size={16} /><input ref={componentSearchRef} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { if (search) setSearch(""); else { setPanel(null); setQuickInsertPosition(null); } } if (event.key === "Enter" && filteredCatalog[0]) chooseComponent(filteredCatalog[0].semanticType); }} placeholder="Search components" aria-label="Search semantic components" /><kbd>⌘K</kbd></div>
+            <div className={styles.paletteSearch}><Search size={16} /><input ref={componentSearchRef} autoFocus value={search} onChange={(event) => setSearch(event.target.value)} onKeyDown={(event) => { if (event.key === "Escape") { if (search) setSearch(""); else { setPanel(null); setQuickInsertPosition(null); dispatchInteraction({ type: "finish-connection" }); } } if (event.key === "Enter" && filteredCatalog[0]) chooseComponent(filteredCatalog[0].semanticType); }} placeholder="Search components" aria-label="Search semantic components" /><kbd>⌘K</kbd></div>
             <div className={styles.resultSummary}><span>{filteredCatalog.length} result{filteredCatalog.length === 1 ? "" : "s"}</span><span>{quickInsertPosition ? "Select target" : "Click to place · drag to canvas"}</span></div>
             <div className={styles.componentResultList}>
               {componentGroups.map((group) => <section className={styles.componentGroup} key={group.key} aria-label={`${categoryMeta[group.key].label} components`}><h3 style={{ "--category-color": categoryMeta[group.key].color } as React.CSSProperties}><span />{categoryMeta[group.key].label}<em>{group.items.length}</em></h3>{group.items.map((item) => { const crop = figmaIconCrop[item.semanticType]; return <div key={item.semanticType} className={styles.componentResult} draggable data-component={item.semanticType} onDragStart={(event) => { event.dataTransfer.effectAllowed = "move"; event.dataTransfer.setData("application/buildrax-component", item.semanticType); }}><span className={styles.componentResultIcon}>{crop ? <span className={styles.componentFigmaIcon} aria-label={`${item.name} Figma SVG icon`} style={{ backgroundImage: "url(/icons/figma-node-icons.svg)", backgroundSize: "960px 407.33px", backgroundPosition: `${-crop.x * 2 / 3}px ${-crop.y * 2 / 3}px` }} /> : <span className={styles.componentOpenIcon} style={{ "--item-color": categoryMeta[item.category].color } as React.CSSProperties} aria-label={`${item.name} open-source icon`}><SemanticCatalogIcon semanticType={item.semanticType} /></span>}</span><button className={styles.componentResultMain} aria-label={`Place ${item.name} on canvas`} onClick={() => chooseComponent(item.semanticType)}><strong>{item.name}</strong><span>{item.description}</span><small>{categoryMeta[item.category].label}{item.defaultProtocols.length ? ` · ${item.defaultProtocols.join(" / ")}` : ""}</small></button><span className={styles.componentDragGrip} title={`Drag ${item.name} onto the canvas`} aria-label={`Drag ${item.name} onto the canvas`}><GripVertical size={16} /></span><button className={styles.componentPlaceAction} aria-label={`Place ${item.name}`} onClick={() => chooseComponent(item.semanticType)}>{quickInsertPosition ? "Connect" : "Place"}</button></div>; })}</section>)}

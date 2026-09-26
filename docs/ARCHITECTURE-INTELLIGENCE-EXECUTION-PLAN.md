@@ -228,7 +228,9 @@ Each card defines its input dependencies, implementation scope and executable ex
 ### F01 — Unify interaction states and feedback
 
 **Depends on:** B00.  
-**Status:** Not started.
+**Status:** Implemented and locally verified on 26 September 2026 in
+`feat/f01-canvas-interaction-states`; see
+[Day 11 canvas interaction states](DAY-11-CANVAS-INTERACTION-STATES.md).
 
 **Implement:** Refactor existing editor handlers incrementally into explicit modes and transient tool states. Specify cursor, keyboard ownership, entry/exit cleanup, Escape and pointer cancellation. Separate temporary hints, inline validation, toasts and persistent recovery errors.
 

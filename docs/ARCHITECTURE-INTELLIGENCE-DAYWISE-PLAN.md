@@ -208,6 +208,10 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 11 — Make tool behavior predictable
 
+**Progress:** F01 is implemented and locally verified on branch
+`feat/f01-canvas-interaction-states`; see
+[Day 11 canvas interaction states](DAY-11-CANVAS-INTERACTION-STATES.md).
+
 **User outcome:** The active tool, cursor and next click always agree.
 
 **Session 11A — what and how:** Incrementally extract one interaction controller for select, pan, place, connect, text, shapes, freehand and eraser. Define Escape and pointer-cancel cleanup.
