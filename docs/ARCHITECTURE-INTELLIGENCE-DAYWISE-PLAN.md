@@ -208,8 +208,8 @@ Each day has **A and B sessions**. A session is a bounded outcome, usually a few
 
 ## Day 11 — Make tool behavior predictable
 
-**Progress:** F01 is implemented and locally verified on branch
-`feat/f01-canvas-interaction-states`; see
+**Progress:** F01 was merged into `main` through PR #21 after application,
+browser, and database CI; post-merge release and Chromium checks also passed. See
 [Day 11 canvas interaction states](DAY-11-CANVAS-INTERACTION-STATES.md).
 
 **User outcome:** The active tool, cursor and next click always agree.
