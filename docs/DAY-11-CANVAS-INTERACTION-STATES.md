@@ -2,8 +2,9 @@
 
 ## Status
 
-Implemented and verified locally on 26 September 2026 on
-`feat/f01-canvas-interaction-states`.
+Merged into `main` through PR #21 on 26 September 2026. Application, browser,
+and database CI passed, followed by clean post-merge release and Chromium
+verification on merge commit `fb81f17`.
 
 ## User outcome
 

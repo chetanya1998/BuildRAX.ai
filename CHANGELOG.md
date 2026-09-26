@@ -6,7 +6,7 @@
 
 #### Day 11 · F01 — Canvas interaction states and feedback
 
-- Status: Implemented and verified locally
+- Status: Merged into `main` through PR #21; CI and post-merge verification passed
 - Branch: `feat/f01-canvas-interaction-states`
 - User impact: Keeps selection, pan, placement, connection, text, drawing, and
   eraser behavior mutually consistent with cursor, hints, Escape, and input
