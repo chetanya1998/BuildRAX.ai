@@ -78,6 +78,43 @@ test("desktop canvas exposes the streamlined shape toolkit and keeps freehand av
   await expect(page.locator(".react-flow__pane")).toHaveCSS("cursor", "crosshair");
 });
 
+test("canvas interaction state keeps tools exclusive and keyboard input scoped", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Desktop owns the complete tool and shortcut set.");
+  await page.goto("/templates");
+  await page.getByRole("button", { name: "Use template" }).first().click();
+  await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
+
+  const pointer = page.getByRole("button", { name: "Pointer / select" });
+  const freehand = page.getByRole("button", { name: /Freehand \(P\)/i });
+  const eraser = page.getByRole("button", { name: /Eraser \(X\)/i });
+
+  await freehand.click();
+  await expect(freehand).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Drag to draw freehand ink. Escape returns to selection.")).toBeVisible();
+
+  await eraser.click();
+  await expect(eraser).toHaveAttribute("aria-pressed", "true");
+  await expect(freehand).toHaveAttribute("aria-pressed", "false");
+  await page.keyboard.press("Escape");
+  await expect(pointer).toHaveAttribute("aria-pressed", "true");
+
+  await page.keyboard.press("Control+K");
+  const palette = page.getByRole("complementary", { name: "Semantic components" });
+  await expect(palette).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "AI architecture change" })).toHaveCount(0);
+
+  const search = page.getByLabel("Search semantic components");
+  await search.fill("x");
+  await expect(search).toHaveValue("x");
+  await expect(pointer).toHaveAttribute("aria-pressed", "true");
+  await search.fill("");
+  await palette.getByRole("button", { name: /Place .* on canvas/i }).first().click();
+  await expect(page.getByText(/Click the canvas to place .* Escape cancels\./i)).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(pointer).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Canvas action cancelled.")).toBeVisible();
+});
+
 test("freehand captures a continuous smooth stroke across its live preview", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Drawing remains desktop-only in the MVP.");
   await page.goto("/templates");
@@ -181,7 +218,7 @@ test("documentation controls expose tooltips and perform their editing actions",
   await workspace.getByRole("button", { name: "Export Markdown" }).click();
   expect((await download).suggestedFilename()).toMatch(/\.md$/);
   await workspace.getByRole("button", { name: "Copy documentation" }).click();
-  await expect(page.getByRole("status")).toContainText(/Documentation copied|Copy is unavailable/);
+  await expect(page.getByRole("status").filter({ hasText: /Documentation copied|Copy is unavailable/ })).toBeVisible();
 });
 
 test("desktop canvas places a component at a chosen point and edits its label inline", async ({ page }, testInfo) => {
