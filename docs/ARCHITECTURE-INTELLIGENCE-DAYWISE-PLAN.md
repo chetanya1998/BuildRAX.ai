@@ -226,6 +226,10 @@ browser, and database CI; post-merge release and Chromium checks also passed. Se
 
 ## Day 12 — Make selection and connections easy
 
+**Progress:** Implemented and locally verified on branch
+`feat/day12-selection-connections`; see
+[Day 12 selection and semantic connections](DAY-12-SELECTION-CONNECTIONS.md).
+
 **User outcome:** Users can organize and connect a group of components confidently.
 
 **Session 12A — what and how:** Improve single/Shift/marquee selection, resize hit areas, selection count and group movement. Preserve working front/back layer behavior.

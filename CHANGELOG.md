@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Selection and semantic connections
+
+#### Day 12 — Amended frontend sequence
+
+- Status: Implemented and verified locally
+- Branch: `feat/day12-selection-connections`
+- User impact: Makes multi-selection visible and semantic connection creation
+  discoverable through source/target clicks, compatibility feedback, preview,
+  cancellation, and undo.
+- Automatic checks: See `docs/DAY-12-SELECTION-CONNECTIONS.md`.
+- Production verification: Not deployed or staging-tested.
+
 ### Predictable canvas interactions
 
 #### Day 11 · F01 — Canvas interaction states and feedback

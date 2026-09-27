@@ -376,6 +376,51 @@ test("desktop component nodes resize and connector handles create an edge", asyn
   await expect(page.locator(".react-flow__edge")).toHaveCount(edgesBefore + 1);
 });
 
+test("semantic connect mode previews valid targets, explains rejection, and undoes as one action", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Mobile intentionally supports light editing only.");
+  await page.goto("/start?template=multi-tenant-saas");
+  await generateInspectAndOpen(page);
+  await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
+
+  const edges = page.locator(".react-flow__edge");
+  await expect.poll(async () => edges.count()).toBeGreaterThan(0);
+  const edgesBefore = await edges.count();
+  const worker = page.locator('[data-id="saas-worker"]');
+  const browser = page.locator('[data-id="saas-browser"]');
+  const cache = page.locator('[data-id="saas-cache"]');
+
+  await page.getByRole("button", { name: "Connect components (C)" }).click();
+  await worker.click();
+  await expect(worker.locator('[data-connection-state="source"]')).toBeVisible();
+  await expect(cache.locator('[data-connection-state="valid"]')).toBeVisible();
+  await expect(browser.locator('[data-connection-state="invalid"]')).toBeVisible();
+
+  await cache.hover();
+  await expect(page.locator('.react-flow__edge[data-id="connection-preview"]')).toBeVisible();
+  await browser.click();
+  await expect(page.getByRole("status").filter({ hasText: "Cannot connect Background worker to Customer browser" })).toBeVisible();
+  await expect(edges).toHaveCount(edgesBefore);
+
+  await cache.click();
+  await expect(edges).toHaveCount(edgesBefore + 1);
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(edges).toHaveCount(edgesBefore);
+  await page.getByRole("button", { name: "Redo" }).click();
+  await expect(edges).toHaveCount(edgesBefore + 1);
+
+  const texture = page.getByLabel("Line texture");
+  await expect(texture).toBeVisible();
+  await texture.selectOption("dashed");
+  await expect(texture).toHaveValue("dashed");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(texture).toHaveValue("solid");
+
+  await worker.click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "Pointer / select" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('[data-connection-state="source"]')).toHaveCount(0);
+});
+
 test("pointer selection moves nodes, supports multi-selection, and exposes persistent node styles", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === "mobile", "Desktop owns marquee selection and node styling.");
   await page.goto("/start?template=multi-tenant-saas");
@@ -402,6 +447,7 @@ test("pointer selection moves nodes, supports multi-selection, and exposes persi
   await service.click();
   await gateway.click({ modifiers: ["Shift"] });
   await expect(page.locator(".react-flow__node.selected")).toHaveCount(2);
+  await expect(page.getByText("2 selected", { exact: true })).toBeVisible();
 
   const selectedBefore = await Promise.all([service.boundingBox(), gateway.boundingBox()]);
   const dragFrom = selectedBefore[0];

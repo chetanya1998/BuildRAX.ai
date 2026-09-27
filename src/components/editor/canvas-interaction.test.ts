@@ -20,8 +20,10 @@ describe("canvas interaction controller", () => {
   });
 
   it("cancels every transient interaction back to a safe selection state", () => {
-    const connecting = canvasInteractionReducer(initialCanvasInteraction, { type: "begin-connection", sourceId: "node-a" });
+    const connectTool = canvasInteractionReducer(initialCanvasInteraction, { type: "activate-tool", tool: "connect" });
+    const connecting = canvasInteractionReducer(connectTool, { type: "begin-connection", sourceId: "node-a" });
     expect(hasTransientInteraction(connecting)).toBe(true);
+    expect(connecting.tool).toBe("connect");
     expect(canvasInteractionReducer(connecting, { type: "cancel" })).toEqual(initialCanvasInteraction);
   });
 
