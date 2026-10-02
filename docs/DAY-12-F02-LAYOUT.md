@@ -35,9 +35,12 @@ history is recorded once outside the diagram updater.
 
 ## Remaining Day 12 work
 
-F02 still requires measured usable-canvas fitting, panel-resize handling,
+Side-panel canvas resizing/refitting and responsive action labels were corrected
+in the follow-up; see [acceptance results](DAY-12-F02-ACCEPTANCE-RESULTS.md).
+F02 still requires broader usable-canvas fitting,
 group/label/routing checks and the supported desktop/tablet acceptance matrix.
-The current fit-view call still uses the existing full canvas behavior. A user
+The canvas now reserves side-panel space, but other floating overlays still
+need broader verification. A user
 control to reset manual-placement overrides should be designed with that work.
 T01 Template Registry remains a separate issue and branch, not implemented here.
 Day 12 is not complete, and no merge or deployment is claimed.

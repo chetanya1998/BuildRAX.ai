@@ -18,6 +18,9 @@
 .workspace { position: relative; min-height: 0; }
 .canvas { position: absolute; inset: 0 0 0 72px; background: var(--bg); }
 .canvasWithInspector { right: 338px; }
+@media (min-width: 701px) {
+  .canvas[data-side-panel="true"] { right: 468px; }
+}
 .canvas[data-tool="eraser"] :global(.react-flow__pane), .canvas[data-tool="eraser"] :global(.react-flow__node), .canvas[data-tool="eraser"] :global(.react-flow__edge) { cursor: url("/icons/eraser-cursor.svg") 8 12, crosshair; }
 .canvas[data-tool="pan"] :global(.react-flow__pane) { cursor: grab; }
 .canvas[data-tool="pan"] :global(.react-flow__pane):active { cursor: grabbing; }

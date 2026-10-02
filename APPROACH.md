@@ -18,6 +18,12 @@ must remain unchanged. No database migration or parallel presentation model is
 introduced. Test layout determinism, oversized obstacles, pinned nodes,
 snapshot round trips and semantic identity.
 
-Remaining F02 issues: measured usable viewport and panel resizing, group/label
+Follow-up: reserve the existing side-panel width in the canvas on desktop/tablet
+and observe actual canvas size changes. Refit only on a size change, preserving
+model positions and the initial recovered viewport. Keep responsive action
+names explicit when their visible text is hidden. Verify open/resize/close in
+both themes at 1440px and 1024px, without changing semantic or node positions.
+
+Remaining F02 issues: broader usable-viewport coverage, group/label
 and routing verification, and desktop/tablet browser acceptance. T01 templates
 remain a separate Day 12 issue and branch. This branch does not complete Day 12.
