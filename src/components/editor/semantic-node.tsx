@@ -8,6 +8,7 @@ export type SemanticFlowNode = Node<{
   component: ArchitectureNode;
   onResize?: (width: number, height: number) => void;
   showConnectors?: boolean;
+  connectionState?: "source" | "valid" | "invalid";
   isRenaming?: boolean;
   onRenameStart?: () => void;
   onNameChange?: (name: string) => void;
@@ -24,7 +25,7 @@ export function SemanticNode({ data, selected }: NodeProps<SemanticFlowNode>) {
   const fillColor = typeof component.metadata.fillColor === "string" && /^#[0-9a-f]{6}$/i.test(component.metadata.fillColor) ? component.metadata.fillColor : "var(--surface)";
   const borderRadius = ["8", "16", "24"].includes(String(component.metadata.borderRadius)) ? String(component.metadata.borderRadius) : "16";
   const shadow = component.metadata.shadow === "none" ? "none" : component.metadata.shadow === "raised" ? "var(--shadow-lg)" : "var(--shadow-sm)";
-  return <div className={`${styles.semanticNode} ${selected ? styles.nodeSelected : ""}`} data-variant={appearanceVariant} style={{ "--category": accentColor, "--node-fill": fillColor, "--node-radius": `${borderRadius}px`, "--node-shadow": shadow } as React.CSSProperties}>
+  return <div className={`${styles.semanticNode} ${selected ? styles.nodeSelected : ""}`} data-variant={appearanceVariant} data-connection-state={data.connectionState} style={{ "--category": accentColor, "--node-fill": fillColor, "--node-radius": `${borderRadius}px`, "--node-shadow": shadow } as React.CSSProperties}>
     <NodeResizer isVisible={selected} minWidth={120} minHeight={72} maxWidth={640} maxHeight={480} color="var(--accent)" onResizeEnd={(_, size) => data.onResize?.(size.width, size.height)} />
     <Handle type="target" position={Position.Left} id="in" className={`${styles.handle} ${data.showConnectors ? styles.handleVisible : ""}`} title="Connect into this component" aria-label={`Connect into ${component.name}`} />
     <div className={styles.nodeHeader}><span className={styles.nodeCode} title={item?.name ?? component.semanticType}><SemanticCatalogIcon semanticType={component.semanticType} size={14} /></span><span>{category.label}</span></div>

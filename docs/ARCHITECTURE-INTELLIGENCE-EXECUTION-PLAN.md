@@ -241,6 +241,11 @@ application, browser, and database CI plus post-merge verification; see
 **Depends on:** F01.  
 **Status:** Not started.
 
+**Amended sequence note:** The revised day-wise plan inserts selection and
+semantic-connection improvements on Day 12; see
+[Day 12 selection and semantic connections](DAY-12-SELECTION-CONNECTIONS.md).
+That work does not complete this layout-focused card, which remains next.
+
 **Implement:** Pass a measured usable canvas rectangle into existing ELK layout. Preserve manual positions, place new nodes deterministically, and handle group boundaries, labels, routing and panel resize. Keep layout changes undoable.
 
 **Done when:** 15-node and dense fixtures avoid fixed controls at supported desktop/tablet widths; reopen preserves overrides; auto-layout does not modify semantic checksums.

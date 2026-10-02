@@ -21,6 +21,7 @@
 .canvas[data-tool="eraser"] :global(.react-flow__pane), .canvas[data-tool="eraser"] :global(.react-flow__node), .canvas[data-tool="eraser"] :global(.react-flow__edge) { cursor: url("/icons/eraser-cursor.svg") 8 12, crosshair; }
 .canvas[data-tool="pan"] :global(.react-flow__pane) { cursor: grab; }
 .canvas[data-tool="pan"] :global(.react-flow__pane):active { cursor: grabbing; }
+.canvas[data-tool="connect"] :global(.react-flow__pane), .canvas[data-tool="connect"] :global(.react-flow__node) { cursor: crosshair!important; }
 .canvas[data-tool="rectangle"] :global(.react-flow__pane), .canvas[data-tool="circle"] :global(.react-flow__pane), .canvas[data-tool="diamond"] :global(.react-flow__pane), .canvas[data-tool="frame"] :global(.react-flow__pane), .canvas[data-tool="line"] :global(.react-flow__pane), .canvas[data-tool="arrow"] :global(.react-flow__pane), .canvas[data-tool="text"] :global(.react-flow__pane), .canvas[data-tool="freehand"] :global(.react-flow__pane), .canvas[data-interaction="placing-component"] :global(.react-flow__pane) { cursor: crosshair!important; }
 .toolbar { position: absolute; z-index: 12; left: 14px; top: 14px; width: 46px; display: flex; flex-direction: column; gap: 4px; padding: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-sm); }
 .tool { position: relative; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px; color: var(--text-secondary); background: transparent; cursor: pointer; }
@@ -137,6 +138,10 @@
 .semanticNode[data-variant="tinted"] { background: color-mix(in srgb, var(--category) 13%, var(--node-fill, var(--surface))); }
 .semanticNode[data-variant="outline"] { border-width: 1px; background: transparent; box-shadow: none; }
 .nodeSelected { box-shadow: 0 0 0 4px color-mix(in srgb, var(--category) 18%, transparent), var(--shadow-sm); }
+.semanticNode[data-connection-state="source"] { box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 28%, transparent), var(--shadow-sm); }
+.semanticNode[data-connection-state="valid"] { border-color: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 22%, transparent), var(--shadow-sm); }
+.semanticNode[data-connection-state="invalid"] { border-color: color-mix(in srgb, var(--danger) 58%, var(--border)); opacity: .62; }
+.semanticNode[data-connection-state="valid"]:hover, .semanticNode[data-connection-state="invalid"]:hover { opacity: 1; transform: translateY(-1px); }
 .nodeHeader { display: flex; align-items: center; gap: 7px; color: var(--category); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; }
 .nodeCode { min-width: 24px; height: 20px; display: grid; place-items: center; border-radius: 6px; background: color-mix(in srgb, var(--category) 12%, var(--surface)); font-size: 8px; }
 .nodeName { margin-top: 9px; font-size: 15px; line-height: 1.2; font-weight: 700; color: var(--text); }
@@ -179,7 +184,7 @@
 .reactFlow :global(.react-flow__controls-button svg) { fill: currentColor; }
 .reactFlow :global(.react-flow__minimap) { left: 14px!important; right: auto!important; bottom: 16px!important; overflow: hidden; border: 1px solid var(--border); border-radius: 12px; background: var(--surface)!important; box-shadow: var(--shadow-sm); }
 .reactFlow :global(.react-flow__minimap-mask) { fill: color-mix(in srgb, var(--bg) 74%, transparent); }
-.reactFlow :global(.react-flow__resize-control.handle) { width: 15px!important; height: 15px!important; border: 2px solid var(--surface); border-radius: 5px; box-shadow: 0 0 0 1px var(--accent); }
+.reactFlow :global(.react-flow__resize-control.handle) { width: 19px!important; height: 19px!important; border: 3px solid var(--surface); border-radius: 6px; box-shadow: 0 0 0 1px var(--accent); }
 .reactFlow :global(.react-flow__resize-control.line) { border-color: var(--accent); }
 .reactFlow :global(.react-flow__edge-text) { fill: var(--text-secondary); font-size: 10px; }
 .reactFlow :global(.react-flow__edge-textbg) { fill: var(--surface); }
@@ -263,6 +268,7 @@
 .taskList input { accent-color: var(--accent); }
 .documentImage { display: block; max-width: 100%; max-height: 420px; margin: 15px 0; border: 1px solid var(--border); border-radius: 10px; object-fit: contain; }
 .layerControls { position: absolute; z-index: 13; top: 14px; right: 16px; display: flex; gap: 4px; padding: 5px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-sm); }
+.selectionCount { display: inline-flex; align-items: center; min-width: max-content; padding: 0 8px; border-right: 1px solid var(--border); color: var(--text-secondary); font-size: 10px; font-weight: 750; }
 .layerControls button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--text-secondary); cursor: pointer; }
 .layerControls button:hover { background: var(--surface-subtle); color: var(--text); }
 .aiLauncher, .aiBar { position: absolute; z-index: 12; right: 28px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-lg); }

@@ -20,6 +20,7 @@ import {
   BringToFront,
   Bot,
   Boxes,
+  Cable,
   CheckSquare,
   Circle,
   Code2,
@@ -189,9 +190,18 @@ function flowNodes(
   onNodeNameChange: (id: string, name: string) => void,
   onRenameEnd: () => void,
   onRenameCancel: () => void,
+  connectionSourceId: string | null,
 ): EditorNode[] {
   const selected = new Set(selectedIds);
-  const semantic: SemanticFlowNode[] = diagram.nodes.map((component, index) => ({ id: component.id, type: "semantic", position: component.position, selected: selected.has(component.id), zIndex: typeof component.metadata.zIndex === "number" ? component.metadata.zIndex : index, data: { component, showConnectors: connectorMode, onResize: (width, height) => onResize(component.id, width, height), isRenaming: component.id === renamingNodeId, onRenameStart, onNameChange: (name) => onNodeNameChange(component.id, name), onRenameEnd, onRenameCancel }, width: component.dimensions.width, height: component.dimensions.height }));
+  const connectionSource = connectionSourceId ? diagram.nodes.find((component) => component.id === connectionSourceId) : undefined;
+  const semantic: SemanticFlowNode[] = diagram.nodes.map((component, index) => {
+    const connectionState = !connectionSource
+      ? undefined
+      : component.id === connectionSource.id
+        ? "source" as const
+        : validateConnection(connectionSource, component).valid ? "valid" as const : "invalid" as const;
+    return { id: component.id, type: "semantic", position: component.position, selected: selected.has(component.id), zIndex: typeof component.metadata.zIndex === "number" ? component.metadata.zIndex : index, data: { component, showConnectors: connectorMode, connectionState, onResize: (width, height) => onResize(component.id, width, height), isRenaming: component.id === renamingNodeId, onRenameStart, onNameChange: (name) => onNodeNameChange(component.id, name), onRenameEnd, onRenameCancel }, width: component.dimensions.width, height: component.dimensions.height };
+  });
   const primitives: PrimitiveFlowNode[] = diagram.primitives.map((primitive, index) => ({ id: primitive.id, type: "primitive", position: primitive.position, selected: selected.has(primitive.id), zIndex: Number(primitive.style.zIndex ?? diagram.nodes.length + index), data: { primitive, onResize: (width, height) => onResize(primitive.id, width, height), isEditing: editingTextId === primitive.id, onTextEditActivate: () => onTextEditActivate(primitive.id), onTextEditStart, onTextChange: (text) => onTextChange(primitive.id, text), onTextEditEnd, onTextEditCancel }, width: primitive.dimensions.width, height: primitive.dimensions.height }));
   if (preview) {
     const bounds = draftBounds(preview);
@@ -210,8 +220,8 @@ function flowNodes(
   return [...semantic, ...primitives];
 }
 
-function flowEdges(diagram: Diagram, selectedId: string | null): Edge[] {
-  return diagram.connectors.map((connector) => ({
+function flowEdges(diagram: Diagram, selectedId: string | null, connectionPreview?: { source: string; target: string; valid: boolean }): Edge[] {
+  const edges: Edge[] = diagram.connectors.map((connector) => ({
     id: connector.id,
     source: connector.source,
     target: connector.target,
@@ -225,6 +235,20 @@ function flowEdges(diagram: Diagram, selectedId: string | null): Edge[] {
     markerStart: connector.direction === "bidirectional" ? { type: MarkerType.ArrowClosed, color: "#8b9098", width: 14, height: 14 } : undefined,
     markerEnd: connector.type === "control-plane" ? undefined : { type: MarkerType.ArrowClosed, color: "#8b9098", width: 14, height: 14 },
   }));
+  if (connectionPreview) edges.push({
+    id: "connection-preview",
+    source: connectionPreview.source,
+    target: connectionPreview.target,
+    sourceHandle: "out",
+    targetHandle: "in",
+    type: "smoothstep",
+    animated: connectionPreview.valid,
+    selectable: false,
+    focusable: false,
+    style: { stroke: connectionPreview.valid ? "var(--success)" : "var(--danger)", strokeWidth: 2, strokeDasharray: connectionPreview.valid ? "5 4" : "2 5" },
+    markerEnd: { type: MarkerType.ArrowClosed, color: connectionPreview.valid ? "var(--success)" : "var(--danger)", width: 14, height: 14 },
+  });
+  return edges;
 }
 
 function bump(diagram: Diagram): Diagram {
@@ -340,6 +364,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const [renderNodes, setRenderNodes] = useState<EditorNode[]>([]);
   const [arrowStyle, setArrowStyle] = useState<ArrowStyle>("end");
   const [arrowTexture, setArrowTexture] = useState<ArrowTexture>("solid");
+  const [connectionHoverTargetId, setConnectionHoverTargetId] = useState<string | null>(null);
   const [quickInsertPosition, setQuickInsertPosition] = useState<CanvasPoint | null>(null);
   const [shareLink, setShareLink] = useState<{ id: string; url: string } | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(true);
@@ -475,6 +500,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }, []);
 
   const activateTool = useCallback((nextTool: CanvasTool) => {
+    setConnectionHoverTargetId(null);
     dispatchInteraction({ type: "activate-tool", tool: nextTool });
   }, []);
 
@@ -558,8 +584,14 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     setDiagram(snapshot);
   }, []);
 
-  const modelNodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, !readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename]);
-  const edges = useMemo(() => flowEdges(diagram, selectedId), [diagram, selectedId]);
+  const modelNodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, !readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename, pendingConnectionSourceId), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename, pendingConnectionSourceId]);
+  const connectionPreview = useMemo(() => {
+    if (!pendingConnectionSourceId || !connectionHoverTargetId || pendingConnectionSourceId === connectionHoverTargetId) return undefined;
+    const source = diagram.nodes.find((node) => node.id === pendingConnectionSourceId);
+    const target = diagram.nodes.find((node) => node.id === connectionHoverTargetId);
+    return source && target ? { source: source.id, target: target.id, valid: validateConnection(source, target).valid } : undefined;
+  }, [connectionHoverTargetId, diagram.nodes, pendingConnectionSourceId]);
+  const edges = useMemo(() => flowEdges(diagram, selectedId, connectionPreview), [connectionPreview, diagram, selectedId]);
 
   useEffect(() => {
     setRenderNodes((current) => modelNodes.map((next) => {
@@ -637,7 +669,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       if (key === "v") activateTool("select");
       if (key === "h") activateTool("pan");
       if (key === "n") { activateTool("select"); setPanel((current) => current === "components" ? null : "components"); }
-      if (key === "c") activateTool("arrow");
+      if (key === "c") activateTool("connect");
       if (key === "s") activateTool("rectangle");
       if (key === "enter" && (selectedNode || selectedConnector)) setInspectorOpen(true);
       if (key === "r") activateTool("rectangle");
@@ -652,6 +684,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       if (key === "escape") {
         if (hasTransientInteraction(interaction)) {
           dispatchInteraction({ type: "cancel" });
+          setConnectionHoverTargetId(null);
           setQuickInsertPosition(null);
           setPanel(null);
           setMessage("Canvas action cancelled.");
@@ -725,12 +758,20 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     }));
   }
 
-  function onConnect(connection: Connection) {
-    if (readOnly || !connection.source || !connection.target) return;
-    const source = diagram.nodes.find((node) => node.id === connection.source);
-    const target = diagram.nodes.find((node) => node.id === connection.target);
-    if (!source || !target) return;
+  function createSemanticConnection(sourceId: string, targetId: string, allowIncompatible = false) {
+    if (readOnly) return false;
+    const source = diagram.nodes.find((node) => node.id === sourceId);
+    const target = diagram.nodes.find((node) => node.id === targetId);
+    if (!source || !target) return false;
     const validation = validateConnection(source, target);
+    if (!validation.valid && !allowIncompatible) {
+      setMessage(`Cannot connect ${source.name} to ${target.name}: ${validation.reason}`);
+      return false;
+    }
+    if (!allowIncompatible && diagram.connectors.some((connector) => connector.source === source.id && connector.target === target.id)) {
+      setMessage(`${source.name} is already connected to ${target.name}.`);
+      return false;
+    }
     // Compatibility is advisory for manual canvas work. A user may deliberately
     // model an unusual dependency and should see it, not have a failed drag.
     const connectorType = !validation.valid || tool === "line" ? "control-plane" : "http-rest";
@@ -738,17 +779,25 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     commit((current) => ({ ...current, connectors: [...current.connectors, connector] }));
     selectOnly(connector.id);
     dispatchInteraction({ type: "finish-connection" });
+    setConnectionHoverTargetId(null);
     setInspectorOpen(true);
     setMessage(validation.valid ? "Connection created. Select it to edit its details." : `Connection added as an explicit relationship. Advisory: ${validation.reason}`);
+    return true;
+  }
+
+  function onConnect(connection: Connection) {
+    if (!connection.source || !connection.target) return;
+    createSemanticConnection(connection.source, connection.target, true);
   }
 
   function onConnectStart(_: MouseEvent | TouchEvent, { nodeId }: { nodeId: string | null }) {
+    setConnectionHoverTargetId(null);
     dispatchInteraction({ type: "begin-connection", sourceId: nodeId });
   }
 
   function onConnectEnd(event: MouseEvent | TouchEvent, connectionState: { isValid: boolean | null }) {
     const sourceId = pendingConnectionSourceId;
-    if (!sourceId || connectionState.isValid) { dispatchInteraction({ type: "finish-connection" }); return; }
+    if (!sourceId || connectionState.isValid) { dispatchInteraction({ type: "finish-connection" }); setConnectionHoverTargetId(null); return; }
     const point = event instanceof MouseEvent
       ? { x: event.clientX, y: event.clientY }
       : event.changedTouches[0] ? { x: event.changedTouches[0].clientX, y: event.changedTouches[0].clientY } : null;
@@ -858,10 +907,49 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     setMessage("Select a component or canvas object to duplicate.");
   }
 
+  function onCanvasNodeClick(event: React.MouseEvent, node: EditorNode) {
+    if (tool === "eraser") { removeById(node.id, true); return; }
+    if (tool === "connect") {
+      if (node.type !== "semantic") {
+        setMessage("Semantic connections can only link architecture components. Use Line or Arrow for decorative canvas objects.");
+        return;
+      }
+      if (!pendingConnectionSourceId) {
+        selectOnly(node.id);
+        dispatchInteraction({ type: "begin-connection", sourceId: node.id });
+        setInspectorOpen(false);
+        setMessage(`Source selected: ${(node.data as SemanticFlowNode["data"]).component.name}. Choose a highlighted target.`);
+        return;
+      }
+      setConnectionHoverTargetId(null);
+      createSemanticConnection(pendingConnectionSourceId, node.id);
+      return;
+    }
+    if (event.shiftKey || event.metaKey || event.ctrlKey) setSelectedId(node.id);
+    else selectOnly(node.id);
+    setInspectorOpen(false);
+  }
+
+  function onCanvasNodeMouseEnter(_: React.MouseEvent, node: EditorNode) {
+    if (pendingConnectionSourceId && node.type === "semantic" && node.id !== pendingConnectionSourceId) setConnectionHoverTargetId(node.id);
+  }
+
+  function onCanvasNodeMouseLeave(_: React.MouseEvent, node: EditorNode) {
+    setConnectionHoverTargetId((current) => current === node.id ? null : current);
+  }
+
   function onPaneClick(event: React.MouseEvent) {
     if (ignoreNextPaneClick.current) { ignoreNextPaneClick.current = false; return; }
     const position = instance?.screenToFlowPosition({ x: event.clientX, y: event.clientY }) ?? { x: 200, y: 200 };
     if (pendingComponentType) { addComponent(pendingComponentType, position); return; }
+    if (tool === "connect") {
+      if (pendingConnectionSourceId) {
+        dispatchInteraction({ type: "finish-connection" });
+        setConnectionHoverTargetId(null);
+        setMessage("Connection target cleared. Choose another source, or press Escape to return to selection.");
+      } else selectOnly(null);
+      return;
+    }
     // Drawing is completed by mouse down/move/up. Handling the subsequent pane
     // click here created a second shape and cleared the first shape's selection.
     if (tool === "circle" || drawableTools.includes(tool as PrimitiveTool)) return;
@@ -936,6 +1024,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   function cancelPointerInteraction() {
     if (!drawDraft && !pendingConnectionSourceId) return;
     dispatchInteraction({ type: "cancel" });
+    setConnectionHoverTargetId(null);
     setQuickInsertPosition(null);
     setMessage("Pointer action cancelled safely.");
   }
@@ -1248,7 +1337,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     { tool: "rectangle", label: "Rectangle (R)", icon: <Square size={17} /> }, { tool: "circle", label: "Circle (O)", icon: <Circle size={17} /> },
     { tool: "diamond", label: "Diamond (D)", icon: <Diamond size={17} /> }, { tool: "frame", label: "Frame (F)", icon: <Frame size={17} /> },
     { tool: "line", label: "Line (L) — place a relationship", icon: <Minus size={17} /> }, { tool: "arrow", label: "Arrow (A) — place a directional arrow", icon: <ArrowRight size={17} /> },
-    { tool: "text", label: "Text (T)", icon: <Type size={17} /> }, { tool: "freehand", label: "Freehand (P)", icon: drawDraft?.kind === "freehand" ? <PenLine size={18} /> : <Pencil size={17} /> }, { tool: "eraser", label: "Eraser (X) — remove objects", icon: <Eraser size={17} /> },
+    { tool: "text", label: "Text (T)", icon: <Type size={17} /> }, { tool: "freehand", label: "Freehand (P)", icon: drawDraft?.kind === "freehand" ? <PenLine size={18} /> : <Pencil size={17} /> }, { tool: "connect", label: "Connect components (C)", icon: <Cable size={17} /> }, { tool: "eraser", label: "Eraser (X) — remove objects", icon: <Eraser size={17} /> },
   ];
 
   useEffect(() => {
@@ -1281,7 +1370,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       </div>}
       {persisted && cloudSave.message && <div className={styles.cloudWarning} role="status">{cloudSave.message}</div>}
       <div className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-tool={tool} data-interaction={interactionName(interaction)} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick} onPointerCancel={cancelPointerInteraction}>
-        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={(event, node) => { if (tool === "eraser") removeById(node.id, true); else { if (event.shiftKey || event.metaKey || event.ctrlKey) setSelectedId(node.id); else selectOnly(node.id); setInspectorOpen(false); } }} onNodeDoubleClick={(_, node) => { selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
+        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={onCanvasNodeClick} onNodeMouseEnter={onCanvasNodeMouseEnter} onNodeMouseLeave={onCanvasNodeMouseLeave} onNodeDoubleClick={(_, node) => { if (tool !== "select") return; selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "connect" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>
       </div>
@@ -1289,7 +1378,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       {!readOnly && <><input ref={imageInputRef} className={styles.visuallyHidden} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={(event) => { addImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /><div className={styles.toolbar} aria-label="Canvas tools">{toolbar.map((item, index) => { const isDrawingFreehand = item.tool === "freehand" && drawDraft?.kind === "freehand"; const label = isDrawingFreehand ? "Drawing freehand — release to finish" : item.label; return <span key={item.tool} style={{ display: "contents" }}>{index === 3 || index === 7 || index === 9 ? <span className={styles.toolDivider} /> : null}<button className={`${styles.tool} ${tool === item.tool ? styles.toolActive : ""} ${isDrawingFreehand ? styles.toolDrawing : ""}`} title={label} data-tooltip={label} aria-label={label} aria-pressed={tool === item.tool} onClick={() => activateTool(item.tool)}>{item.icon}</button></span>; })}<span className={styles.toolDivider} /><button className={styles.tool} title="Add image" data-tooltip="Add image" aria-label="Add image" onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} /></button><button className={`${styles.tool} ${panel === "components" ? styles.toolActive : ""}`} title="Components (N)" data-tooltip="Components (N)" aria-label="Open semantic components" aria-pressed={panel === "components"} onClick={() => setPanel(panel === "components" ? null : "components")}><Boxes size={18} /></button></div><div className={styles.toolHint} role="status" aria-live="polite" data-interaction={interactionName(interaction)}>{toolHint}</div></>}
       {!readOnly && tool === "arrow" && <div className={styles.arrowPicker} role="group" aria-label="Arrow style"><button className={arrowStyle === "end" ? styles.pickerActive : ""} aria-label="End arrow" onClick={() => setArrowStyle("end")}>→</button><button className={arrowStyle === "start" ? styles.pickerActive : ""} aria-label="Start arrow" onClick={() => setArrowStyle("start")}>←</button><button className={arrowStyle === "both" ? styles.pickerActive : ""} aria-label="Both-end arrow" onClick={() => setArrowStyle("both")}>↔</button><button className={arrowStyle === "none" ? styles.pickerActive : ""} aria-label="Headless arrow" onClick={() => setArrowStyle("none")}>—</button><span className={styles.bottomDivider} />{(["solid", "dashed", "dotted"] as const).map((texture) => <button key={texture} className={arrowTexture === texture ? styles.pickerActive : ""} aria-label={`${texture} arrow`} onClick={() => setArrowTexture(texture)}>{texture === "solid" ? "━" : texture === "dashed" ? "┄" : "┈"}</button>)}</div>}
       {!readOnly && selectedPrimitive?.kind === "text" && <div className={styles.textFormatBar} role="group" aria-label="Text formatting"><button aria-label="Decrease font size" onClick={() => updateSelectedPrimitiveStyle({ fontSize: String(Math.max(12, Number(selectedPrimitive.style.fontSize ?? 20) - 2)) })}>A−</button><span>{selectedPrimitive.style.fontSize ?? "20"} px</span><button aria-label="Increase font size" onClick={() => updateSelectedPrimitiveStyle({ fontSize: String(Math.min(48, Number(selectedPrimitive.style.fontSize ?? 20) + 2)) })}>A+</button><span className={styles.bottomDivider} />{(["hand", "sans", "serif", "mono"] as const).map((font) => <button key={font} className={selectedPrimitive.style.fontFamily === font || (!selectedPrimitive.style.fontFamily && font === "sans") ? styles.pickerActive : ""} aria-label={`${font} font`} onClick={() => updateSelectedPrimitiveStyle({ fontFamily: font })}>{font === "hand" ? "✎" : font === "sans" ? "Aa" : font === "serif" ? "Ag" : "<>"}</button>)}<span className={styles.bottomDivider} /><button className={selectedPrimitive.style.fontWeight === "bold" ? styles.pickerActive : ""} aria-label="Bold text" onClick={() => updateSelectedPrimitiveStyle({ fontWeight: selectedPrimitive.style.fontWeight === "bold" ? "normal" : "bold" })}><Bold size={14} /></button><button className={selectedPrimitive.style.fontStyle === "italic" ? styles.pickerActive : ""} aria-label="Italic text" onClick={() => updateSelectedPrimitiveStyle({ fontStyle: selectedPrimitive.style.fontStyle === "italic" ? "normal" : "italic" })}><Italic size={14} /></button><button className={selectedPrimitive.style.textDecoration === "underline" ? styles.pickerActive : ""} aria-label="Underline text" onClick={() => updateSelectedPrimitiveStyle({ textDecoration: selectedPrimitive.style.textDecoration === "underline" ? "none" : "underline" })}><Underline size={14} /></button><label title="Text color"><span className={styles.textColorSwatch} style={{ background: selectedPrimitive.style.color ?? "#111827" }} /><input type="color" aria-label="Text color" value={selectedPrimitive.style.color ?? "#111827"} onChange={(event) => updateSelectedPrimitiveStyle({ color: event.target.value })} /></label></div>}
-      {!readOnly && (selectedNode || selectedPrimitive) && <div className={styles.layerControls} role="group" aria-label="Selection actions">{selectedNode && <button aria-label="Edit node style" title="Edit node style" data-tooltip="Edit node style" onClick={() => setInspectorOpen(true)}><SlidersHorizontal size={15} /></button>}<button aria-label="Bring to front" title="Bring to front" data-tooltip="Bring to front" onClick={() => moveSelectedLayer("front")}><BringToFront size={15} /></button><button aria-label="Send to back" title="Send to back" data-tooltip="Send to back" onClick={() => moveSelectedLayer("back")}><SendToBack size={15} /></button></div>}
+      {!readOnly && selectedNodeIds.length > 0 && <div className={styles.layerControls} role="group" aria-label="Selection actions"><span className={styles.selectionCount} aria-live="polite">{selectedNodeIds.length} selected</span>{selectedNode && selectedNodeIds.length === 1 && <button aria-label="Edit node style" title="Edit node style" data-tooltip="Edit node style" onClick={() => setInspectorOpen(true)}><SlidersHorizontal size={15} /></button>}<button aria-label="Bring to front" title="Bring to front" data-tooltip="Bring to front" onClick={() => moveSelectedLayer("front")}><BringToFront size={15} /></button><button aria-label="Send to back" title="Send to back" data-tooltip="Send to back" onClick={() => moveSelectedLayer("back")}><SendToBack size={15} /></button><button aria-label="Clear selection" title="Clear selection" data-tooltip="Clear selection" onClick={() => selectOnly(null)}><X size={15} /></button></div>}
       <div className={styles.bottomBar}><button className={tool === "select" ? styles.bottomToolActive : ""} title="Pointer / select (V)" data-tooltip="Pointer / select (V)" aria-label="Pointer / select" aria-pressed={tool === "select"} onClick={() => activateTool("select")}><MousePointer2 size={15} /></button><button className={tool === "pan" ? styles.bottomToolActive : ""} title="Hand / pan (H)" data-tooltip="Hand / pan (H)" aria-label="Hand / pan" aria-pressed={tool === "pan"} onClick={() => activateTool("pan")}><Hand size={15} /></button><span className={styles.bottomDivider} /><button title={showMiniMap ? "Hide mini map" : "Show mini map"} data-tooltip={showMiniMap ? "Hide mini map" : "Show mini map"} aria-label="Toggle mini map" onClick={() => setShowMiniMap((current) => !current)}><Map size={15} /></button><button title="Undo" data-tooltip="Undo" aria-label="Undo" onClick={undo} disabled={!past.length}><Undo2 size={15} /></button><button title="Redo" data-tooltip="Redo" aria-label="Redo" onClick={redo} disabled={!future.length}><Redo2 size={15} /></button><span className={styles.bottomDivider} /><button title="Zoom out" data-tooltip="Zoom out" aria-label="Zoom out" onClick={() => instance?.zoomOut()}><ZoomOut size={15} /></button><button className={styles.zoom} title="Fit canvas" data-tooltip="Fit canvas" onClick={() => instance?.fitView({ padding: .18, duration: 300, maxZoom: 1 })}>{zoom}%</button><button title="Zoom in" data-tooltip="Zoom in" aria-label="Zoom in" onClick={() => instance?.zoomIn()}><ZoomIn size={15} /></button></div>
       {diagram.assumptions.length > 0 && <div className={styles.assumptions}><strong>{diagram.assumptions.length} assumptions</strong><br />{diagram.assumptions[0].text}</div>}
       {!readOnly && (aiExpanded ? <div className={`${styles.aiBar} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.aiBarWithInspector : ""}`}><Sparkles size={14} /><input autoFocus value={command} onChange={(event) => setCommand(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") requestChange(); if (event.key === "Escape") setAiExpanded(false); }} placeholder="Describe an architecture change…" aria-label="AI architecture change" /><button className={styles.aiSend} onClick={requestChange} aria-label="Preview AI change"><Send size={14} /></button><button className={styles.aiClose} onClick={() => setAiExpanded(false)} aria-label="Collapse AI change input"><X size={14} /></button></div> : <button className={`${styles.aiLauncher} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.aiLauncherWithInspector : ""}`} onClick={() => setAiExpanded(true)} aria-label="Open AI architecture change" aria-expanded="false"><Sparkles size={15} /><span>Ask AI</span></button>)}

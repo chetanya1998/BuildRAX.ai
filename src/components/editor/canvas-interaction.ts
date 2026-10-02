@@ -1,5 +1,5 @@
-export type CanvasTool = "select" | "pan" | "rectangle" | "circle" | "diamond" | "frame" | "line" | "arrow" | "text" | "freehand" | "eraser";
-export type PrimitiveTool = Exclude<CanvasTool, "select" | "pan" | "eraser" | "circle"> | "ellipse" | "image";
+export type CanvasTool = "select" | "pan" | "connect" | "rectangle" | "circle" | "diamond" | "frame" | "line" | "arrow" | "text" | "freehand" | "eraser";
+export type PrimitiveTool = Exclude<CanvasTool, "select" | "pan" | "connect" | "eraser" | "circle"> | "ellipse" | "image";
 export type CanvasPoint = { x: number; y: number };
 export type DrawDraft = { kind: PrimitiveTool; start: CanvasPoint; current: CanvasPoint; points: CanvasPoint[]; lockAspect?: boolean; style?: Record<string, string> };
 
@@ -70,7 +70,7 @@ export function canvasInteractionReducer(state: CanvasInteractionState, action: 
       return { ...state, renamingNodeId: null };
     case "begin-connection":
       return action.sourceId
-        ? { ...idle(["line", "arrow"].includes(state.tool) ? state.tool : "select"), pendingConnectionSourceId: action.sourceId }
+        ? { ...idle(["connect", "line", "arrow"].includes(state.tool) ? state.tool : "select"), pendingConnectionSourceId: action.sourceId }
         : { ...state, pendingConnectionSourceId: null };
     case "finish-connection":
       return { ...state, pendingConnectionSourceId: null };
@@ -102,6 +102,7 @@ export function interactionHint(state: CanvasInteractionState, componentName?: s
   switch (state.tool) {
     case "select": return "Select, move, resize, or marquee objects.";
     case "pan": return "Drag the canvas to pan. Press V to return to selection.";
+    case "connect": return "Choose a source component, then choose a highlighted compatible target. Escape cancels.";
     case "eraser": return "Click an object to remove it. Escape returns to selection.";
     case "freehand": return "Drag to draw freehand ink. Escape returns to selection.";
     case "text": return "Drag or click to place text. Escape returns to selection.";
