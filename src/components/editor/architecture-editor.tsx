@@ -506,12 +506,15 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   const commit = useCallback((next: Diagram | ((current: Diagram) => Diagram)) => {
     if (readOnly) return;
-    setDiagram((current) => {
-      const resolved = typeof next === "function" ? next(current) : next;
-      setPast((items) => [...items.slice(-49), current]);
-      setFuture([]);
-      return diagramSchema.parse(persisted ? { ...resolved, updatedAt: new Date().toISOString() } : bump(resolved));
-    });
+    const current = latest.current;
+    const resolved = typeof next === "function" ? next(current) : next;
+    const validated = diagramSchema.parse(persisted ? { ...resolved, updatedAt: new Date().toISOString() } : bump(resolved));
+    // Keep history writes outside the state updater: React may replay an
+    // updater, which otherwise records the same command more than once.
+    setPast((items) => [...items.slice(-49), current]);
+    setFuture([]);
+    latest.current = validated;
+    setDiagram(validated);
   }, [persisted, readOnly]);
 
   const resizeItem = useCallback((id: string, width: number, height: number) => {
@@ -649,6 +652,22 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }, [readOnly]);
 
   useEffect(() => {
+    // React Flow's built-in arrow handler changes render nodes only. Own this
+    // gesture before it reaches the node so recovery and undo see the move.
+    function onNudge(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (event.defaultPrevented || readOnly || event.metaKey || event.ctrlKey || event.altKey || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) || !selectedNodeIdsRef.current.length || !target?.closest(".react-flow")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const distance = event.shiftKey ? 10 : 1;
+      nudgeSelection(event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0, event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0);
+    }
+    window.addEventListener("keydown", onNudge, true);
+    return () => window.removeEventListener("keydown", onNudge, true);
+  });
+
+  useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
       return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
     }
@@ -740,7 +759,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     setDiagram((current) => {
       const next = {
         ...current,
-        nodes: current.nodes.map((item) => finalPositions[item.id] ? { ...item, position: finalPositions[item.id] } : item),
+        nodes: current.nodes.map((item) => finalPositions[item.id] && (finalPositions[item.id].x !== item.position.x || finalPositions[item.id].y !== item.position.y) ? { ...item, position: finalPositions[item.id], metadata: { ...item.metadata, manualPosition: true } } : item),
         primitives: current.primitives.map((item) => finalPositions[item.id] ? { ...item, position: finalPositions[item.id] } : item),
       };
       return diagramSchema.parse(persisted ? { ...next, updatedAt: new Date().toISOString() } : bump(next));
@@ -753,7 +772,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     if (!ids.length || readOnly) return;
     commit((current) => ({
       ...current,
-      nodes: current.nodes.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item),
+      nodes: current.nodes.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy }, metadata: { ...item.metadata, manualPosition: true } } : item),
       primitives: current.primitives.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item),
     }));
   }
@@ -1244,9 +1263,24 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }
 
   async function runLayout() {
-    const next = await autoLayout(diagram);
-    commit(next);
-    setTimeout(() => instance?.fitView({ padding: .2, duration: 500 }), 40);
+    if (readOnly) return;
+    const source = latest.current;
+    try {
+      const next = await autoLayout(source);
+      if (latest.current !== source) {
+        setMessage("The canvas changed while arranging. Run auto layout again.");
+        return;
+      }
+      if (next === source) {
+        setMessage("All components have manual positions; their placement was preserved.");
+        return;
+      }
+      commit(next);
+      setMessage("Layout updated. Manually positioned components were preserved.");
+      setTimeout(() => instance?.fitView({ padding: .2, duration: 500 }), 40);
+    } catch {
+      setMessage("Layout could not be completed. Your canvas is unchanged; try again.");
+    }
   }
 
   async function runReview() {

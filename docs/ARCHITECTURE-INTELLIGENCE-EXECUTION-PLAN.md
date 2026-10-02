@@ -239,7 +239,7 @@ application, browser, and database CI plus post-merge verification; see
 ### F02 — Fix layout and canvas readability
 
 **Depends on:** F01.  
-**Status:** Not started.
+**Status:** In progress on `feat/f02-layout-readability`. Manual-placement preservation is implemented; viewport/panel and full readability acceptance remain open. See [F02 progress](DAY-12-F02-LAYOUT.md).
 
 **Amended sequence note:** The revised day-wise plan inserts selection and
 semantic-connection improvements on Day 12; see
