@@ -2,13 +2,24 @@
 
 ## Unreleased
 
+### Day 13 / F03 — inspector edit transactions
+
+- Branch: `feat/f03-inspector-transactions`; locally verified, not merged.
+- Node and connector text fields buffer typing and commit once on blur/Enter;
+  Escape cancels, textarea Enter remains a newline, and IME/read-only guards apply.
+- Existing validation, undo/redo and browser recovery paths are reused.
+- Checks: lint, TypeScript, 188 unit tests, production build and 37 Chromium
+  tests passed (one mobile-only skip). F03 drawing performance and A01 remain open.
+- Details: [Day 13 progress](docs/DAY-13-F03-INSPECTOR-TRANSACTIONS.md).
+
 ### Day 12 / F02 — manual-placement preservation
 
 - Follow-up: reserve canvas space for side panels and refit after panel/window
   size changes without moving nodes. Keep toolbar action names accessible at
   tablet widths. Added desktop/tablet light/dark acceptance coverage.
 
-- Branch: `feat/f02-layout-readability`; F02 in progress, not merged.
+- Branch: `feat/f02-layout-readability`; merged through PR #27 (`9427bc5`).
+  Broader F02 readability work remains in progress.
 - Auto-layout preserves manually moved components, avoids large obstacles,
   and rejects stale results. Presentation snapshots retain manual placement.
 - Keyboard movement now persists through the shared undo/save path; history
@@ -20,7 +31,7 @@
 
 #### Day 12 — Amended frontend sequence
 
-- Status: Implemented and verified locally
+- Status: Merged through PR #23 (`b5c0084`)
 - Branch: `feat/day12-selection-connections`
 - User impact: Makes multi-selection visible and semantic connection creation
   discoverable through source/target clicks, compatibility feedback, preview,

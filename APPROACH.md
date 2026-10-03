@@ -1,4 +1,23 @@
-# Day 12 / F02 — layout and canvas readability
+# Day 13 / F03 — inspector edit transactions
+
+Current branch: `feat/f03-inspector-transactions`, based on main merge
+`9427bc5`. Milestone: Predictable Canvas and Understanding.
+Intended issue: one undoable inspector field edit (F03 editing subissue).
+
+Keep inspector text drafts local and call the existing commit path once on
+blur or Enter. Escape cancels a draft. Multiline fields preserve Enter for
+newlines and use Ctrl/Cmd+Enter to commit. Respect IME composition and field
+limits. Reuse diagram validation, history and persistence; no schema or
+database changes. Use object/field/value keys to reset drafts on external
+changes. Select/color controls and inline canvas editing remain as implemented.
+
+Acceptance: one commit per edit, no-op/cancel, validation, composition,
+multiline, external updates, read-only behavior, and browser node/connector
+undo/redo and reload. Draft text becomes durable only after a valid commit.
+F03 freehand buffering and image-heavy profiling remain separate issues.
+A01 is separate Day 13 work; unfinished Day 12 items remain tracked.
+
+## Previous F02 approach (retained history)
 
 Branch: `feat/f02-layout-readability`, based on merged PR #23 (`b5c0084`).
 Milestone: Predictable Canvas and Understanding.
