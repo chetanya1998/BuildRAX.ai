@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Day 13 / F03 — bounded freehand preview
+
+- Branch: `feat/f03-freehand-buffering`, stacked on inspector work; not merged.
+- Buffer up to 2,048 points outside editor state and update only an SVG preview
+  per animation frame; pointer release creates one undoable stroke.
+- Tests: 192 unit tests, 37 Chromium checks, lint, typecheck and Webpack build
+  passed. See [freehand progress](docs/DAY-13-F03-FREEHAND.md) for limits.
+
 ### Day 13 / F03 — inspector edit transactions
 
 - Branch: `feat/f03-inspector-transactions`; locally verified, not merged.

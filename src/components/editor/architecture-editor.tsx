@@ -65,6 +65,7 @@ import {
   ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
+import { FreehandPreview, type FreehandPreviewHandle } from "./freehand-preview";
 import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -136,7 +137,7 @@ function draftBounds(draft: DrawDraft) {
   const maxX = Math.max(...points.map((point) => point.x));
   const maxY = Math.max(...points.map((point) => point.y));
   const fallback = draft.lockAspect ? { width: 120, height: 120 } : defaultPrimitiveDimensions(draft.kind);
-  const moved = Math.abs(draft.current.x - draft.start.x) > 5 || Math.abs(draft.current.y - draft.start.y) > 5;
+  const moved = draft.kind === "freehand" || Math.abs(draft.current.x - draft.start.x) > 5 || Math.abs(draft.current.y - draft.start.y) > 5;
   const rawWidth = maxX - minX;
   const rawHeight = maxY - minY;
   const side = Math.max(rawWidth, rawHeight);
@@ -338,6 +339,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [interaction, dispatchInteraction] = useReducer(canvasInteractionReducer, initialCanvasInteraction);
   const { tool, drawDraft, pendingComponentType, editingTextId, renamingNodeId, pendingConnectionSourceId } = interaction;
+  const freehandPreview = useRef<FreehandPreviewHandle>(null);
+  const strokePointer = useRef<number | null>(null);
   const [panel, setPanel] = useState<Panel>(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("all");
@@ -607,7 +610,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     setDiagram(snapshot);
   }, []);
 
-  const modelNodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, !readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename, pendingConnectionSourceId), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, readOnly, drawDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename, pendingConnectionSourceId]);
+  const shapeDraft = drawDraft?.kind === "freehand" ? null : drawDraft;
+  const modelNodes = useMemo(() => flowNodes(diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, !readOnly, shapeDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename, pendingConnectionSourceId), [diagram, resizeItem, beginPrimitiveTextEdit, updatePrimitiveText, finishPrimitiveTextEdit, cancelPrimitiveTextEdit, editingTextId, activatePrimitiveTextEdit, readOnly, shapeDraft, selectedNodeIds, renamingNodeId, beginNodeRename, updateNodeName, finishNodeRename, cancelNodeRename, pendingConnectionSourceId]);
   const connectionPreview = useMemo(() => {
     if (!pendingConnectionSourceId || !connectionHoverTargetId || pendingConnectionSourceId === connectionHoverTargetId) return undefined;
     const source = diagram.nodes.find((node) => node.id === pendingConnectionSourceId);
@@ -1022,37 +1026,44 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     return event.target instanceof HTMLElement && Boolean(event.target.closest(".react-flow__pane"));
   }
 
-  function startDrawing(event: React.MouseEvent) {
+  function startDrawing(event: React.PointerEvent) {
+    if (event.button !== 0 || !event.isPrimary) return;
     if (readOnly || (!drawableTools.includes(tool as PrimitiveTool) && tool !== "circle") || !isPaneEvent(event)) return;
     const point = canvasPoint(event);
     const kind: PrimitiveTool = tool === "circle" ? "ellipse" : tool as PrimitiveTool;
+    if (kind === "freehand") {
+      strokePointer.current = event.pointerId;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      freehandPreview.current?.begin(point);
+    }
     dispatchInteraction({ type: "begin-drawing", draft: { kind, start: point, current: point, points: [point], lockAspect: tool === "circle" || kind === "diamond" || event.shiftKey, style: kind === "arrow" ? { arrowStyle, arrowTexture } : tool === "circle" ? { shape: "circle" } : {} } });
   }
 
-  function updateDrawing(event: React.MouseEvent) {
+  function updateDrawing(event: React.PointerEvent) {
     if (!drawDraft) return;
-    const nativeEvent = event.nativeEvent as PointerEvent;
-    const coalesced = typeof nativeEvent.getCoalescedEvents === "function" ? nativeEvent.getCoalescedEvents() : [nativeEvent];
-    dispatchInteraction({ type: "update-drawing", update: (current) => {
-      if (current.kind !== "freehand") return { ...current, current: canvasPoint(event) };
-      const points = [...current.points];
-      for (const nativeEvent of coalesced) {
-        const point = instance?.screenToFlowPosition({ x: nativeEvent.clientX, y: nativeEvent.clientY }) ?? current.current;
-        const previous = points.at(-1);
-        if (!previous || Math.hypot(previous.x - point.x, previous.y - point.y) >= 1) points.push(point);
-      }
-      return { ...current, current: points.at(-1) ?? current.current, points };
-    } });
+    if (drawDraft.kind !== "freehand") {
+      dispatchInteraction({ type: "update-drawing", update: (current) => ({ ...current, current: canvasPoint(event) }) });
+      return;
+    }
+    if (strokePointer.current !== event.pointerId) return;
+    const coalesced = event.nativeEvent.getCoalescedEvents?.() ?? [];
+    for (const sample of coalesced.length ? coalesced : [event.nativeEvent]) {
+      freehandPreview.current?.append(instance?.screenToFlowPosition({ x: sample.clientX, y: sample.clientY }) ?? { x: sample.clientX, y: sample.clientY });
+    }
   }
 
-  function finishDrawing() {
+  function finishDrawing(event: React.PointerEvent) {
     if (!drawDraft) return;
+    if (drawDraft.kind === "freehand" && strokePointer.current !== event.pointerId) return;
     ignoreNextPaneClick.current = true;
     // React Flow emits its pane click after our mouse-up callback. Keep the
     // guard alive long enough for that event instead of clearing it in the
     // same turn, which was deselecting newly created text objects.
     window.setTimeout(() => { ignoreNextPaneClick.current = false; }, 180);
-    const draft = drawDraft;
+    const draft = drawDraft.kind === "freehand"
+      ? { ...drawDraft, current: canvasPoint(event), points: freehandPreview.current?.finish(canvasPoint(event)) ?? [] }
+      : drawDraft;
+    strokePointer.current = null;
     dispatchInteraction({ type: "finish-drawing", keepTool: draft.kind === "freehand" });
     if (draft.kind === "freehand" && draft.points.length < 2) { setMessage("Drag to draw freehand ink."); return; }
     const bounds = draftBounds(draft);
@@ -1061,6 +1072,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }
 
   function cancelPointerInteraction() {
+    freehandPreview.current?.cancel();
+    strokePointer.current = null;
     if (!drawDraft && !pendingConnectionSourceId) return;
     dispatchInteraction({ type: "cancel" });
     setConnectionHoverTargetId(null);
@@ -1424,7 +1437,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       </div>}
       {persisted && cloudSave.message && <div className={styles.cloudWarning} role="status">{cloudSave.message}</div>}
       <div ref={canvasBoundsRef} className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-side-panel={panel === "export" || panel === "review" || panel === "history"} data-tool={tool} data-interaction={interactionName(interaction)} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick} onPointerCancel={cancelPointerInteraction}>
-        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={onCanvasNodeClick} onNodeMouseEnter={onCanvasNodeMouseEnter} onNodeMouseLeave={onCanvasNodeMouseLeave} onNodeDoubleClick={(_, node) => { if (tool !== "select") return; selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "connect" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
+        <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={onCanvasNodeClick} onNodeMouseEnter={onCanvasNodeMouseEnter} onNodeMouseLeave={onCanvasNodeMouseLeave} onNodeDoubleClick={(_, node) => { if (tool !== "select") return; selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPointerMove={updateDrawing} onPointerDown={startDrawing} onPointerUp={finishDrawing} onLostPointerCapture={() => { if (strokePointer.current !== null) cancelPointerInteraction(); }} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "connect" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
+          <FreehandPreview ref={freehandPreview} active={tool === "freehand" && !readOnly} />
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>
       </div>

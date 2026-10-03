@@ -1,4 +1,15 @@
-# Day 13 / F03 — inspector edit transactions
+# Day 13 / F03 — freehand buffering
+
+Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.
+Keep samples outside React editor state in a bounded 2,048-point buffer. Render
+only an animation-frame-batched SVG path inside the existing React Flow
+viewport. Commit a single existing freehand primitive on pointer release;
+capture the pointer, cancel safely, preserve the endpoint and existing
+undo/save contracts. Reuse the same smoothing function for preview and saved
+ink. No new IR or image storage system. Verify long streams, render isolation,
+undo/redo, Escape and reload. A01 remains a separate branch based on main.
+
+## Previous inspector approach (retained history)
 
 Current branch: `feat/f03-inspector-transactions`, based on main merge
 `9427bc5`. Milestone: Predictable Canvas and Understanding.
