@@ -372,6 +372,25 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const [componentPalettePosition, setComponentPalettePosition] = useState({ x: 86, y: 78 });
   const [draggingComponentPalette, setDraggingComponentPalette] = useState(false);
   const latest = useRef(diagram);
+  const canvasBoundsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasBoundsRef.current;
+    if (!canvas || !instance) return;
+    let previous = { width: canvas.clientWidth, height: canvas.clientHeight };
+    let frame = 0;
+    const observer = new ResizeObserver(() => {
+      const next = { width: canvas.clientWidth, height: canvas.clientHeight };
+      if (next.width === previous.width && next.height === previous.height) return;
+      previous = next;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        if (next.width > 0 && next.height > 0) void instance.fitView({ padding: .2, duration: 0, minZoom: .05, maxZoom: 1 });
+      });
+    });
+    observer.observe(canvas);
+    return () => { observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [instance]);
   const selectedNodeIdsRef = useRef<string[]>(selectedNodeIds);
   const irBase = useRef<ArchitectureIR>(initialIR ?? architectureIRFromDiagram(initialDiagram));
   const traceabilityBase = useRef<TraceabilityBundle | undefined>(initialRecovery?.architecture.traceability ?? initialTraceability);
@@ -506,12 +525,15 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   const commit = useCallback((next: Diagram | ((current: Diagram) => Diagram)) => {
     if (readOnly) return;
-    setDiagram((current) => {
-      const resolved = typeof next === "function" ? next(current) : next;
-      setPast((items) => [...items.slice(-49), current]);
-      setFuture([]);
-      return diagramSchema.parse(persisted ? { ...resolved, updatedAt: new Date().toISOString() } : bump(resolved));
-    });
+    const current = latest.current;
+    const resolved = typeof next === "function" ? next(current) : next;
+    const validated = diagramSchema.parse(persisted ? { ...resolved, updatedAt: new Date().toISOString() } : bump(resolved));
+    // Keep history writes outside the state updater: React may replay an
+    // updater, which otherwise records the same command more than once.
+    setPast((items) => [...items.slice(-49), current]);
+    setFuture([]);
+    latest.current = validated;
+    setDiagram(validated);
   }, [persisted, readOnly]);
 
   const resizeItem = useCallback((id: string, width: number, height: number) => {
@@ -649,6 +671,22 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }, [readOnly]);
 
   useEffect(() => {
+    // React Flow's built-in arrow handler changes render nodes only. Own this
+    // gesture before it reaches the node so recovery and undo see the move.
+    function onNudge(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null;
+      if (event.defaultPrevented || readOnly || event.metaKey || event.ctrlKey || event.altKey || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key) || !selectedNodeIdsRef.current.length || !target?.closest(".react-flow")) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const distance = event.shiftKey ? 10 : 1;
+      nudgeSelection(event.key === "ArrowLeft" ? -distance : event.key === "ArrowRight" ? distance : 0, event.key === "ArrowUp" ? -distance : event.key === "ArrowDown" ? distance : 0);
+    }
+    window.addEventListener("keydown", onNudge, true);
+    return () => window.removeEventListener("keydown", onNudge, true);
+  });
+
+  useEffect(() => {
     function isTypingTarget(target: EventTarget | null) {
       return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement || (target instanceof HTMLElement && target.isContentEditable);
     }
@@ -740,7 +778,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     setDiagram((current) => {
       const next = {
         ...current,
-        nodes: current.nodes.map((item) => finalPositions[item.id] ? { ...item, position: finalPositions[item.id] } : item),
+        nodes: current.nodes.map((item) => finalPositions[item.id] && (finalPositions[item.id].x !== item.position.x || finalPositions[item.id].y !== item.position.y) ? { ...item, position: finalPositions[item.id], metadata: { ...item.metadata, manualPosition: true } } : item),
         primitives: current.primitives.map((item) => finalPositions[item.id] ? { ...item, position: finalPositions[item.id] } : item),
       };
       return diagramSchema.parse(persisted ? { ...next, updatedAt: new Date().toISOString() } : bump(next));
@@ -753,7 +791,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     if (!ids.length || readOnly) return;
     commit((current) => ({
       ...current,
-      nodes: current.nodes.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item),
+      nodes: current.nodes.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy }, metadata: { ...item.metadata, manualPosition: true } } : item),
       primitives: current.primitives.map((item) => ids.includes(item.id) ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item),
     }));
   }
@@ -1244,9 +1282,24 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }
 
   async function runLayout() {
-    const next = await autoLayout(diagram);
-    commit(next);
-    setTimeout(() => instance?.fitView({ padding: .2, duration: 500 }), 40);
+    if (readOnly) return;
+    const source = latest.current;
+    try {
+      const next = await autoLayout(source);
+      if (latest.current !== source) {
+        setMessage("The canvas changed while arranging. Run auto layout again.");
+        return;
+      }
+      if (next === source) {
+        setMessage("All components have manual positions; their placement was preserved.");
+        return;
+      }
+      commit(next);
+      setMessage("Layout updated. Manually positioned components were preserved.");
+      setTimeout(() => instance?.fitView({ padding: .2, duration: 500 }), 40);
+    } catch {
+      setMessage("Layout could not be completed. Your canvas is unchanged; try again.");
+    }
   }
 
   async function runReview() {
@@ -1360,7 +1413,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   return <div className={styles.screen}>
     <header className={styles.topbar}>
       <Brand /><span>/</span><div className={styles.crumb}><input aria-label="Diagram title" value={diagram.title} readOnly={readOnly} onChange={(event) => setDiagram((current) => ({ ...current, title: event.target.value }))} onBlur={() => commit((current) => current)} /><span className={styles.status} aria-label="Browser recovery status"><span className={styles.statusDot} />{readOnly ? "Read only" : localRecovery.error ? "Browser recovery failed" : localRecovery.status === "saved" ? "Saved locally" : "Saving locally…"}{persisted && ` · Cloud ${cloudSave.state.replace("auth-required", "sign-in required")}`}</span></div>
-      <div className={styles.topActions}>{persisted && projectOptions.length > 0 ? <details className={styles.projectSwitcher}><summary className={styles.topButton}><FolderKanban size={14} /><span>Switch project</span></summary><nav aria-label="Switch project">{projectOptions.map((project) => project.id === projectId ? <span key={project.id} aria-current="page">{project.name}<small>Current</small></span> : <a key={project.id} href={`/projects/${project.id}/canvas`}>{project.name}</a>)}<a href="/dashboard">View all projects</a></nav></details> : <ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink>}<button className={styles.topButton} onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} onClick={() => setPanel("docs")}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && <button className={styles.topButton} onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} onClick={() => persisted ? setMessage("Canvas cloud saving runs automatically. Documents are currently recovered on this device only. Check both save indicators before leaving.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
+      <div className={styles.topActions}>{persisted && projectOptions.length > 0 ? <details className={styles.projectSwitcher}><summary className={styles.topButton}><FolderKanban size={14} /><span>Switch project</span></summary><nav aria-label="Switch project">{projectOptions.map((project) => project.id === projectId ? <span key={project.id} aria-current="page">{project.name}<small>Current</small></span> : <a key={project.id} href={`/projects/${project.id}/canvas`}>{project.name}</a>)}<a href="/dashboard">View all projects</a></nav></details> : <ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink>}<button className={styles.topButton} aria-label="Auto layout" onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} aria-label="Review" onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} aria-label="Docs" onClick={() => setPanel("docs")}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} aria-label="Export" onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>{persisted && <button className={styles.topButton} aria-label="History" onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}<ThemeToggle />{!readOnly && <button className={styles.topButton} aria-label="Save" onClick={() => persisted ? setMessage("Canvas cloud saving runs automatically. Documents are currently recovered on this device only. Check both save indicators before leaving.") : setShowSaveGate(true)}><Save size={14} /><span>Save</span></button>}</div>
     </header>
     <main className={styles.workspace}>
       {!readOnly && localRecovery.error && <div className={styles.recoveryWarning} role="alert">
@@ -1369,7 +1422,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
         <button onClick={localRecovery.retry}>Retry local save</button>
       </div>}
       {persisted && cloudSave.message && <div className={styles.cloudWarning} role="status">{cloudSave.message}</div>}
-      <div className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-tool={tool} data-interaction={interactionName(interaction)} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick} onPointerCancel={cancelPointerInteraction}>
+      <div ref={canvasBoundsRef} className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-side-panel={panel === "export" || panel === "review" || panel === "history"} data-tool={tool} data-interaction={interactionName(interaction)} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick} onPointerCancel={cancelPointerInteraction}>
         <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={onCanvasNodeClick} onNodeMouseEnter={onCanvasNodeMouseEnter} onNodeMouseLeave={onCanvasNodeMouseLeave} onNodeDoubleClick={(_, node) => { if (tool !== "select") return; selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPaneMouseMove={updateDrawing} onMouseDown={startDrawing} onMouseUp={finishDrawing} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "connect" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>

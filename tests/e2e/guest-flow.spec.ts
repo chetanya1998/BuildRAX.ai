@@ -3,6 +3,34 @@ import { generateInspectAndOpen, installGenerationJobFixture } from "./generatio
 
 test.beforeEach(async ({ page }) => { await installGenerationJobFixture(page); });
 
+test("auto layout preserves manually nudged positions through undo and reload", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile", "Full canvas authoring is desktop-only.");
+  await page.goto("/start?template=multi-tenant-saas");
+  await generateInspectAndOpen(page);
+  const service = page.locator('[data-id="saas-service"]');
+  await service.click();
+  const original = await service.evaluate((element) => (element as HTMLElement).style.transform);
+  await page.keyboard.press("Shift+ArrowRight");
+  await expect.poll(() => service.evaluate((element) => (element as HTMLElement).style.transform)).not.toBe(original);
+  const manual = await service.evaluate((element) => (element as HTMLElement).style.transform);
+  await page.getByRole("button", { name: "Auto layout", exact: true }).click();
+  await expect(page.getByText("Layout updated. Manually positioned components were preserved.", { exact: true })).toBeVisible();
+  expect(await service.evaluate((element) => (element as HTMLElement).style.transform)).toBe(manual);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  expect(await service.evaluate((element) => (element as HTMLElement).style.transform)).toBe(manual);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect.poll(() => service.evaluate((element) => (element as HTMLElement).style.transform)).toBe(original);
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect.poll(() => service.evaluate((element) => (element as HTMLElement).style.transform)).toBe(manual);
+  // Recovery is debounced; let the existing writer finish before reopening.
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await expect(service).toBeVisible();
+  await page.getByRole("button", { name: "Auto layout", exact: true }).click();
+  await expect(page.getByText("Layout updated. Manually positioned components were preserved.", { exact: true })).toBeVisible();
+  expect(await service.evaluate((element) => (element as HTMLElement).style.transform)).toBe(manual);
+});
+
 test("landing keeps the prompt out of the hero and routes into onboarding", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Design software architecture with clarity." })).toBeVisible();

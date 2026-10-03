@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Day 12 / F02 — manual-placement preservation
+
+- Follow-up: reserve canvas space for side panels and refit after panel/window
+  size changes without moving nodes. Keep toolbar action names accessible at
+  tablet widths. Added desktop/tablet light/dark acceptance coverage.
+
+- Branch: `feat/f02-layout-readability`; F02 in progress, not merged.
+- Auto-layout preserves manually moved components, avoids large obstacles,
+  and rejects stale results. Presentation snapshots retain manual placement.
+- Keyboard movement now persists through the shared undo/save path; history
+  updates avoid duplicate entries during state-updater replay.
+- Verification and remaining scope: [F02 progress](docs/DAY-12-F02-LAYOUT.md).
+
+
 ### Selection and semantic connections
 
 #### Day 12 — Amended frontend sequence

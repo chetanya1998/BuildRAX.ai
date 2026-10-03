@@ -42,6 +42,7 @@ export const architecturePresentationSchema = z.object({
   components: z.array(z.object({
     componentId: z.string().min(1).max(120),
     position: pointSchema,
+    manualPosition: z.boolean().optional(),
     dimensions: dimensionsSchema,
     zIndex: z.number().int().min(-10_000).max(10_000).default(0),
     appearance: componentAppearanceSchema,
@@ -176,6 +177,7 @@ export function presentationFromDiagram(diagramInput: Diagram): ArchitecturePres
     components: diagram.nodes.map((node) => ({
       componentId: node.id,
       position: node.position,
+      ...(node.metadata.manualPosition === true ? { manualPosition: true } : {}),
       dimensions: node.dimensions,
       zIndex: Number(node.metadata.zIndex ?? 0),
       appearance: {
@@ -339,6 +341,7 @@ export function materializeArchitecture(
         dimensions: view.dimensions,
         metadata: {
           ...node.metadata,
+          ...(view.manualPosition === true ? { manualPosition: true } : {}),
           zIndex: view.zIndex,
           appearanceVariant: view.appearance.variant,
           accentColor: view.appearance.accentColor ?? null,
