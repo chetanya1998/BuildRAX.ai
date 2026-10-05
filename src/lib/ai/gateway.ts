@@ -7,9 +7,11 @@ import { compileContextPack, contextBlocksFromTraceability } from "@/lib/intelli
 import { traceabilityBundleSchema } from "@/lib/intelligence/schema";
 import { architecturePresentationSchema, architectureSnapshotSchema } from "@/lib/architecture-ir/snapshot";
 import { AIOutputError } from "./errors";
-import { generateArchitecture, type GenerationResult } from "./generation";
+import { ARCHITECTURE_PROMPT_VERSION, type GenerationResult } from "./generation";
 import { AI_GATEWAY_VERSION, gatewayMetadataSchema, usageSchema, type AITask } from "./metadata";
 import { documentArchitectureIR, reviewArchitectureIR, type ArchitectureAIProvider } from "./provider";
+import { resolveTaskRoute, routeArchitectureSynthesis, type RoutingOptions } from "./router";
+import { routingMetadataSchema } from "./metadata";
 
 export { AI_GATEWAY_VERSION, aiTaskSchema, gatewayMetadataSchema } from "./metadata";
 export type { AITask, GatewayMetadata } from "./metadata";
@@ -44,7 +46,7 @@ export function validateAIGatewayConfiguration(environment = process.env.NODE_EN
   if (missing.length > 0) throw new AIGatewayConfigurationError(`Missing secure production configuration: ${missing.join(", ")}.`);
 }
 
-type ExecutionOptions = {
+type ExecutionOptions = RoutingOptions & {
   requestId?: string;
   timeoutMs?: number;
   signal?: AbortSignal;
@@ -58,7 +60,7 @@ async function executeTask<Input, Output>(options: ExecutionOptions & {
   input: unknown;
   inputSchema: z.ZodType<Input>;
   outputSchema: z.ZodType<Output>;
-  runner: (input: Input, context: { requestId: string; signal: AbortSignal }) => Promise<{ output: Output; provider?: string; model?: string; attempts?: number; successfulCalls?: number; repairCalls?: number; usage?: z.infer<typeof usageSchema> }>;
+  runner: (input: Input, context: { requestId: string; signal: AbortSignal }) => Promise<{ output: Output; provider?: string; model?: string; attempts?: number; successfulCalls?: number; repairCalls?: number; failedCalls?: number; routing?: z.infer<typeof routingMetadataSchema>; usage?: z.infer<typeof usageSchema> }>;
 }) {
   validateAIGatewayConfiguration();
   const input = options.inputSchema.parse(options.input);
@@ -88,6 +90,8 @@ async function executeTask<Input, Output>(options: ExecutionOptions & {
       attempts: result.attempts ?? 1,
       successfulCalls: result.successfulCalls ?? 0,
       repairCalls: result.repairCalls ?? 0,
+      failedCalls: result.failedCalls ?? 0,
+      routing: result.routing ?? { policyVersion: "1.0.0", reason: resolveTaskRoute(options.task).reason, fallback: false, providerCalls: 0, usageComplete: true },
       usage: result.usage ?? zeroUsage,
     });
     return { data: parsedOutput.data, meta };
@@ -124,8 +128,10 @@ const generationResultSchema = z.object({
   model: z.string().min(1).max(160),
   promptVersion: z.string().min(1).max(80),
   usage: usageSchema,
-  successfulCalls: z.number().int().min(1).max(2),
+  successfulCalls: z.number().int().min(0).max(2),
   repairCalls: z.number().int().min(0).max(1),
+  failedCalls: z.number().int().min(0).max(2).optional(),
+  routing: routingMetadataSchema.optional(),
 }).strict();
 
 export async function runArchitectureSynthesis(input: unknown, options: ExecutionOptions = {}) {
@@ -138,8 +144,8 @@ export async function runArchitectureSynthesis(input: unknown, options: Executio
     runner: async (request, context) => {
       const traceability = buildInputTraceability(request);
       const contextPack = compileContextPack({ task: "architecture-synthesis", blocks: contextBlocksFromTraceability(traceability) });
-      const output = await generateArchitecture(request, { provider: options.provider, requestId: context.requestId, contextPack, signal: context.signal });
-      return { output, provider: output.provider, model: output.model, attempts: output.attempts, successfulCalls: output.successfulCalls, repairCalls: output.repairCalls, usage: output.usage };
+      const output = await routeArchitectureSynthesis(request, { requestId: context.requestId, promptVersion: ARCHITECTURE_PROMPT_VERSION, contextPack, signal: context.signal }, options);
+      return { output, provider: output.provider, model: output.model, attempts: output.attempts, successfulCalls: output.successfulCalls, repairCalls: output.repairCalls, failedCalls: output.failedCalls, routing: output.routing, usage: output.usage };
     },
   });
 }

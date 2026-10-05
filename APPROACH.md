@@ -1,4 +1,26 @@
-# Day 12 / F02 — layout and canvas readability
+# Day 13 / A01 — task-aware AI Router
+
+Branch: `feat/a01-task-aware-router`, based on main `9427bc5`; independent of
+the F03 inspector/freehand branches. Extend B06's gateway and B07/O01's existing
+job/lease path, not a parallel provider or budget system. Declare routes for
+all six supported tasks; keep trusted templates and deterministic modes
+provider-free. A configured synthesis provider retains its configured model.
+
+Use one provider-call ceiling (at most two) across transient retry and output
+repair. Runtime fallback to the existing deterministic compiler is server-owned,
+opt-in, explicitly reported, and forbidden for explicit provider requests,
+authentication failures and invalid output. Abort before retries/fallback.
+An ephemeral provider-health circuit is only a local outage hint, not shared
+admission control. Reuse O01 leases and cost controls unchanged. Report known
+token usage, attempted calls and incomplete metering; never invent failed-call
+costs. Preserve legacy metadata parsing and IR/checkpoint contracts.
+
+Test every task route, invalid output, unavailable providers, cancellation,
+call-budget exhaustion, repair/retry accounting, health recovery, metadata
+compatibility and job integration. No live provider spend or deployment is
+part of local fixture verification. Update the matrix and progress notes.
+
+## Previous F02 approach (retained history)
 
 Branch: `feat/f02-layout-readability`, based on merged PR #23 (`b5c0084`).
 Milestone: Predictable Canvas and Understanding.

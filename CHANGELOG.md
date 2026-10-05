@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Day 13 / A01 — task-aware AI Router (draft)
+
+- Branch: `feat/a01-task-aware-router`; separate from Day 13 F03 editor work.
+- Central task policies, bounded retry/repair calls, explicit fallback,
+  provider-health hints and routing metadata extend the existing gateway/jobs.
+- Merge blocked: exhausted provider retries are logged as one attempt.
+- Tests: 199 passed, one new regression failed; lint/typecheck and 35 Chromium
+  checks passed (one skip). No live provider calls or deployment claimed.
+- Evidence: [A01 test report](docs/DAY-13-A01-TEST-RESULTS.md).
+
 ### Day 12 / F02 — manual-placement preservation
 
 - Follow-up: reserve canvas space for side panels and refit after panel/window

@@ -123,6 +123,8 @@ function publicFailureMessage(code: string | null) {
     case "configuration": return "Generation is not configured for the requested mode.";
     case "provider_timeout": return "Generation timed out before this stage completed.";
     case "provider_rate_limited": return "The generation provider is temporarily busy.";
+    case "provider_unavailable": return "The generation provider is temporarily unavailable. Retry shortly.";
+    case "budget_exhausted": return "Generation reached its bounded provider-call budget before a valid result was available.";
     case "invalid_model_output":
     case "semantic_validation_failed": return "The generated architecture did not pass validation.";
     default: return "Generation failed. Retry from the last completed stage.";

@@ -4,6 +4,7 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
+| Day 13 / A01 — Task-aware AI Router | Separate draft PR; failure-accounting regression blocks merge | Not deployed; no live-provider verification | Branch `feat/a01-task-aware-router` only | [A01 test results](DAY-13-A01-TEST-RESULTS.md) |
 | Day 12 / F02 — Manual-placement preservation | First bounded issue locally verified; F02 incomplete | Not deployed | Branch `feat/f02-layout-readability` only | [F02 progress](DAY-12-F02-LAYOUT.md) |
 | Day 01 / B00 — Current implementation baseline | Pending until merged | Not applicable | Internal verification only | [Day 01 baseline](DAY-01-BASELINE-VERIFICATION.md) |
 | Day 02 / B01 — Structured architecture input | Pending until merged | Not deployed | Available only on `feat/b01-structured-input` | [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md) |
