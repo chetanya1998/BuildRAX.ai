@@ -1,6 +1,8 @@
 # Day 13 / F03 — freehand buffering
 
 Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.
+Delivery: one F03 editor PR to main includes inspector and freehand work;
+A01 remains in its own PR, per the user's 6 October instruction.
 Keep samples outside React editor state in a bounded 2,048-point buffer. Render
 only an animation-frame-batched SVG path inside the existing React Flow
 viewport. Commit a single existing freehand primitive on pointer release;

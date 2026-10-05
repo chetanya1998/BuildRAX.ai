@@ -25,5 +25,7 @@ successful production build used `npx next build --webpack` instead.
 Image-heavy snapshot-copy profiling/asset-reference work remains open; this
 branch does not claim all F03 acceptance criteria complete. A01 is separate.
 Mobile drawing, manual visual review and hosted/load testing are not claimed.
-The earlier F03 inspector branch should be reviewed/merged before this stacked
-branch; no main merge is authorized by this implementation step.
+Per the 6 October delivery instruction, one F03 PR to main includes both the
+inspector commit `ec628d1` and freehand commit `bfe9608`. No separate inspector
+PR is needed. A01 is excluded and will have its own draft PR. No main merge is
+authorized by this grouping step; current-base GitHub CI is still required.
