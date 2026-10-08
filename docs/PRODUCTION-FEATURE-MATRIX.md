@@ -5,7 +5,9 @@ This matrix distinguishes implementation milestones from hosted user features. A
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
 | Day 13 / A01 — Task-aware AI Router | Separate draft PR; failure-accounting regression blocks merge | Not deployed; no live-provider verification | Branch `feat/a01-task-aware-router` only | [A01 test results](DAY-13-A01-TEST-RESULTS.md) |
-| Day 12 / F02 — Manual-placement preservation | First bounded issue locally verified; F02 incomplete | Not deployed | Branch `feat/f02-layout-readability` only | [F02 progress](DAY-12-F02-LAYOUT.md) |
+| Day 13 / F03 — Bounded freehand preview | Locally verified; pending merge; image-heavy profiling remains | Not deployed | Stacked branch `feat/f03-freehand-buffering` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
+| Day 13 / F03 — Inspector edit transactions | Locally verified; pending merge; F03 incomplete | Not deployed | Branch `feat/f03-inspector-transactions` only | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
+| Day 12 / F02 — Manual-placement preservation | Merged through PR #27; broader F02 incomplete | Not deployed | Internal editor capability on `main` | [F02 progress](DAY-12-F02-LAYOUT.md) |
 | Day 01 / B00 — Current implementation baseline | Pending until merged | Not applicable | Internal verification only | [Day 01 baseline](DAY-01-BASELINE-VERIFICATION.md) |
 | Day 02 / B01 — Structured architecture input | Pending until merged | Not deployed | Available only on `feat/b01-structured-input` | [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md) |
 | Day 03 / B02 — Evidence and Requirement IR | Pending until merged | Not deployed | Internal contract only on `feat/b02-evidence-requirement-ir` | [Day 03 Evidence and Requirement IR](DAY-03-EVIDENCE-REQUIREMENT-IR.md) |
@@ -17,4 +19,4 @@ This matrix distinguishes implementation milestones from hosted user features. A
 | Day 09 / O01 — Shared limits and concurrency | Merged; application and database CI passed | Not deployed or load-tested | Internal admission controls on `main` | [Day 09 shared admission](DAY-09-SHARED-ADMISSION-CONTROL.md) |
 | Day 10 / B08 — Complete generation workflow | Merged; application, browser, and database CI passed | Worker disabled; not deployed | Internal workflow on `main` | [Day 10 complete generation workflow](DAY-10-COMPLETE-GENERATION-WORKFLOW.md) |
 | Day 11 / F01 — Predictable canvas interactions | Merged; application, browser, and database CI plus post-merge release checks passed | Not deployed | Internal editor capability on `main` | [Day 11 canvas interaction states](DAY-11-CANVAS-INTERACTION-STATES.md) |
-| Day 12 — Selection and semantic connections | Pending until merged; application and full Chromium checks passed | Not deployed | Internal editor work on `feat/day12-selection-connections` | [Day 12 selection and semantic connections](DAY-12-SELECTION-CONNECTIONS.md) |
+| Day 12 — Selection and semantic connections | Merged through PR #23; application and full Chromium checks passed | Not deployed | Internal editor capability on `main` | [Day 12 selection and semantic connections](DAY-12-SELECTION-CONNECTIONS.md) |

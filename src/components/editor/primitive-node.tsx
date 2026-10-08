@@ -17,22 +17,7 @@ export type PrimitiveFlowNode = Node<{
   onTextEditCancel?: () => void;
 }, "primitive">;
 
-function smoothFreehandPath(points: { x: number; y: number }[]) {
-  if (points.length < 2) return "";
-  if (points.length === 2) return `M ${points[0].x} ${points[0].y} L ${points[1].x} ${points[1].y}`;
-
-  let path = `M ${points[0].x} ${points[0].y}`;
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const before = points[index - 1] ?? points[index];
-    const start = points[index];
-    const end = points[index + 1];
-    const after = points[index + 2] ?? end;
-    const controlOne = { x: start.x + (end.x - before.x) / 6, y: start.y + (end.y - before.y) / 6 };
-    const controlTwo = { x: end.x - (after.x - start.x) / 6, y: end.y - (after.y - start.y) / 6 };
-    path += ` C ${controlOne.x} ${controlOne.y}, ${controlTwo.x} ${controlTwo.y}, ${end.x} ${end.y}`;
-  }
-  return path;
-}
+import { smoothFreehandPath } from "./freehand-buffer";
 
 export function PrimitiveNode({ data, selected }: NodeProps<PrimitiveFlowNode>) {
   const item = data.primitive;

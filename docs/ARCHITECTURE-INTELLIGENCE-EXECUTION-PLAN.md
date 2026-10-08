@@ -253,7 +253,9 @@ That work does not complete this layout-focused card, which remains next.
 ### F03 — Reduce drawing and editing overhead
 
 **Depends on:** F01.  
-**Status:** Not started.
+**Status:** In progress on `feat/f03-inspector-transactions`. Inspector text
+transactions are locally verified, pending merge. Freehand buffering and
+image-heavy profiling remain open. See [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md).
 
 **Implement:** Buffer freehand points in a lightweight overlay and commit on pointer-up. Use bounded point reduction, memoized selectors and asset references. Group inspector edits on blur/Enter/debounce. Retain snapshot undo until command migration is justified.
 

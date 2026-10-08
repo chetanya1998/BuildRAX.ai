@@ -148,6 +148,8 @@ test("freehand captures a continuous smooth stroke across its live preview", asy
   await page.goto("/templates");
   await page.getByRole("button", { name: "Use template" }).first().click();
   await expect(page).toHaveURL(/\/draft\//, { timeout: 15_000 });
+  const primitives = page.locator(".react-flow__node-primitive");
+  const countBefore = await primitives.count();
   await page.getByRole("button", { name: /Freehand \(P\)/i }).click();
   const pane = page.locator(".react-flow__pane");
   const box = await pane.boundingBox();
@@ -171,10 +173,26 @@ test("freehand captures a continuous smooth stroke across its live preview", asy
     const angle = step / 40 * Math.PI * 2;
     await page.mouse.move(center.x + Math.cos(angle) * radius, center.y + Math.sin(angle) * radius);
   }
+  await expect(primitives).toHaveCount(countBefore);
+  await expect(page.getByLabel("Freehand preview").locator("path")).toHaveAttribute("d", / C /);
   await page.mouse.up();
+  await expect(primitives).toHaveCount(countBefore + 1);
   const stroke = page.locator('.react-flow__node-primitive [aria-label="Freehand drawing"] path').last();
   await expect(stroke).toBeVisible();
   await expect.poll(async () => ((await stroke.getAttribute("d"))?.match(/ C /g) ?? []).length).toBeGreaterThan(12);
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(primitives).toHaveCount(countBefore);
+  await page.getByRole("button", { name: "Redo", exact: true }).click();
+  await expect(primitives).toHaveCount(countBefore + 1);
+  await page.mouse.move(center.x, center.y);
+  await page.mouse.down();
+  await page.mouse.move(center.x + 60, center.y + 30, { steps: 10 });
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await expect(primitives).toHaveCount(countBefore + 1);
+  await expect(page.getByLabel("Browser recovery status")).toContainText("Saved locally");
+  await page.reload();
+  await expect(primitives).toHaveCount(countBefore + 1);
 });
 
 test("documentation supports markdown writing, slash inserts, and a live canvas embed", async ({ page }, testInfo) => {
