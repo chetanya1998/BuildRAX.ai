@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { generationRequestSchema } from "@/lib/domain/schema";
-import { classifyAIError, AISemanticValidationError } from "@/lib/ai/errors";
+import { classifyAIError, AISemanticValidationError, getAIExecution } from "@/lib/ai/errors";
 import { runArchitectureSynthesis } from "@/lib/ai/gateway";
+import { resolveTaskRoute } from "@/lib/ai/router";
 import { apiError, HttpError, inputValidationError, readJson } from "@/lib/server/http";
 import { recordGenerationRun } from "@/lib/server/ai-runs";
 import { assertSharedRateLimit } from "@/lib/server/rate-limit";
@@ -15,24 +16,24 @@ export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
   let run: { provider: string; model: string; promptVersion: string; attempts: number } | undefined;
   try {
-    const provider = process.env.OPENAI_API_KEY ? "openai" : "deterministic";
+    const parsed = generationRequestSchema.safeParse(await readJson(request));
+    const { provider } = resolveTaskRoute("architecture-synthesis", { templateId: parsed.success ? parsed.data.templateId : undefined });
     await assertSharedRateLimit(request, "generation", {
       limit: 5,
       windowSeconds: 600,
       costUnits: provider === "openai" ? 1 : 0,
       provider: provider === "openai" ? provider : undefined,
     });
-    const parsed = generationRequestSchema.safeParse(await readJson(request));
     if (!parsed.success) return inputValidationError(parsed.error, requestId);
     const input = parsed.data;
     const gateway = await runArchitectureSynthesis(input, { requestId, timeoutMs: 25_000, signal: request.signal });
     const result = gateway.data;
+    run = result;
     const generationReceipt = createGenerationReceipt({
       requestId,
       irChecksum: result.artifact.checksums.ir,
       diagramChecksum: result.artifact.checksums.diagram,
     });
-    run = result;
     void recordGenerationRun({ requestId, provider: result.provider, model: result.model, status: "completed", durationMs: Date.now() - startedAt, promptVersion: result.promptVersion, attempts: result.attempts });
     return NextResponse.json({
       artifact: {
@@ -57,11 +58,15 @@ export async function POST(request: Request) {
         usage: gateway.meta.usage,
         successfulCalls: gateway.meta.successfulCalls,
         repairCalls: gateway.meta.repairCalls,
+        failedCalls: gateway.meta.failedCalls,
+        routing: gateway.meta.routing,
         gatewayVersion: gateway.meta.gatewayVersion,
       },
     }, { headers: { "cache-control": "no-store", "x-request-id": requestId } });
   } catch (error) {
-    void recordGenerationRun({ requestId, provider: run?.provider ?? (process.env.OPENAI_API_KEY ? "openai" : "mock"), model: run?.model ?? (process.env.OPENAI_MODEL || (process.env.OPENAI_API_KEY ? "gpt-5.4-mini-2026-03-17" : "deterministic-ir-v1")), status: "failed", durationMs: Date.now() - startedAt, promptVersion: run?.promptVersion ?? "architecture-v1", attempts: run?.attempts ?? 1, errorClass: classifyAIError(error) });
+    const execution = getAIExecution(error) ?? run;
+    // Admission/configuration rejection is not an attempted provider run.
+    if (execution) void recordGenerationRun({ requestId, provider: execution.provider, model: execution.model, promptVersion: execution.promptVersion, attempts: execution.attempts, status: "failed", durationMs: Date.now() - startedAt, errorClass: classifyAIError(error) });
     if (error instanceof AISemanticValidationError) {
       return NextResponse.json({ error: "The generated architecture could not be validated. Please refine the request and try again.", stage: "architecture-validation", requestId }, { status: 422, headers: { "x-request-id": requestId } });
     }

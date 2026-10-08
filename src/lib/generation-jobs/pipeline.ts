@@ -6,6 +6,7 @@ import { architecturePresentationSchema, createArchitectureSnapshot, presentatio
 import { architectureIRSchema } from "@/lib/architecture-ir/schema";
 import { validateArchitectureIR } from "@/lib/architecture-ir/validator";
 import { AIGatewayConfigurationError, AI_GATEWAY_VERSION, gatewayMetadataSchema, runArchitectureSynthesis } from "@/lib/ai/gateway";
+import { resolveTaskRoute, ROUTING_POLICY_VERSION } from "@/lib/ai/router";
 import { classifyAIError } from "@/lib/ai/errors";
 import { diagramSchema, generationRequestSchema } from "@/lib/domain/schema";
 import { compileContextPack, contextBlocksFromTraceability, contextPackSchema } from "@/lib/intelligence/context";
@@ -62,8 +63,9 @@ export async function processGenerationJob(options: { jobId: string; subjectKey:
   const providerEnabled = Boolean(process.env.OPENAI_API_KEY);
   const requestPayload = existing.request_payload as { request?: unknown; mode?: unknown };
   const request = generationRequestSchema.parse(requestPayload.request);
-  const useProvider = requestedMode === "provider" || (requestedMode === "auto" && providerEnabled && !request.templateId);
-  const provider = useProvider ? "openai" : "deterministic";
+  const route = resolveTaskRoute("architecture-synthesis", { mode: requestedMode, templateId: request.templateId, providerAvailable: providerEnabled });
+  const provider = route.provider;
+  const useProvider = provider !== "deterministic";
   const workerId = crypto.randomUUID();
   const lease = await leaseGenerationJob({ jobId: options.jobId, subjectKey: options.subjectKey, workerId, provider });
   if (!lease) return readGenerationJob(options.jobId, options.subjectKey);
@@ -103,10 +105,10 @@ export async function processGenerationJob(options: { jobId: string; subjectKey:
       if (!useProvider) {
         return {
           ir: buildArchitectureIR(request),
-          meta: { gatewayVersion: AI_GATEWAY_VERSION, requestId: options.jobId, task: "architecture-synthesis", provider: "deterministic", model: "buildrax-compiler-v1", durationMs: 0, attempts: 1, successfulCalls: 0, repairCalls: 0, usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 } },
+          meta: { gatewayVersion: AI_GATEWAY_VERSION, requestId: options.jobId, task: "architecture-synthesis", provider: "deterministic", model: "buildrax-compiler-v1", durationMs: 0, attempts: 1, successfulCalls: 0, repairCalls: 0, routing: { policyVersion: ROUTING_POLICY_VERSION, reason: route.reason, fallback: false, providerCalls: 0, usageComplete: true }, usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, estimatedCostUsd: 0 } },
         };
       }
-      const gateway = await runArchitectureSynthesis(request, { requestId: options.jobId, timeoutMs: 25_000 });
+      const gateway = await runArchitectureSynthesis(request, { requestId: options.jobId, timeoutMs: 25_000, mode: requestedMode });
       return { ir: gateway.data.ir, meta: gateway.meta };
     });
     const parsedSynthesis = synthesisStageSchema.parse(synthesis);

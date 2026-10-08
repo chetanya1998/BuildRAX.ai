@@ -4,6 +4,7 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
+| Day 13 / A01 — Task-aware AI Router | Separate draft PR #33; accounting fix verified locally, fresh CI pending | Not deployed; no live-provider verification | Branch `feat/a01-task-aware-router` only | [A01 test results](DAY-13-A01-TEST-RESULTS.md) |
 | Day 13 / F03 — Bounded freehand preview | Locally verified; pending merge; image-heavy profiling remains | Not deployed | Stacked branch `feat/f03-freehand-buffering` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
 | Day 13 / F03 — Inspector edit transactions | Locally verified; pending merge; F03 incomplete | Not deployed | Branch `feat/f03-inspector-transactions` only | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
 | Day 12 / F02 — Manual-placement preservation | Merged through PR #27; broader F02 incomplete | Not deployed | Internal editor capability on `main` | [F02 progress](DAY-12-F02-LAYOUT.md) |

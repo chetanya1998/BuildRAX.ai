@@ -1,3 +1,24 @@
+/** Operational metadata only; never persist provider payloads or prompt text. */
+export type AIExecutionSummary = {
+  provider: string;
+  model: string;
+  promptVersion: string;
+  attempts: number;
+};
+
+// Preserve error identity/classification without mutating provider-owned errors.
+const failedExecutions = new WeakMap<object, AIExecutionSummary>();
+export function withAIExecution(error: unknown, summary?: AIExecutionSummary) {
+  const failure = error instanceof Error ? error : new Error("AI task failed.");
+  if (summary) failedExecutions.set(failure, { ...summary });
+  return failure;
+}
+export function getAIExecution(error: unknown) {
+  if (!error || typeof error !== "object") return undefined;
+  const summary = failedExecutions.get(error);
+  return summary ? { ...summary } : undefined;
+}
+
 export class AIOutputError extends Error {
   readonly code = "invalid_model_output" as const;
 
@@ -17,6 +38,8 @@ export class AISemanticValidationError extends Error {
 }
 
 export function classifyAIError(error: unknown) {
+  if (error && typeof error === "object" && "code" in error && error.code === "router_budget_exhausted") return "budget_exhausted";
+  if (error && typeof error === "object" && "code" in error && error.code === "provider_unavailable") return "provider_unavailable";
   if (error instanceof AIOutputError || error instanceof AISemanticValidationError) return error.code;
   if (error && typeof error === "object" && "code" in error && error.code === "gateway_configuration") return "configuration";
   if (error && typeof error === "object" && "code" in error && error.code === "gateway_timeout") return "provider_timeout";

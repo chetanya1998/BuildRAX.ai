@@ -51,6 +51,14 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("resumable generation pipeline", () => {
+  it("uses the router's trusted-template policy for both lease scope and synthesis", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "fixture-key-not-used");
+    const templatePayload = { request: { ...payload.request, templateId: "multi-tenant-saas" }, mode: "auto" };
+    store.readGenerationJob.mockResolvedValue({ ...baseJob, mode: "auto", request_payload: templatePayload });
+    await processGenerationJob({ jobId, subjectKey });
+    expect(store.leaseGenerationJob).toHaveBeenCalledWith(expect.objectContaining({ provider: "deterministic" }));
+    expect(store.completeGenerationJob.mock.calls[0][0].result.meta.routing).toMatchObject({ reason: "trusted-template", providerCalls: 0, fallback: false });
+  });
   it("runs every deterministic stage and records zero model usage", async () => {
     await processGenerationJob({ jobId, subjectKey });
 
