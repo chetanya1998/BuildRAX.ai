@@ -1,6 +1,6 @@
 # Day 13 / A01 — task-aware AI Router
 
-Branch: `feat/a01-task-aware-router`, based on main `9427bc5`; independent of
+Branch: `feat/a01-task-aware-router`, updated with main `c21625c`; independent of
 the F03 inspector/freehand branches. Extend B06's gateway and B07/O01's existing
 job/lease path, not a parallel provider or budget system. Declare routes for
 all six supported tasks; keep trusted templates and deterministic modes
@@ -19,6 +19,12 @@ Test every task route, invalid output, unavailable providers, cancellation,
 call-budget exhaustion, repair/retry accounting, health recovery, metadata
 compatibility and job integration. No live provider spend or deployment is
 part of local fixture verification. Update the matrix and progress notes.
+
+8 October accounting fix: publish selected provider/model and call count before
+awaiting provider work. The gateway preserves a request-local snapshot through
+failure, timeout and cancellation without altering provider error identity or
+including payloads. The API logs only allow-listed execution metadata and does
+not invent an attempted run for admission/configuration rejection.
 ## Previous F03 approach (retained history)
 
 Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.

@@ -4,6 +4,7 @@ import { aiTaskSchema, gatewayMetadataSchema } from "./metadata";
 import { AIGatewayCancelledError, runArchitectureSynthesis, runExplanation } from "./gateway";
 import { AIRouterBudgetError, AIProviderUnavailableError, ProviderHealth, resolveTaskRoute } from "./router";
 import type { ArchitectureAIProvider } from "./provider";
+import { getAIExecution } from "./errors";
 
 const request = { prompt: "Build a multi-tenant SaaS application with background jobs." };
 const unavailable = () => Object.assign(new Error("Service unavailable"), { status: 503 });
@@ -15,6 +16,39 @@ function fixture() {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("A01 task-aware routing", () => {
+  it("retains attempted calls when a repair fails without changing the error", async () => {
+    const options = fixture();
+    const invalid = options.output();
+    invalid.output.components[0].semanticType = "invalid";
+    const failure = Object.assign(new Error("Unauthorized"), { status: 401 });
+    vi.mocked(options.provider.generate).mockResolvedValueOnce(invalid);
+    vi.mocked(options.provider.repair).mockRejectedValueOnce(failure);
+    const error = await runArchitectureSynthesis(request, options).catch((error) => error);
+    expect(error).toBe(failure);
+    expect(getAIExecution(error)).toEqual({ provider: "fixture", model: "fixture-v1", attempts: 2, promptVersion: "architecture-v1" });
+  });
+  it("retains in-flight accounting when the gateway times out", async () => {
+    vi.useFakeTimers();
+    try {
+      const options = fixture();
+      vi.mocked(options.provider.generate).mockImplementation(() => new Promise(() => {}));
+      const pending = runArchitectureSynthesis(request, { ...options, timeoutMs: 1000 }).catch((error) => error);
+      await vi.advanceTimersByTimeAsync(1000);
+      const error = await pending;
+      expect(error.code).toBe("gateway_timeout");
+      expect(getAIExecution(error)).toMatchObject({ attempts: 1, model: "fixture-v1" });
+    } finally { vi.useRealTimers(); }
+  });
+  it("retains accounting through cancellation and does not invent a pre-call attempt", async () => {
+    const options = fixture();
+    const controller = new AbortController();
+    vi.mocked(options.provider.generate).mockImplementation(async () => { controller.abort(); throw unavailable(); });
+    const error = await runArchitectureSynthesis(request, { ...options, signal: controller.signal }).catch((error) => error);
+    expect(error).toBeInstanceOf(AIGatewayCancelledError);
+    expect(getAIExecution(error)).toMatchObject({ attempts: 1, model: "fixture-v1" });
+    const beforeCall = await runArchitectureSynthesis(request, { ...fixture(), signal: AbortSignal.abort() }).catch((error) => error);
+    expect(getAIExecution(beforeCall)).toBeUndefined();
+  });
   it("assigns every supported task to a declared route", () => {
     for (const task of aiTaskSchema.options) {
       expect(resolveTaskRoute(task, { providerAvailable: true }).provider).toBe(task === "architecture-synthesis" ? "openai" : "deterministic");

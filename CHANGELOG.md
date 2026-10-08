@@ -7,9 +7,11 @@
 - Branch: `feat/a01-task-aware-router`; separate from Day 13 F03 editor work.
 - Central task policies, bounded retry/repair calls, explicit fallback,
   provider-health hints and routing metadata extend the existing gateway/jobs.
-- Merge blocked: exhausted provider retries are logged as one attempt.
-- Tests: 199 passed, one new regression failed; lint/typecheck and 35 Chromium
-  checks passed (one skip). No live provider calls or deployment claimed.
+- 8 October: fixed exhausted-retry accounting locally, retaining actual model
+  and attempt count through errors, timeouts and cancellation. Admission
+  rejection no longer fabricates a provider run.
+- Tests: all 216 tests plus lint/typecheck passed. Fresh GitHub CI is pending;
+  no live provider calls, merge or deployment claimed.
 - Evidence: [A01 test report](docs/DAY-13-A01-TEST-RESULTS.md).
 
 ### Day 13 / F03 — bounded freehand preview

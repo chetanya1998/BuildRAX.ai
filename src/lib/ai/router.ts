@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { AIExecutionSummary } from "./errors";
 import type { GenerationRequest } from "@/lib/domain/schema";
 import { generateArchitecture, type GenerationContext } from "./generation";
 import { aiTaskSchema, usageSchema, type AITask } from "./metadata";
@@ -76,7 +77,7 @@ function retryDelay(signal?: AbortSignal) {
   });
 }
 
-export async function routeArchitectureSynthesis(request: GenerationRequest, context: GenerationContext, options: RoutingOptions = {}) {
+export async function routeArchitectureSynthesis(request: GenerationRequest, context: GenerationContext, options: RoutingOptions = {}, reportExecution?: (summary: AIExecutionSummary) => void) {
   const mode = z.enum(["auto", "provider", "deterministic"]).parse(options.mode ?? "auto");
   const fallback = z.enum(["none", "deterministic"]).parse(options.fallback ?? "none");
   const limit = z.number().int().min(0).max(2).parse(options.maxProviderCalls ?? 2);
@@ -109,6 +110,8 @@ export async function routeArchitectureSynthesis(request: GenerationRequest, con
       return deterministic.generate(input, callContext);
     }
     routing.providerCalls++;
+    // Publish before awaiting the provider, including timeout/cancellation races.
+    reportExecution?.({ provider: primary.id, model: primary.model, promptVersion: context.promptVersion, attempts: routing.providerCalls });
     if (method === "repair") repairs++;
     try {
       const result = await primary[method](input, callContext);

@@ -52,5 +52,6 @@ describe("generation endpoint routing", () => {
     const response = await POST(request(input));
     expect(response.status).toBe(429);
     expect(factory).not.toHaveBeenCalled();
+    expect(recordGenerationRun).not.toHaveBeenCalled();
   });
 });

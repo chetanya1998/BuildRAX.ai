@@ -1,5 +1,22 @@
 # Day 13 / A01 — test results
 
+## Accounting fix — 8 October 2026
+
+Branch `feat/a01-task-aware-router` now includes main `c21625c`. The original
+two-failure regression was reproduced, then fixed: provider/model and attempted
+call count are captured before awaiting each provider invocation and preserved
+by the gateway on failure, including timeout/cancellation races. The route
+records only operational metadata; admission rejection no longer fabricates a
+provider run. Original error classification is preserved.
+
+Lint, TypeScript and production build passed; all 216 tests in 38 files passed
+with Vitest 5.0.2.
+New tests cover failed repair, timeout, cancellation and pre-call rejection.
+PR #33 remains draft until the fix is published and fresh CI is verified;
+no merge or deployment is authorized. Historical results below are retained.
+
+## Previous verification — 6 October 2026
+
 Date: 6 October 2026. Branch: `feat/a01-task-aware-router`.
 Base: `9427bc5`; A01 is prepared for its own draft PR, separate from F03.
 Merge recommendation: hold until the failure-accounting regression is fixed.

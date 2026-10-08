@@ -6,7 +6,7 @@ import { buildInputTraceability } from "@/lib/intelligence/input";
 import { compileContextPack, contextBlocksFromTraceability } from "@/lib/intelligence/context";
 import { traceabilityBundleSchema } from "@/lib/intelligence/schema";
 import { architecturePresentationSchema, architectureSnapshotSchema } from "@/lib/architecture-ir/snapshot";
-import { AIOutputError } from "./errors";
+import { AIOutputError, withAIExecution, type AIExecutionSummary } from "./errors";
 import { ARCHITECTURE_PROMPT_VERSION, type GenerationResult } from "./generation";
 import { AI_GATEWAY_VERSION, gatewayMetadataSchema, usageSchema, type AITask } from "./metadata";
 import { documentArchitectureIR, reviewArchitectureIR, type ArchitectureAIProvider } from "./provider";
@@ -60,7 +60,7 @@ async function executeTask<Input, Output>(options: ExecutionOptions & {
   input: unknown;
   inputSchema: z.ZodType<Input>;
   outputSchema: z.ZodType<Output>;
-  runner: (input: Input, context: { requestId: string; signal: AbortSignal }) => Promise<{ output: Output; provider?: string; model?: string; attempts?: number; successfulCalls?: number; repairCalls?: number; failedCalls?: number; routing?: z.infer<typeof routingMetadataSchema>; usage?: z.infer<typeof usageSchema> }>;
+  runner: (input: Input, context: { requestId: string; signal: AbortSignal; reportExecution: (summary: AIExecutionSummary) => void }) => Promise<{ output: Output; provider?: string; model?: string; attempts?: number; successfulCalls?: number; repairCalls?: number; failedCalls?: number; routing?: z.infer<typeof routingMetadataSchema>; usage?: z.infer<typeof usageSchema> }>;
 }) {
   validateAIGatewayConfiguration();
   const input = options.inputSchema.parse(options.input);
@@ -71,13 +71,14 @@ async function executeTask<Input, Output>(options: ExecutionOptions & {
   options.signal?.addEventListener("abort", onAbort, { once: true });
   const timer = setTimeout(() => controller.abort(new AIGatewayTimeoutError(timeoutMs)), timeoutMs);
   const startedAt = Date.now();
+  let execution: AIExecutionSummary | undefined;
   try {
     if (options.signal?.aborted) controller.abort(options.signal.reason);
     const cancellation = new Promise<never>((_, reject) => {
       controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true });
     });
     if (controller.signal.aborted) throw controller.signal.reason;
-    const result = await Promise.race([options.runner(input, { requestId, signal: controller.signal }), cancellation]);
+    const result = await Promise.race([options.runner(input, { requestId, signal: controller.signal, reportExecution: (summary) => { execution = { ...summary }; } }), cancellation]);
     const parsedOutput = options.outputSchema.safeParse(result.output);
     if (!parsedOutput.success) throw new AIOutputError("The task returned invalid structured output.");
     const meta = gatewayMetadataSchema.parse({
@@ -96,9 +97,9 @@ async function executeTask<Input, Output>(options: ExecutionOptions & {
     });
     return { data: parsedOutput.data, meta };
   } catch (error) {
-    if (controller.signal.aborted && controller.signal.reason instanceof AIGatewayTimeoutError) throw controller.signal.reason;
-    if (controller.signal.aborted) throw new AIGatewayCancelledError(controller.signal.reason);
-    throw error;
+    if (controller.signal.aborted && controller.signal.reason instanceof AIGatewayTimeoutError) throw withAIExecution(controller.signal.reason, execution);
+    if (controller.signal.aborted) throw withAIExecution(new AIGatewayCancelledError(controller.signal.reason), execution);
+    throw withAIExecution(error, execution);
   } finally {
     clearTimeout(timer);
     options.signal?.removeEventListener("abort", onAbort);
@@ -144,7 +145,7 @@ export async function runArchitectureSynthesis(input: unknown, options: Executio
     runner: async (request, context) => {
       const traceability = buildInputTraceability(request);
       const contextPack = compileContextPack({ task: "architecture-synthesis", blocks: contextBlocksFromTraceability(traceability) });
-      const output = await routeArchitectureSynthesis(request, { requestId: context.requestId, promptVersion: ARCHITECTURE_PROMPT_VERSION, contextPack, signal: context.signal }, options);
+      const output = await routeArchitectureSynthesis(request, { requestId: context.requestId, promptVersion: ARCHITECTURE_PROMPT_VERSION, contextPack, signal: context.signal }, options, context.reportExecution);
       return { output, provider: output.provider, model: output.model, attempts: output.attempts, successfulCalls: output.successfulCalls, repairCalls: output.repairCalls, failedCalls: output.failedCalls, routing: output.routing, usage: output.usage };
     },
   });
