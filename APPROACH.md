@@ -1,4 +1,26 @@
-# Day 13 / F03 — freehand buffering
+# Day 14 / G01 — deterministic graph engine
+
+Branch: `feat/g01-deterministic-graph`, from main `c21625c` (merged F03).
+Implement a pure typed adjacency engine over existing Architecture IR. Return
+IDs only, snapshot input topology, sort results deterministically, reject
+ambiguous topology, and make no model/network calls. Directed traversal follows
+IR flow direction, including bidirectional flows. Dependency/impact queries use
+explicit dependent → dependency relations supplied separately; an arrow alone
+does not establish operational dependence. No new persisted IR fields.
+
+Provide incoming/outgoing arcs, reachability, shortest path, bounded simple-path
+enumeration, cyclic strongly connected groups, orphans, weak components and
+structural impact. Path enumeration has depth, path-count, expansion and time
+bounds plus cancellation, with explicit truncation reasons. Test linear,
+branching, cyclic, disconnected, parallel and bidirectional fixtures; reordered
+input, immutable snapshots, invalid references and every bound.
+
+RS01 is the second amended Day 14 feature. Its AI integration depends on A01
+PR #33, which remains draft with an accounting regression. Do not bypass that
+gateway or silently merge/fix A01 as part of G01. G01 is a separate review unit;
+Day 14 is not complete until RS01 and its dependency are verified.
+
+## Previous F03 approach (retained history)
 
 Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.
 Delivery: one F03 editor PR to main includes inspector and freehand work;

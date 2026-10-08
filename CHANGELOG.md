@@ -2,9 +2,20 @@
 
 ## Unreleased
 
+### Day 14 / G01 — deterministic graph engine
+
+- Branch: `feat/g01-deterministic-graph`; locally verified, pending merge.
+- Add ID-only directed traversal, stable shortest paths, bounded all-path
+  search, cyclic groups, orphans, weak components and explicit-dependency impact
+  over existing Architecture IR. No AI calls or persisted schema changes.
+- Checks: 211 unit tests (19 new), lint, typecheck and production build passed.
+- RS01 remains pending A01 PR #33; Day 14 is not complete.
+- Details: [Day 14 G01 progress](docs/DAY-14-G01-GRAPH-ENGINE.md).
+
 ### Day 13 / F03 — bounded freehand preview
 
-- Branch: `feat/f03-freehand-buffering`, stacked on inspector work; not merged.
+- Branch: `feat/f03-freehand-buffering`; merged through PR #32 (`c21625c`).
+  Hosted deployment is not verified; image-heavy profiling remains open.
 - Buffer up to 2,048 points outside editor state and update only an SVG preview
   per animation frame; pointer release creates one undoable stroke.
 - Tests: 192 unit tests, 37 Chromium checks, lint, typecheck and Webpack build
@@ -12,12 +23,13 @@
 
 ### Day 13 / F03 — inspector edit transactions
 
-- Branch: `feat/f03-inspector-transactions`; locally verified, not merged.
+- Branch: `feat/f03-inspector-transactions`; included in merged PR #32 (`c21625c`).
 - Node and connector text fields buffer typing and commit once on blur/Enter;
   Escape cancels, textarea Enter remains a newline, and IME/read-only guards apply.
 - Existing validation, undo/redo and browser recovery paths are reused.
 - Checks: lint, TypeScript, 188 unit tests, production build and 37 Chromium
-  tests passed (one mobile-only skip). F03 drawing performance and A01 remain open.
+  tests passed (one mobile-only skip). Freehand work is also merged through
+  PR #32; image-heavy profiling and A01 remain open.
 - Details: [Day 13 progress](docs/DAY-13-F03-INSPECTOR-TRANSACTIONS.md).
 
 ### Day 12 / F02 — manual-placement preservation

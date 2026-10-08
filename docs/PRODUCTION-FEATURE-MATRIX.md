@@ -4,8 +4,10 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
-| Day 13 / F03 — Bounded freehand preview | Locally verified; pending merge; image-heavy profiling remains | Not deployed | Stacked branch `feat/f03-freehand-buffering` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
-| Day 13 / F03 — Inspector edit transactions | Locally verified; pending merge; F03 incomplete | Not deployed | Branch `feat/f03-inspector-transactions` only | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
+| Day 14 / G01 — Deterministic graph engine | Locally verified; pending merge | Not deployed | Internal library on `feat/g01-deterministic-graph`; no editor integration yet | [Day 14 G01 progress](DAY-14-G01-GRAPH-ENGINE.md) |
+| Day 14 / RS01 — Research Intelligence v0 | Not started; pending draft A01 PR #33 | Not deployed | Unavailable | [Day 14 dependency status](DAY-14-G01-GRAPH-ENGINE.md) |
+| Day 13 / F03 — Bounded freehand preview | Merged through PR #32; image-heavy profiling remains | Deployment not verified | Internal editor capability on `main` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
+| Day 13 / F03 — Inspector edit transactions | Merged through PR #32; broader F03 incomplete | Deployment not verified | Internal editor capability on `main` | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
 | Day 12 / F02 — Manual-placement preservation | Merged through PR #27; broader F02 incomplete | Not deployed | Internal editor capability on `main` | [F02 progress](DAY-12-F02-LAYOUT.md) |
 | Day 01 / B00 — Current implementation baseline | Pending until merged | Not applicable | Internal verification only | [Day 01 baseline](DAY-01-BASELINE-VERIFICATION.md) |
 | Day 02 / B01 — Structured architecture input | Pending until merged | Not deployed | Available only on `feat/b01-structured-input` | [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md) |
