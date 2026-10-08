@@ -9,6 +9,7 @@ export const aiTaskSchema = z.enum([
   "architecture-review",
   "documentation",
   "explanation",
+  "research-extraction",
 ]);
 export type AITask = z.infer<typeof aiTaskSchema>;
 

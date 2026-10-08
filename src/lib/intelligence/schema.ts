@@ -63,18 +63,39 @@ const runtimeLocationSchema = z.object({
   signal: recordText(160),
 }).strict();
 
+/** Attribution only; this schema does not authorize fetching arbitrary URLs. */
+export const researchUrlSchema = z.url().max(2_000).refine((value) => {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password
+      && !url.port && url.hostname.includes(".")
+      && !/^[\d.]+$|:|(?:^|\.)(?:localhost|local|internal|test|invalid)$/.test(url.hostname);
+  } catch { return false; }
+}, "Research attribution requires a public HTTPS hostname without credentials or a custom port.");
+
+const researchLocationSchema = z.object({
+  type: z.literal("research"),
+  sourceId: sourceIdSchema,
+  url: researchUrlSchema,
+  retrievedAt: z.iso.datetime(),
+  publishedAt: z.iso.datetime(),
+  quote: recordText(500),
+  trust: z.literal("untrusted-external"),
+}).strict();
+
 export const evidenceLocationSchema = z.discriminatedUnion("type", [
   inputLocationSchema,
   documentLocationSchema,
   repositoryLocationSchema,
   runtimeLocationSchema,
+  researchLocationSchema,
 ]);
 
 export const evidenceItemSchema = z.object({
   id: evidenceIdSchema,
   claim: recordText(500),
   category: z.enum(["requirement", "constraint", "technology", "component", "flow", "operation", "unknown"]),
-  origin: z.enum(["user-input", "document-source", "code-detector", "runtime-observation", "system-rule", "ai-suggestion"]),
+  origin: z.enum(["user-input", "document-source", "code-detector", "runtime-observation", "system-rule", "ai-suggestion", "research-source"]),
   verification: z.enum(["user-provided", "source-observed", "verified-within-scope", "inferred", "ai-proposed", "unknown"]),
   confidence: z.number().min(0).max(1),
   locations: z.array(evidenceLocationSchema).max(20).default([]),
@@ -84,6 +105,9 @@ export const evidenceItemSchema = z.object({
     scope: recordText(300),
   }).strict().optional(),
 }).strict().superRefine((item, ctx) => {
+  if (item.origin === "research-source" && (item.verification !== "source-observed" || !item.locations.some((location) => location.type === "research" && location.quote === item.claim))) {
+    ctx.addIssue({ code: "custom", path: ["locations"], message: "Research evidence must retain a matching untrusted quote and source-observed attribution." });
+  }
   if (item.origin === "ai-suggestion" && !["ai-proposed", "unknown"].includes(item.verification)) {
     ctx.addIssue({ code: "custom", path: ["verification"], message: "AI suggestions cannot claim observed or verified evidence." });
   }
@@ -124,7 +148,7 @@ export const evidenceItemSchema = z.object({
 
 export const evidenceSourceSchema = z.object({
   id: sourceIdSchema,
-  type: z.enum(["input", "document", "repository", "runtime", "system", "ai"]),
+  type: z.enum(["input", "document", "repository", "runtime", "system", "ai", "research"]),
   label: recordText(160),
   version: recordText(128).optional(),
 }).strict();

@@ -1,4 +1,28 @@
-# Day 13 / A01 — task-aware AI Router
+# Day 14 / RS01 — Research Intelligence v0
+
+Branch: `feat/rs01-research-intelligence`, stacked on verified A01 fix `95f8345`.
+Keep A01 and RS01 as separate review units; neither is authorized to merge.
+Extend the existing gateway task registry, Evidence IR and Context Compiler.
+Research stays server-side, provider-neutral and opt-in through a supplied
+search adapter; no public endpoint, automatic generation integration, paid
+provider selection, or direct architecture mutation is included in this slice.
+
+Detect freshness needs deterministically; reuse relevant fresh supplied sources
+without searching. Bound search to one call, result count, text size and gateway
+timeout/cancellation. Filter invalid, stale, irrelevant, duplicate and visibly
+instruction-like snippets. Preserve literal attributed excerpts as untrusted
+research evidence, never instructions or verified facts. An injection filter
+is only defense in depth: no source text is executed or sent to a model here.
+
+Extend existing Evidence IR with an optional research source/location variant
+(old records remain unchanged), then compile bounded evidence-only ContextPacks.
+Keep coverage/availability status explicit, distinct from RS02 semantic judgment.
+Test no-search/cache, stale/insufficient results, deterministic ordering and IDs,
+attribution, budgets, malicious sources, adapter failure, timeout and cancellation.
+Live adapter selection, shared admission integration and public enablement are
+release gates, not implied by local fixture verification.
+
+## Previous A01 approach (retained history)
 
 Branch: `feat/a01-task-aware-router`, updated with main `c21625c`; independent of
 the F03 inspector/freehand branches. Extend B06's gateway and B07/O01's existing
