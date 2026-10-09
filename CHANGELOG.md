@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Day 14 / RS01 — Research Intelligence server core
+
+- Branch: `feat/rs01-research-intelligence`, stacked on A01 fix `95f8345`;
+  separate local review unit, not pushed or merged.
+- Extend the shared gateway with deterministic research extraction, one-call
+  search adapter, freshness checks, attributed untrusted Evidence IR and bounded
+  ContextPacks. Preserve existing traceability and architecture boundaries.
+- Live search, public enablement and hosted verification remain pending.
+- Verification: 239 tests, release scan, lint, typecheck and production build passed.
+- Details: [RS01 progress and limits](docs/DAY-14-RS01-RESEARCH-INTELLIGENCE.md).
+
 ### Day 13 / A01 — task-aware AI Router (draft)
 
 - Branch: `feat/a01-task-aware-router`; separate from Day 13 F03 editor work.

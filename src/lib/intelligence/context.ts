@@ -12,6 +12,7 @@ export const contextTaskSchema = z.enum([
   "architecture-review",
   "documentation",
   "explanation",
+  "research-extraction",
 ]);
 
 export const contextBlockSchema = z.object({
@@ -44,6 +45,7 @@ export const DEFAULT_CONTEXT_BUDGETS: Record<ContextTask, ContextBudget> = {
   "architecture-review": { inputTokens: 12_000, outputTokens: 4_000 },
   documentation: { inputTokens: 16_000, outputTokens: 6_000 },
   explanation: { inputTokens: 8_000, outputTokens: 3_000 },
+  "research-extraction": { inputTokens: 4_000, outputTokens: 1_000 },
 };
 
 export const omittedContextSchema = z.object({
@@ -136,6 +138,7 @@ const taskWeights: Record<ContextTask, Partial<Record<ContextBlock["kind"], numb
   "architecture-review": { instruction: 100, schema: 95, architecture: 95, constraint: 90, evidence: 85, requirement: 75, code: 70 },
   documentation: { instruction: 100, schema: 95, architecture: 90, requirement: 85, evidence: 80, section: 75, table: 75, code: 50 },
   explanation: { instruction: 100, schema: 95, architecture: 90, requirement: 85, evidence: 75, constraint: 75, section: 60 },
+  "research-extraction": { instruction: 100, schema: 95, evidence: 90 },
 };
 
 function rank(task: ContextTask, block: ContextBlock) {
@@ -224,8 +227,9 @@ export function contextBlocksFromTraceability(traceability: TraceabilityBundle):
     sourceRefs: requirement.evidenceRefs,
   }));
   const referenced = new Set(traceability.requirements.items.flatMap((item) => item.evidenceRefs));
-  const evidence: ContextBlock[] = [...referenced].flatMap((id) => {
+  const evidence: ContextBlock[] = [...referenced].flatMap<ContextBlock>((id) => {
     const item = evidenceById.get(id);
+    if (item?.origin === "research-source") return [{ id: item.id, kind: "evidence" as const, format: "json" as const, text: JSON.stringify({ trust: "untrusted-external", claim: item.claim, attribution: item.locations }), priority: 65, mandatory: false, sourceRefs: [item.id] }];
     return item ? [{ id: item.id, kind: "evidence" as const, format: "text" as const, text: item.claim, priority: 65, mandatory: false, sourceRefs: [item.id] }] : [];
   });
   return [...requirements, ...evidence];

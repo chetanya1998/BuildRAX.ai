@@ -12,6 +12,7 @@ import { AI_GATEWAY_VERSION, gatewayMetadataSchema, usageSchema, type AITask } f
 import { documentArchitectureIR, reviewArchitectureIR, type ArchitectureAIProvider } from "./provider";
 import { resolveTaskRoute, routeArchitectureSynthesis, type RoutingOptions } from "./router";
 import { routingMetadataSchema } from "./metadata";
+import { collectResearch, researchRequestSchema, researchResultSchema, type ResearchOptions } from "@/lib/intelligence/research";
 
 export { AI_GATEWAY_VERSION, aiTaskSchema, gatewayMetadataSchema } from "./metadata";
 export type { AITask, GatewayMetadata } from "./metadata";
@@ -202,5 +203,13 @@ export async function runExplanation(input: unknown, options: ExecutionOptions =
     inputSchema: architectureIRSchema,
     outputSchema: z.string().min(1).max(4_000),
     runner: async (ir) => ({ output: `${ir.intent.title}: ${ir.intent.summary} The design contains ${ir.components.length} components, ${ir.flows.length} typed flows, ${ir.assumptions.length} explicit assumptions, and ${ir.requirements.nonFunctional.length} non-functional requirements.` }),
+  });
+}
+
+/** Research uses deterministic extraction and the shared timeout/cancel boundary.
+ * Search calls are reported separately from zero LLM calls/token usage. */
+export async function runResearch(input: unknown, options: Pick<ExecutionOptions, "requestId" | "timeoutMs" | "signal"> & ResearchOptions = {}) {
+  return executeTask({ ...options, task: "research-extraction", input, inputSchema: researchRequestSchema, outputSchema: researchResultSchema,
+    runner: async (request, context) => ({ output: await collectResearch(request, context, options) }),
   });
 }
