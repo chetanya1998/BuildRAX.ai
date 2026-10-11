@@ -127,6 +127,11 @@ test("canvas interaction state keeps tools exclusive and keyboard input scoped",
   await expect(pointer).toHaveAttribute("aria-pressed", "true");
 
   await page.keyboard.press("Control+K");
+  await expect(page.getByRole("complementary", { name: "Explore architecture" })).toBeVisible();
+  await page.getByLabel("Search architecture").fill("x");
+  await expect(page.getByLabel("Search architecture")).toHaveValue("x");
+  await page.getByRole("button", { name: "Exit Explore" }).click();
+  await page.keyboard.press("n");
   const palette = page.getByRole("complementary", { name: "Semantic components" });
   await expect(palette).toBeVisible();
   await expect(page.getByRole("textbox", { name: "AI architecture change" })).toHaveCount(0);

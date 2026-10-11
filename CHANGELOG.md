@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Day 15 / G02 — read-only Explore
+
+- Branch: `feat/g02-explore-route-search`, stacked on G01; not merged or deployed.
+- Local architecture/requirement/evidence search (Ctrl/Cmd+K), inspection,
+  directional highlights and bounded route probes reuse G01 without AI calls.
+- Block mutations in Explore; fix a header resize/save feedback loop.
+- Checks: 220 unit tests, 39 Chromium passes (one mobile-only skip), lint,
+  typecheck and production build. [Day 15 G02](docs/DAY-15-G02-EXPLORE.md).
+- RS02/Jev is separate; Day 15 is not release-complete.
+
 ### Day 14 / G01 — deterministic graph engine
 
 - Branch: `feat/g01-deterministic-graph`; locally verified, pending merge.

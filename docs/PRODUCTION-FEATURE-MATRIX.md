@@ -4,8 +4,9 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
+| Day 15 / G02 — Explore, routes and search | Locally verified; unmerged | Not deployed | Separate `feat/g02-explore-route-search` branch stacked on G01 | [Day 15 G02](DAY-15-G02-EXPLORE.md) |
 | Day 14 / G01 — Deterministic graph engine | Locally verified; pending merge | Not deployed | Internal library on `feat/g01-deterministic-graph`; no editor integration yet | [Day 14 G01 progress](DAY-14-G01-GRAPH-ENGINE.md) |
-| Day 14 / RS01 — Research Intelligence v0 | Not started; pending draft A01 PR #33 | Not deployed | Unavailable | [Day 14 dependency status](DAY-14-G01-GRAPH-ENGINE.md) |
+| Day 14 / RS01 — Research Intelligence v0 | Separate draft PR #34, based on A01 #33; unmerged | Not deployed | Server-only core; no live search backend | [RS01 PR](https://github.com/chetanya1998/BuildRAX.ai/pull/34) |
 | Day 13 / F03 — Bounded freehand preview | Merged through PR #32; image-heavy profiling remains | Deployment not verified | Internal editor capability on `main` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
 | Day 13 / F03 — Inspector edit transactions | Merged through PR #32; broader F03 incomplete | Deployment not verified | Internal editor capability on `main` | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
 | Day 12 / F02 — Manual-placement preservation | Merged through PR #27; broader F02 incomplete | Not deployed | Internal editor capability on `main` | [F02 progress](DAY-12-F02-LAYOUT.md) |

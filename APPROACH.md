@@ -1,4 +1,22 @@
-# Day 14 / G01 — deterministic graph engine
+# Day 15 / G02 — Explore, route probe and architecture search
+
+Branch: `feat/g02-explore-route-search`, stacked on tested G01 `bca434f`.
+Extend the existing editor with a transient read-only Explore panel. Reuse G01
+for reachability and bounded route queries, and the existing diagram-to-IR
+adapter for current unsaved edits. Search components, flows, requirements and
+evidence already authorized and passed to this editor. No source fetching or AI.
+Keep Explore selection/highlights/viewport out of semantic history and saved
+diagram state. Disable editing tools and mutation shortcuts while exploring;
+read-only shares can never switch to editing. Show unknown protocol/security
+values honestly, and distinguish graph reachability from operational dependency.
+Test search/reference resolution, path bounds, stale IDs, read-only interactions,
+reset/exit, keyboard access, responsive themes and zero mutation/AI calls.
+
+RS02 remains a separate Day 15 issue on the unmerged RS01 dependency. On
+11 October the user confirmed Jev means TypeSafe's structured-decision product.
+Use its official typed judgment API; do not bundle RS02 into G02.
+
+## Previous G01 approach (retained history)
 
 Branch: `feat/g01-deterministic-graph`, from main `c21625c` (merged F03).
 Implement a pure typed adjacency engine over existing Architecture IR. Return
