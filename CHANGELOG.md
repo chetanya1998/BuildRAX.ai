@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Day 15 / RS02 — TypeSafe Jev research-judgment core
+
+- Branch: `feat/rs02-jev-research-judge`, stacked on RS01 `a826cbc`; separate
+  from G02 `e845b35`, not pushed, merged or deployed.
+- Confirmed TypeSafe Jev; add a dormant server adapter and shared-gateway task
+  for typed sufficiency/conflict judgments and existing pattern alternatives.
+- Revalidate RS01 evidence, compile bounded context, enforce one call, validate
+  every choice/probability and retain uncertain results for human review.
+- No IR mutation, public endpoint, automatic provider activation or live spend.
+- Verification: 267 tests (28 new), lint, typecheck, release scan and build passed.
+- Details and activation gates: [Day 15 RS02](docs/DAY-15-RS02-JEV-JUDGE.md).
+
 ### Day 14 / RS01 — Research Intelligence server core
 
 - Branch: `feat/rs01-research-intelligence`, stacked on A01 fix `95f8345`;

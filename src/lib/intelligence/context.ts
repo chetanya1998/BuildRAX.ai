@@ -13,6 +13,7 @@ export const contextTaskSchema = z.enum([
   "documentation",
   "explanation",
   "research-extraction",
+  "research-judgment",
 ]);
 
 export const contextBlockSchema = z.object({
@@ -46,6 +47,7 @@ export const DEFAULT_CONTEXT_BUDGETS: Record<ContextTask, ContextBudget> = {
   documentation: { inputTokens: 16_000, outputTokens: 6_000 },
   explanation: { inputTokens: 8_000, outputTokens: 3_000 },
   "research-extraction": { inputTokens: 4_000, outputTokens: 1_000 },
+  "research-judgment": { inputTokens: 4_000, outputTokens: 1_000 },
 };
 
 export const omittedContextSchema = z.object({
@@ -139,6 +141,7 @@ const taskWeights: Record<ContextTask, Partial<Record<ContextBlock["kind"], numb
   documentation: { instruction: 100, schema: 95, architecture: 90, requirement: 85, evidence: 80, section: 75, table: 75, code: 50 },
   explanation: { instruction: 100, schema: 95, architecture: 90, requirement: 85, evidence: 75, constraint: 75, section: 60 },
   "research-extraction": { instruction: 100, schema: 95, evidence: 90 },
+  "research-judgment": { instruction: 100, schema: 95, requirement: 95, evidence: 90, architecture: 85 },
 };
 
 function rank(task: ContextTask, block: ContextBlock) {

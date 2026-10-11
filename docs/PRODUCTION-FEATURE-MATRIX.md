@@ -4,11 +4,13 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
-| Day 14 / RS01 — Research Intelligence v0 | Server core implemented locally; stacked on A01, pending publication/review | Not deployed; no live search verification | Internal gateway on `feat/rs01-research-intelligence`; no public endpoint or configured backend | [Day 14 RS01 progress](DAY-14-RS01-RESEARCH-INTELLIGENCE.md) |
+| Day 15 / RS02 — TypeSafe Jev research judge | Server core implemented; separate local branch stacked on RS01 | Not deployed or live-provider tested | Internal opt-in gateway only; shared admission and UI integration pending | [Day 15 RS02](DAY-15-RS02-JEV-JUDGE.md) |
+| Day 15 / G02 — Explore, route probe and search | Separately tested local commit `e845b35`; unmerged | Not deployed | `feat/g02-explore-route-search`, stacked on G01; not included here | [Day 15 branch status](DAY-15-RS02-JEV-JUDGE.md) |
+| Day 14 / RS01 — Research Intelligence v0 | Separate draft PR #34, stacked on A01 #33; unmerged | Not deployed; no live search verification | Internal gateway on `feat/rs01-research-intelligence`; no public endpoint or configured backend | [RS01 PR](https://github.com/chetanya1998/BuildRAX.ai/pull/34) |
 | Day 14 / G01 — Deterministic graph engine | Locally verified on separate branch; pending merge | Not deployed | Internal library on `feat/g01-deterministic-graph` | Local commit `bca434f`; [branch status](DAY-14-RS01-RESEARCH-INTELLIGENCE.md) |
-| Day 13 / A01 — Task-aware AI Router | Separate draft PR #33; accounting fix verified locally, fresh CI pending | Not deployed; no live-provider verification | Branch `feat/a01-task-aware-router` only | [A01 test results](DAY-13-A01-TEST-RESULTS.md) |
-| Day 13 / F03 — Bounded freehand preview | Locally verified; pending merge; image-heavy profiling remains | Not deployed | Stacked branch `feat/f03-freehand-buffering` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
-| Day 13 / F03 — Inspector edit transactions | Locally verified; pending merge; F03 incomplete | Not deployed | Branch `feat/f03-inspector-transactions` only | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
+| Day 13 / A01 — Task-aware AI Router | Separate draft PR #33; accounting fix pushed at `95f8345`; unmerged | Not deployed; no live-provider verification | Branch `feat/a01-task-aware-router` only | [A01 PR](https://github.com/chetanya1998/BuildRAX.ai/pull/33) |
+| Day 13 / F03 — Bounded freehand preview | Merged through PR #32 (`c21625c`); image-heavy profiling remains | Deployment not verified | Internal editor capability on main | [Freehand progress](DAY-13-F03-FREEHAND.md) |
+| Day 13 / F03 — Inspector edit transactions | Merged through PR #32 (`c21625c`); broader F03 incomplete | Deployment not verified | Internal editor capability on main | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
 | Day 12 / F02 — Manual-placement preservation | Merged through PR #27; broader F02 incomplete | Not deployed | Internal editor capability on `main` | [F02 progress](DAY-12-F02-LAYOUT.md) |
 | Day 01 / B00 — Current implementation baseline | Pending until merged | Not applicable | Internal verification only | [Day 01 baseline](DAY-01-BASELINE-VERIFICATION.md) |
 | Day 02 / B01 — Structured architecture input | Pending until merged | Not deployed | Available only on `feat/b01-structured-input` | [Day 02 structured input](DAY-02-STRUCTURED-INPUT.md) |
