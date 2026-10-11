@@ -1,4 +1,21 @@
-# Day 14 / RS01 — Research Intelligence v0
+# Day 15 / RS02 — TypeSafe Jev research judgment
+
+Branch: `feat/rs02-jev-research-judge`, based on RS01 `a826cbc`.
+The user confirmed Jev is TypeSafe on 11 October. Follow the official
+`POST https://api.typesafe.ai/v1/systemone` choice-question contract.
+Extend A01's gateway/router and B04's Context Compiler. Revalidate RS01 sources,
+then assess sufficiency and up to three existing B05 pattern alternatives in
+one bounded call. Keep evidence untrusted, preserve attribution and uncertainty,
+require human review, and never mutate any IR or apply an alternative.
+
+Use a server-injected adapter, no automatic environment activation, public route,
+live spend or parallel rate limiter. O01 admission wiring, provider credentials,
+live evaluation and user-facing integration remain activation gates. Verify
+strict typed answers, reference/option consistency, freshness/coverage/context
+gates, unavailable providers, usage, cancellation and timeout accounting using
+fixtures. Keep G02 on its own tested branch `e845b35`.
+
+## Previous RS01 approach (retained history)
 
 Branch: `feat/rs01-research-intelligence`, stacked on verified A01 fix `95f8345`.
 Keep A01 and RS01 as separate review units; neither is authorized to merge.

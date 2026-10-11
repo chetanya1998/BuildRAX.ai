@@ -51,7 +51,7 @@ describe("A01 task-aware routing", () => {
   });
   it("assigns every supported task to a declared route", () => {
     for (const task of aiTaskSchema.options) {
-      expect(resolveTaskRoute(task, { providerAvailable: true }).provider).toBe(task === "architecture-synthesis" ? "openai" : "deterministic");
+      expect(resolveTaskRoute(task, { providerAvailable: true }).provider).toBe(task === "architecture-synthesis" ? "openai" : task === "research-judgment" ? "typesafe" : "deterministic");
     }
     expect(() => resolveTaskRoute("unknown" as never)).toThrow();
   });

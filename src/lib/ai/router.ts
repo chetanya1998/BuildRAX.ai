@@ -5,6 +5,8 @@ import type { GenerationRequest } from "@/lib/domain/schema";
 import { generateArchitecture, type GenerationContext } from "./generation";
 import { aiTaskSchema, usageSchema, type AITask } from "./metadata";
 import { getAIProvider, MockArchitectureProvider, type ArchitectureAIProvider, type AIUsage } from "./provider";
+import { parseJevResponse, type JevJudge } from "./jev";
+import { prepareResearchJudgment, interpretResearchJudgment, RESEARCH_JUDGE_VERSION, type ResearchJudgmentRequest, type ResearchJudgmentPolicy } from "@/lib/intelligence/research-judge";
 
 export const ROUTING_POLICY_VERSION = "1.0.0" as const;
 export type RoutingMode = "auto" | "provider" | "deterministic";
@@ -34,6 +36,7 @@ export class AIRouterConfigurationError extends Error {
 export function resolveTaskRoute(task: AITask, options: { mode?: RoutingMode; templateId?: string; providerAvailable?: boolean } = {}) {
   aiTaskSchema.parse(task);
   z.enum(["auto", "provider", "deterministic"]).optional().parse(options.mode);
+  if (task === "research-judgment") return { provider: "typesafe", reason: "typed-research-judgment" } as const;
   if (task !== "architecture-synthesis") return { provider: "deterministic", reason: "deterministic-task" } as const;
   if (options.mode === "deterministic") return { provider: "deterministic", reason: "explicit-deterministic" } as const;
   if (options.mode === "provider") return { provider: "openai", reason: "explicit-provider" } as const;
@@ -61,6 +64,28 @@ export class ProviderHealth {
   }
 }
 const providerHealth = new ProviderHealth();
+
+export type ResearchJudgeOptions = ResearchJudgmentPolicy & { judge?: JevJudge; maxProviderCalls?: number };
+
+export async function routeResearchJudgment(input: ResearchJudgmentRequest, context: { requestId: string; signal: AbortSignal; reportExecution: (summary: AIExecutionSummary) => void }, options: ResearchJudgeOptions) {
+  const limit = z.number().int().min(0).max(1).parse(options.maxProviderCalls ?? 1);
+  const prepared = await prepareResearchJudgment(input, context, options);
+  const routing = { policyVersion: ROUTING_POLICY_VERSION, reason: prepared.base.reason as string, fallback: false, providerCalls: 0, usageComplete: true };
+  if (!prepared.eligible) return { output: prepared.base, routing };
+  if (!options.judge) return { output: { ...prepared.base, sufficiency: "unavailable" as const, reason: "judge-unconfigured" as const }, routing: { ...routing, reason: "judge-unconfigured" } };
+  if (!limit) throw new AIRouterBudgetError();
+  context.signal.throwIfAborted();
+  context.reportExecution({ provider: options.judge.id, model: options.judge.model, promptVersion: RESEARCH_JUDGE_VERSION, attempts: 1 });
+  // One attempt only: malformed output, 429 and outages never trigger hidden
+  // spend or deterministic guesses. Gateway preserves failure accounting.
+  const raw = await options.judge.evaluate(prepared.request, { signal: context.signal });
+  context.signal.throwIfAborted();
+  const result = parseJevResponse(raw, prepared.request.questions);
+  return { output: interpretResearchJudgment(prepared, result.answers), provider: options.judge.id, model: result.model, attempts: 1, successfulCalls: 1,
+    routing: { ...routing, reason: resolveTaskRoute("research-judgment").reason, providerCalls: 1 },
+    usage: { inputTokens: result.usage.input_tokens, outputTokens: result.usage.output_tokens, totalTokens: result.usage.input_tokens + result.usage.output_tokens, estimatedCostUsd: null },
+  };
+}
 
 function transient(error: unknown) {
   const status = error && typeof error === "object" && "status" in error ? error.status : undefined;

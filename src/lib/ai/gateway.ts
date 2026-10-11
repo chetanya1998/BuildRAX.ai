@@ -13,6 +13,8 @@ import { documentArchitectureIR, reviewArchitectureIR, type ArchitectureAIProvid
 import { resolveTaskRoute, routeArchitectureSynthesis, type RoutingOptions } from "./router";
 import { routingMetadataSchema } from "./metadata";
 import { collectResearch, researchRequestSchema, researchResultSchema, type ResearchOptions } from "@/lib/intelligence/research";
+import { researchJudgmentRequestSchema, researchJudgmentSchema } from "@/lib/intelligence/research-judge";
+import { routeResearchJudgment, type ResearchJudgeOptions } from "./router";
 
 export { AI_GATEWAY_VERSION, aiTaskSchema, gatewayMetadataSchema } from "./metadata";
 export type { AITask, GatewayMetadata } from "./metadata";
@@ -211,5 +213,13 @@ export async function runExplanation(input: unknown, options: ExecutionOptions =
 export async function runResearch(input: unknown, options: Pick<ExecutionOptions, "requestId" | "timeoutMs" | "signal"> & ResearchOptions = {}) {
   return executeTask({ ...options, task: "research-extraction", input, inputSchema: researchRequestSchema, outputSchema: researchResultSchema,
     runner: async (request, context) => ({ output: await collectResearch(request, context, options) }),
+  });
+}
+
+/** Internal opt-in only; caller must authorize scope and shared provider admission
+ * before enabling a live judge. No public route or automatic generation hook. */
+export async function runResearchJudgment(input: unknown, options: Pick<ExecutionOptions, "requestId" | "timeoutMs" | "signal"> & ResearchJudgeOptions = {}) {
+  return executeTask({ ...options, task: "research-judgment", input, inputSchema: researchJudgmentRequestSchema, outputSchema: researchJudgmentSchema,
+    runner: (request, context) => routeResearchJudgment(request, context, options),
   });
 }
