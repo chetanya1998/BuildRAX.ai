@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Day 16 / P01 — compatible presentation object contracts
+
+- Issue #38; `feat/p01-presentation-objects`, independent of G03 and based on
+  main `c21625c`. Typed notes, annotations, highlights, flat groups and saved
+  focus definitions extend the existing presentation/diagram snapshot.
+- Preserve old records and semantic checksums; retain unresolved targets for
+  repair. Add immutable, revision-checked transforms for the existing commit
+  path and strict clone-ID remapping, without a separate history engine.
+- Core only: canvas rendering/authoring, integrated undo and browser acceptance
+  remain. Not pushed, merged or released. [Progress](docs/DAY-16-P01-PRESENTATION-CONTRACTS.md).
+- Verification: 205 tests (13 P01), lint, typecheck, release scan and production
+  Webpack build passed; combined 950-layer capacity has regression coverage.
+
 ### Day 13 / F03 — bounded freehand preview
 
 - Branch: `feat/f03-freehand-buffering`, stacked on inspector work; not merged.

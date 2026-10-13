@@ -1,4 +1,23 @@
-# Day 13 / F03 — freehand buffering
+# Day 16 / P01 — compatible presentation object contracts
+
+Milestone: Scenarios, Review and Approved Changes. Issue #38.
+Branch: `feat/p01-presentation-objects`, independently based on main `c21625c`.
+Extend the existing Presentation IR and materialized diagram with optional typed
+notes, annotations, highlights, flat visual groups and saved focus definitions.
+Do not add fields to old records, semantic IR, or checksums of old artifacts.
+Keep active focus/selection/playback transient and reject those persisted fields.
+
+Preserve unresolved target references as explicit warnings so graph deletions
+cannot erase notes or block unrelated edits. New object commands must resolve
+their targets, honor read-only mode and revision conflicts, and return a validated
+Diagram for the existing commit/undo path. No second history/persistence engine.
+Require complete fresh ID maps for cloning; never copy old reference IDs silently.
+Test schema bounds, snapshot/recovery round trips, unchanged semantic checksums,
+legacy compatibility, command immutability and remapping. Renderer/authoring UI,
+actual editor undo/browser and share acceptance remain follow-up work. No schema
+migration, public endpoint, deployment or merge. G03 issue #37 stays separate.
+
+## Previous F03 approach (retained history)
 
 Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.
 Delivery: one F03 editor PR to main includes inspector and freehand work;

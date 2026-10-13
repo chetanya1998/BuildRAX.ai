@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { presentationObjectsSchema } from "@/lib/architecture-ir/presentation-objects";
 
 export const SCHEMA_VERSION = "1.0.0" as const;
 
@@ -110,10 +111,15 @@ export const diagramSchema = z.object({
   viewport: z.object({ x: z.number().finite(), y: z.number().finite(), zoom: z.number().min(0.1).max(4) }).strict(),
   nodes: z.array(architectureNodeSchema).max(150),
   primitives: z.array(primitiveSchema).max(300).default([]),
+  presentationObjects: presentationObjectsSchema.optional(),
   connectors: z.array(connectorSchema).max(300),
   assumptions: z.array(assumptionSchema).max(40),
 }).strict().superRefine((diagram, context) => {
   const ids = new Set(diagram.nodes.map((node) => node.id));
+  const canvasIds = new Set([...ids, ...diagram.connectors.map((item) => item.id), ...diagram.primitives.map((item) => item.id)]);
+  for (const object of diagram.presentationObjects ?? []) {
+    if (canvasIds.has(object.id)) context.addIssue({ code: "custom", path: ["presentationObjects"], message: "Presentation object IDs must not collide with canvas objects" });
+  }
   if (ids.size !== diagram.nodes.length) context.addIssue({ code: "custom", message: "Node IDs must be unique" });
   for (const connector of diagram.connectors) {
     if (!ids.has(connector.source) || !ids.has(connector.target)) {

@@ -4,6 +4,8 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
+| Day 16 / P01 — Presentation objects | Verified locally; partial P01, unmerged | Not deployed | Internal schema/transform APIs on `feat/p01-presentation-objects`; no visual authoring UI | [Day 16 P01](DAY-16-P01-PRESENTATION-CONTRACTS.md) |
+| Day 16 / G03 — Scenario/playback core | Separately verified local commit `47e3984`; partial G03, unmerged | Not deployed | `feat/g03-scenario-playback-core`, stacked on G02; not included here | [G03 issue #37](https://github.com/chetanya1998/BuildRAX.ai/issues/37) |
 | Day 13 / F03 — Bounded freehand preview | Locally verified; pending merge; image-heavy profiling remains | Not deployed | Stacked branch `feat/f03-freehand-buffering` | [Freehand progress](DAY-13-F03-FREEHAND.md) |
 | Day 13 / F03 — Inspector edit transactions | Locally verified; pending merge; F03 incomplete | Not deployed | Branch `feat/f03-inspector-transactions` only | [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md) |
 | Day 12 / F02 — Manual-placement preservation | Merged through PR #27; broader F02 incomplete | Not deployed | Internal editor capability on `main` | [F02 progress](DAY-12-F02-LAYOUT.md) |

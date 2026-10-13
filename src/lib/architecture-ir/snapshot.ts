@@ -12,6 +12,7 @@ import {
 import { validateArchitectureIR, type IRValidationFinding } from "./validator";
 import { parsePrivateAssetReference } from "@/lib/storage/asset-references";
 import { traceabilityBundleSchema, type TraceabilityBundle } from "@/lib/intelligence/schema";
+import { presentationObjectsSchema, resolvePresentationObject } from "./presentation-objects";
 
 export const ARCHITECTURE_PRESENTATION_VERSION = "1.0.0" as const;
 export const LEGACY_ARCHITECTURE_SNAPSHOT_VERSION = "1.0.0" as const;
@@ -57,7 +58,8 @@ export const architecturePresentationSchema = z.object({
     zIndex: z.number().int().min(-10_000).max(10_000).default(0),
   }).strict()).max(300),
   primitives: z.array(primitiveSchema).max(300).default([]),
-  layerOrder: z.array(z.string().min(1).max(120)).max(750).default([]),
+  objects: presentationObjectsSchema.optional(),
+  layerOrder: z.array(z.string().min(1).max(120)).max(950).default([]),
 }).strict();
 
 const checksumSchema = z.string().regex(/^[a-f0-9]{64}$/);
@@ -167,6 +169,7 @@ export function presentationFromDiagram(diagramInput: Diagram): ArchitecturePres
   const layerOrder = [
     ...diagram.nodes.map((node) => ({ id: node.id, zIndex: Number(node.metadata.zIndex ?? 0) })),
     ...diagram.primitives.map((primitive) => ({ id: primitive.id, zIndex: Number(primitive.style.zIndex ?? 0) })),
+    ...(diagram.presentationObjects ?? []).map((object) => ({ id: object.id, zIndex: object.zIndex })),
     ...diagram.connectors.map((connector) => ({ id: connector.id, zIndex: 0 })),
   ].sort((left, right) => left.zIndex - right.zIndex).map((item) => item.id);
 
@@ -198,6 +201,7 @@ export function presentationFromDiagram(diagramInput: Diagram): ArchitecturePres
       zIndex: 0,
     })),
     primitives: diagram.primitives,
+    ...(diagram.presentationObjects !== undefined ? { objects: diagram.presentationObjects } : {}),
     layerOrder,
   });
 }
@@ -283,6 +287,13 @@ export function validateArchitectureArtifact(irInput: unknown, presentationInput
   const flowIds = new Set(ir.flows.map((flow) => flow.id));
   const presentedComponentIds = new Set(presentation.components.map((component) => component.componentId));
   const presentedFlowIds = new Set(presentation.flows.map((flow) => flow.flowId));
+  const canvasIds = new Set([...componentIds, ...flowIds, ...presentation.primitives.map((item) => item.id)]);
+  const objectWarnings: IRValidationFinding[] = [];
+  for (const object of presentation.objects ?? []) {
+    if (canvasIds.has(object.id)) errors.push({ code: "SCHEMA_INVALID", severity: "error", message: "Presentation object ID collides with a canvas object.", affectedIds: [object.id] });
+    const missing = resolvePresentationObject(object, { componentIds: [...componentIds], flowIds: [...flowIds], primitiveIds: presentation.primitives.map((item) => item.id) }).missingTargets;
+    if (missing.length) objectWarnings.push({ code: "PRESENTATION_TARGET_MISSING", severity: "warning", message: "Presentation object has unresolved targets; its content is retained for repair.", affectedIds: [object.id] });
+  }
 
   for (const component of presentation.components) {
     if (!componentIds.has(component.componentId)) {
@@ -311,7 +322,7 @@ export function validateArchitectureArtifact(irInput: unknown, presentationInput
   if (duplicateLayerIds.length) {
     errors.push({ code: "SCHEMA_INVALID", severity: "error", message: "Layer order contains duplicate object IDs.", affectedIds: [...new Set(duplicateLayerIds)] });
   }
-  return { valid: errors.length === 0, errors, warnings: validation.warnings };
+  return { valid: errors.length === 0, errors, warnings: [...validation.warnings, ...objectWarnings] };
 }
 
 export function materializeArchitecture(
@@ -362,6 +373,7 @@ export function materializeArchitecture(
       } : connector;
     }),
     primitives: presentation.primitives,
+    ...(presentation.objects !== undefined ? { presentationObjects: presentation.objects } : {}),
   });
 }
 
