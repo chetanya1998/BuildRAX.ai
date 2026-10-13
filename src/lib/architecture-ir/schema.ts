@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { categorySchema, connectorTypeSchema } from "@/lib/domain/schema";
+import { scenariosSchema } from "./scenario-schema";
 
 export const LEGACY_ARCHITECTURE_IR_VERSION = "1.0.0" as const;
 export const ARCHITECTURE_IR_VERSION = "1.1.0" as const;
@@ -77,6 +78,7 @@ export const architectureIRSchema = z.object({
     rationale: irText(600),
     status: z.enum(["proposed", "accepted", "rejected"]).default("proposed"),
   }).strict()).max(30).default([]),
+  scenarios: scenariosSchema.optional(),
   provenance: z.object({
     strategy: z.enum(["deterministic-template", "ai-proposal", "manual-edit", "legacy-migration", "restore"]),
     templateId: z.string().min(1).max(80).optional(),
@@ -87,7 +89,7 @@ export const architectureIRSchema = z.object({
 
 // Providers propose only the portable IR. Provenance is attached by the
 // trusted server so a model cannot claim a different generation source.
-export const architectureIRProposalSchema = architectureIRSchema.omit({ provenance: true });
+export const architectureIRProposalSchema = architectureIRSchema.omit({ provenance: true, scenarios: true });
 
 const legacyArchitectureIRSchema = architectureIRSchema.extend({
   schemaVersion: z.literal(LEGACY_ARCHITECTURE_IR_VERSION),

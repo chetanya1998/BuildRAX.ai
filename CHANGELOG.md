@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Day 16 / G03 — versioned scenario and playback core
+
+- Issue #37, branch `feat/g03-scenario-playback-core`, based on G02 `e845b35`.
+- Optional versioned semantic scenarios survive existing compilation, snapshots
+  and recovery. Exact flow bindings invalidate stale playback without discarding
+  saved definitions. Pattern-based proposals and playback require no AI calls.
+- Verified locally: 233 tests (13 new), lint, typecheck and production build.
+- Partial G03: picker, scheduling, visual controls/pulse, viewport restoration
+  and browser acceptance remain. [Progress](docs/DAY-16-G03-SCENARIO-CORE.md).
+
 ### Day 15 / G02 — read-only Explore
 
 - Branch: `feat/g02-explore-route-search`, stacked on G01; not merged or deployed.

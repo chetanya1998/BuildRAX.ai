@@ -176,6 +176,7 @@ export function compileArchitectureIR(input: unknown, options: { id?: string; no
   diagram.createdAt = now;
   diagram.updatedAt = now;
   diagram.theme = options.theme ?? "light";
+  if (ir.scenarios !== undefined) diagram.scenarios = ir.scenarios;
   diagram.assumptions = ir.assumptions.map((item) => ({ id: item.id, type: item.type, text: item.text, confidence: item.confidence, affectedObjects: item.affectedComponents, edited: false }));
   return diagramSchema.parse(diagram);
 }

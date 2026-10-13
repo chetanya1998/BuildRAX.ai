@@ -265,6 +265,7 @@ export function architectureIRFromDiagram(
       affectedComponents: assumption.affectedObjects,
     })),
     decisions: base?.decisions ?? [],
+    ...(diagram.scenarios !== undefined ? { scenarios: diagram.scenarios } : {}),
     provenance: {
       strategy,
       templateId: base?.provenance.templateId,

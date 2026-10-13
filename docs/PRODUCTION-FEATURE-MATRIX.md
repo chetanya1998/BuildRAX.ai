@@ -4,6 +4,7 @@ This matrix distinguishes implementation milestones from hosted user features. A
 
 | Milestone | Main status | Production status | User availability | Evidence |
 | --- | --- | --- | --- | --- |
+| Day 16 / G03 — Scenario/playback core | Verified locally; partial G03, unmerged | Not deployed | Internal contracts on `feat/g03-scenario-playback-core`; no playback UI yet | [Day 16 G03](DAY-16-G03-SCENARIO-CORE.md) |
 | Day 15 / G02 — Explore, routes and search | Locally verified; unmerged | Not deployed | Separate `feat/g02-explore-route-search` branch stacked on G01 | [Day 15 G02](DAY-15-G02-EXPLORE.md) |
 | Day 14 / G01 — Deterministic graph engine | Locally verified; pending merge | Not deployed | Internal library on `feat/g01-deterministic-graph`; no editor integration yet | [Day 14 G01 progress](DAY-14-G01-GRAPH-ENGINE.md) |
 | Day 14 / RS01 — Research Intelligence v0 | Separate draft PR #34, based on A01 #33; unmerged | Not deployed | Server-only core; no live search backend | [RS01 PR](https://github.com/chetanya1998/BuildRAX.ai/pull/34) |

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { scenariosSchema } from "@/lib/architecture-ir/scenario-schema";
 
 export const SCHEMA_VERSION = "1.0.0" as const;
 
@@ -112,6 +113,7 @@ export const diagramSchema = z.object({
   primitives: z.array(primitiveSchema).max(300).default([]),
   connectors: z.array(connectorSchema).max(300),
   assumptions: z.array(assumptionSchema).max(40),
+  scenarios: scenariosSchema.optional(),
 }).strict().superRefine((diagram, context) => {
   const ids = new Set(diagram.nodes.map((node) => node.id));
   if (ids.size !== diagram.nodes.length) context.addIssue({ code: "custom", message: "Node IDs must be unique" });

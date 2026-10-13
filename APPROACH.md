@@ -1,4 +1,22 @@
-# Day 15 / G02 — Explore, route probe and architecture search
+# Day 16 / G03 — scenario and playback core
+
+Milestone: Scenarios, Review and Approved Changes. Issue #37.
+Branch: `feat/g03-scenario-playback-core`, stacked on G02 `e845b35` (and G01).
+Extend versioned Architecture IR with optional bounded scenario definitions,
+mirror them through the existing diagram adapter, and reuse G01 for valid walks.
+Do not add defaults to old artifacts or change their checksum. Ordered steps
+retain exact flow bindings and requirement/evidence IDs; changed/deleted flows
+invalidate playback without making a stale saved architecture unreadable.
+
+Seed explicit proposals from registered patterns, never automatically mutate
+templates or call a model. Implement a deterministic, cancellable playback state
+machine; scheduling, controls, focus restoration and rendering remain the G03 UI
+follow-up. No parallel persistence/history, new endpoint, migration or deployment.
+Test backward compatibility, round trips, stale and unknown refs, order, bounds,
+cycles, direction, play/pause/step/restart/exit and reduced-motion output. This
+bounded core does not complete all of G03 or Day 16. P01 is issue #38, separate.
+
+## Previous G02 approach (retained history)
 
 Branch: `feat/g02-explore-route-search`, stacked on tested G01 `bca434f`.
 Extend the existing editor with a transient read-only Explore panel. Reuse G01
