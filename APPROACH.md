@@ -1,5 +1,13 @@
 # Day 16 / P01 — compatible presentation object contracts
 
+Continuation: integrate a presentation panel and viewport renderer using the
+existing editor commit/undo and recovery paths. Provide explicit form-based
+creation/editing, repair, deletion, visual duplication and flat group movement.
+Saved focus must restore the prior viewport on exit without persisting the
+temporary view. Read-only surfaces render objects but cannot author them.
+Verify browser undo/redo/reload, all object kinds and zero AI requests. Keep
+G03 UI on its separate feature branch; do not change audit artifacts.
+
 Milestone: Scenarios, Review and Approved Changes. Issue #38.
 Branch: `feat/p01-presentation-objects`, independently based on main `c21625c`.
 Extend the existing Presentation IR and materialized diagram with optional typed
@@ -13,8 +21,9 @@ their targets, honor read-only mode and revision conflicts, and return a validat
 Diagram for the existing commit/undo path. No second history/persistence engine.
 Require complete fresh ID maps for cloning; never copy old reference IDs silently.
 Test schema bounds, snapshot/recovery round trips, unchanged semantic checksums,
-legacy compatibility, command immutability and remapping. Renderer/authoring UI,
-actual editor undo/browser and share acceptance remain follow-up work. No schema
+legacy compatibility, command immutability and remapping. Renderer and form-based
+authoring now use the common commit path. Browser checks cover undo/reload and
+all object kinds; hosted share acceptance remains follow-up work. No schema
 migration, public endpoint, deployment or merge. G03 issue #37 stays separate.
 
 ## Previous F03 approach (retained history)

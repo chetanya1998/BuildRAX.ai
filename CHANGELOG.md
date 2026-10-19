@@ -10,10 +10,14 @@
 - Preserve old records and semantic checksums; retain unresolved targets for
   repair. Add immutable, revision-checked transforms for the existing commit
   path and strict clone-ID remapping, without a separate history engine.
-- Core only: canvas rendering/authoring, integrated undo and browser acceptance
-  remain. Not pushed, merged or released. [Progress](docs/DAY-16-P01-PRESENTATION-CONTRACTS.md).
-- Verification: 205 tests (13 P01), lint, typecheck, release scan and production
-  Webpack build passed; combined 950-layer capacity has regression coverage.
+- Added viewport rendering and form-based authoring through common undo/save,
+  explicit target repair, visual duplication, flat group movement and transient
+  focus restoration. Fixed mobile notice overlap and group manual-position flags.
+- Verification: 209 unit tests, 39 Chromium checks and four focused desktop/mobile
+  P01 checks passed; lint, typecheck, release scan and Webpack build passed.
+  Broader mobile failures and hosted sharing remain unverified; build cache hit
+  disk-space warnings. Not pushed, merged or released.
+  [Progress and limits](docs/DAY-16-P01-PRESENTATION-CONTRACTS.md).
 
 ### Day 13 / F03 — bounded freehand preview
 

@@ -1,0 +1,22 @@
+.panel { width: min(330px, calc(100vw - 100px)); max-height: calc(100dvh - 170px); overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--surface); box-shadow: var(--shadow-sm); font-size: 12px; }
+.panel header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
+.panel header strong { margin-right: auto; }
+.panel button { min-height: 32px; border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.panel button:disabled { opacity: .5; cursor: default; }
+.panel label { display: grid; gap: 4px; margin: 8px 0; }
+.panel input, .panel select, .panel textarea { min-width: 0; width: 100%; padding: 6px; border: 1px solid var(--border-strong); border-radius: 6px; color: var(--text); background: var(--bg); }
+.panel textarea { min-height: 70px; }
+.panel fieldset { margin: 10px 0; border: 1px solid var(--border); max-height: 150px; overflow: auto; }
+.panel fieldset label { display: flex; align-items: center; }
+.panel input[type=checkbox] { width: auto; }
+.panel button:focus-visible, .panel input:focus-visible, .panel select:focus-visible, .panel textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.object { position: absolute; pointer-events: none; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px; padding: 12px; border: 2px solid var(--accent); border-radius: 8px; }
+.note { color: #17202a; overflow: auto; border-color: #725c18; }
+.annotation { color: var(--text); background: var(--surface); overflow: auto; }
+.group { border-style: dashed; color: var(--text); }
+.group span { position: absolute; bottom: 100%; left: 0; background: var(--surface); padding: 3px 6px; white-space: nowrap; }
+.warning { color: var(--text); border-left: 3px solid #be7c16; padding-left: 8px; }
+@media (max-width: 700px) { .panel:global(.react-flow__panel.top) { top: 64px; max-height: calc(100dvh - 294px); } }
+/* Avoid iOS focus zoom obscuring the panel after editing. */
+@media (max-width: 700px) { .panel input, .panel select, .panel textarea { font-size: 16px; } }
