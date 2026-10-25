@@ -3,7 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ArchitecturePresentation } from "@/lib/architecture-ir/snapshot";
 import { PRIVATE_ASSET_BUCKET, parsePrivateAssetReference } from "@/lib/storage/asset-references";
-import { HttpError } from "./http";
+import { HttpError, ServiceUnavailableError } from "./http";
 
 function bytesToHex(bytes: Uint8Array) {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
@@ -23,7 +23,7 @@ export async function verifyPrivateAssetReferences(options: {
   admin: SupabaseClient | null; references: string[]; workspaceId: string; diagramId: string; context: "canvas" | "document";
 }) {
   if (!options.references.length) return;
-  if (!options.admin) throw new HttpError(503, "Private asset verification is not configured.");
+  if (!options.admin) throw new ServiceUnavailableError("Private asset verification is not configured.");
   if (options.references.length > 20) throw new HttpError(413, `A persisted ${options.context} may contain at most 20 images.`);
   let totalBytes = 0;
   for (const reference of options.references) {

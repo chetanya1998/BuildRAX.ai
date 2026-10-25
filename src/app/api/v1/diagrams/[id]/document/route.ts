@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { canonicalSha256 } from "@/lib/architecture-ir/snapshot";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { verifyPrivateAssetReferences } from "@/lib/server/private-assets";
 import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -25,7 +25,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
   try {
     const id = z.string().uuid().parse((await params).id);
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const { data, error } = await supabase.from("documents")
       .select("current_version, stale_at, document_versions(version, diagram_version, markdown, content_checksum, source, created_at)")
       .eq("diagram_id", id).maybeSingle();
@@ -45,7 +45,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const body = saveRequest.parse(await readJson(request));
     if (/data:image\//.test(body.markdown)) throw new HttpError(422, "Document images must be uploaded before saving.");
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const { data: diagram, error: diagramError } = await supabase.from("diagrams")
       .select("id, current_version, current_ir_version, projects!inner(workspace_id)").eq("id", id).maybeSingle();
     if (diagramError || !diagram) throw new HttpError(diagramError?.code === "42501" ? 403 : 404, "Diagram not found or access denied.");

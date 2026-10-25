@@ -458,7 +458,7 @@ cp .env.example .env.local
 | `RESEND_API_KEY`, `ARCHIVE_NOTICE_FROM_EMAIL` | Server | Archive emails. |
 | `NEXT_PUBLIC_SENTRY_DSN` | Public | Optional monitoring. |
 
-Google/GitHub/SMTP credentials belong in Supabase/provider settings. Use separate development, staging, and production values.
+Google/GitHub/SMTP credentials belong in Supabase/provider settings. Use separate development, staging, and production values. For the exact production set on Netlify, see [`docs/NETLIFY-ENVIRONMENT.md`](docs/NETLIFY-ENVIRONMENT.md); production builds fail when required values are missing.
 
 Database migrations run in order:
 
@@ -553,6 +553,7 @@ public/icons/             Local SVGs and attribution
 | `GET /api/v1/notifications` | List notices. |
 | `PATCH /api/v1/notifications/:id` | Mark notice read. |
 | `POST /api/internal/architecture-maintenance` | Run maintenance. |
+| `GET /api/health` | Report configuration readiness per capability (200 ok, 503 degraded). |
 
 ## Known limitations
 

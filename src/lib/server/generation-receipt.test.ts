@@ -14,7 +14,7 @@ describe("generation receipts", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("GENERATION_RECEIPT_SECRET", "");
     vi.stubEnv("RATE_LIMIT_HMAC_SECRET", "r".repeat(32));
-    expect(() => createGenerationReceipt(input)).toThrow("GENERATION_RECEIPT_SECRET");
+    expect(() => createGenerationReceipt(input)).toThrow(expect.objectContaining({ status: 503, detail: expect.stringContaining("GENERATION_RECEIPT_SECRET") }));
   });
 
   it("creates and verifies a receipt with the configured secret", () => {

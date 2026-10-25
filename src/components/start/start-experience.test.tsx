@@ -93,6 +93,19 @@ describe("new architecture journey", () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it("explains an unavailable generation service and points to the offline paths", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({
+      error: "This part of BuildRAX is temporarily unavailable. Anything you have already made is still in this browser. Please try again in a few minutes.",
+      code: "service_unavailable",
+    }), { status: 503, headers: { "content-type": "application/json", "retry-after": "30" } }));
+    render(<StartExperience />);
+    fireEvent.change(screen.getByLabelText("Architecture prompt"), { target: { value: "A food delivery platform with an order API." } });
+    fireEvent.click(screen.getByRole("button", { name: /generate architecture/i }));
+
+    expect(await screen.findByText(/temporarily unavailable.*begin from a template or a blank canvas\.$/)).toBeInTheDocument();
+    expect(screen.queryByText(/not configured/i)).not.toBeInTheDocument();
+  });
+
   it("sends architecture context as separate fields", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(new Response(JSON.stringify({ expiresAt: Date.now() + 60_000 }), { status: 201 }))
