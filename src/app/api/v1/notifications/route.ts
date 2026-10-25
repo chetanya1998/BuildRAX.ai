@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { apiError, HttpError } from "@/lib/server/http";
+import { apiError, HttpError, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { z } from "zod";
 
@@ -8,7 +8,7 @@ const querySchema = z.object({ limit: z.coerce.number().int().min(1).max(100).de
 export async function GET(request: Request) {
   try {
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new HttpError(401, "Authentication required.");
     const url = new URL(request.url);

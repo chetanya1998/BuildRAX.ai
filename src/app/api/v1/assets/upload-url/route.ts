@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createPrivateAssetReference } from "@/lib/storage/asset-references";
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     const input = uploadRequest.parse(await readJson(request));
     const supabase = await createSupabaseServerClient();
     const admin = createSupabaseAdminClient();
-    if (!supabase || !admin) throw new HttpError(503, "Private asset uploads are not configured.");
+    if (!supabase || !admin) throw new ServiceUnavailableError("Private asset uploads are not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new HttpError(401, "Authentication required.");
     let workspaceId: string | undefined;

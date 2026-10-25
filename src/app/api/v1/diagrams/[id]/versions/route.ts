@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, HttpError } from "@/lib/server/http";
+import { apiError, HttpError, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const querySchema = z.object({
@@ -14,7 +14,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const url = new URL(request.url);
     const query = querySchema.parse({ limit: url.searchParams.get("limit") ?? undefined, before: url.searchParams.get("before") ?? undefined });
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const { data, error } = await supabase.rpc("list_architecture_versions", {
       target_diagram: id,
       page_size: query.limit,

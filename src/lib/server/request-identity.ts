@@ -1,9 +1,10 @@
 import "server-only";
 
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { isAuthSessionMissingError } from "@supabase/supabase-js";
 import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { HttpError } from "./http";
+import { HttpError, ServiceUnavailableError } from "./http";
 
 export const GUEST_IDENTITY_COOKIE = "buildrax-guest-identity";
 const DEFAULT_GUEST_TTL_MS = 24 * 60 * 60_000;
@@ -25,7 +26,7 @@ function identitySecret() {
   const configured = process.env.RATE_LIMIT_HMAC_SECRET;
   if (configured && configured.length >= 32) return configured;
   if (process.env.NODE_ENV === "production") {
-    throw new HttpError(503, "Request identity signing is not configured.", { "retry-after": "30" });
+    throw new ServiceUnavailableError("Request identity signing is not configured.");
   }
   return "buildrax-local-request-identity-secret";
 }
@@ -56,7 +57,7 @@ export function verifyGuestIdentity(token: string) {
   } catch {
     throw new HttpError(401, "Guest session is invalid.");
   }
-  if (payload.expiresAt <= Date.now()) throw new HttpError(401, "Guest session expired.");
+  if (payload.expiresAt <= Date.now()) throw new HttpError(401, "Your guest session expired. Refresh the page to continue.");
   return payload;
 }
 
@@ -85,7 +86,8 @@ export async function resolveRequestIdentity(request: Request): Promise<RequestI
   const supabase = await createSupabaseServerClient();
   if (supabase) {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) throw new HttpError(503, "Request identity could not be verified.", { "retry-after": "30" });
+    // A visitor without a session is a guest, not an outage.
+    if (userError && !isAuthSessionMissingError(userError)) throw new ServiceUnavailableError("Request identity could not be verified.");
     if (user) {
       const { data: membership, error } = await supabase
         .from("workspace_members")
@@ -95,7 +97,7 @@ export async function resolveRequestIdentity(request: Request): Promise<RequestI
         .order("created_at")
         .limit(1)
         .maybeSingle();
-      if (error) throw new HttpError(503, "Workspace membership could not be resolved.", { "retry-after": "30" });
+      if (error) throw new ServiceUnavailableError("Workspace membership could not be resolved.");
       return { kind: "user", subjectKey: userSubjectKey(user.id), userId: user.id, workspaceId: membership?.workspace_id ?? null };
     }
   }
@@ -110,5 +112,5 @@ export async function resolveRequestIdentity(request: Request): Promise<RequestI
   if (process.env.NODE_ENV !== "production" && legacyGuest) {
     return { kind: "guest", subjectKey: guestSubjectKey(legacyGuest.slice(0, 200)), userId: null, workspaceId: null };
   }
-  throw new HttpError(401, "A signed guest session or authenticated account is required.");
+  throw new HttpError(401, "Your browser session could not be confirmed. Refresh the page and try again.");
 }

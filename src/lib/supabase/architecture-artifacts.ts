@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { architectureSnapshotSchema, canonicalSha256, type ArchitectureSnapshot } from "@/lib/architecture-ir/snapshot";
 import { architectureIRSchema } from "@/lib/architecture-ir/schema";
 import { diagramSchema } from "@/lib/domain/schema";
-import { HttpError } from "@/lib/server/http";
+import { HttpError, ServiceUnavailableError } from "@/lib/server/http";
 import { TRACEABILITY_BUNDLE_VERSION, traceabilityBundleSchema } from "@/lib/intelligence/schema";
 import { createSupabaseAdminClient } from "./admin";
 
@@ -39,7 +39,7 @@ type TraceabilityArtifactRow = {
 
 async function hydrateArchivedArtifact(artifactId: string, expectedChecksum: string) {
   const admin = createSupabaseAdminClient();
-  if (!admin) throw new HttpError(503, "Archive hydration is not configured.");
+  if (!admin) throw new ServiceUnavailableError("Archive hydration is not configured.");
   const { data: artifact, error } = await admin
     .from("artifact_blobs")
     .select("storage_state, storage_path, checksum")
