@@ -1,5 +1,12 @@
 # Day 16 / G03 — scenario and playback core
 
+19 October continuation: connect the existing state machine to the editor with
+an explicit save-suggestions transaction, picker and playback controls. Reuse
+the current dimming adapter; keep timers, focus and viewport transient. Disable
+editing while playing or paused, restore the prior view on exit/unmount, pause
+on backgrounding, cancel on stale refs and respect reduced motion. No provider
+calls. P01 UI is separately committed as `7592788`, not included in this branch.
+
 Milestone: Scenarios, Review and Approved Changes. Issue #37.
 Branch: `feat/g03-scenario-playback-core`, stacked on G02 `e845b35` (and G01).
 Extend versioned Architecture IR with optional bounded scenario definitions,
@@ -10,11 +17,13 @@ invalidate playback without making a stale saved architecture unreadable.
 
 Seed explicit proposals from registered patterns, never automatically mutate
 templates or call a model. Implement a deterministic, cancellable playback state
-machine; scheduling, controls, focus restoration and rendering remain the G03 UI
-follow-up. No parallel persistence/history, new endpoint, migration or deployment.
+machine; the UI now supplies scheduling, controls, focus restoration and rendering
+without a second playback engine. No parallel persistence/history, new endpoint,
+migration or deployment.
 Test backward compatibility, round trips, stale and unknown refs, order, bounds,
 cycles, direction, play/pause/step/restart/exit and reduced-motion output. This
-bounded core does not complete all of G03 or Day 16. P01 is issue #38, separate.
+implementation still needs hosted/dependency integration gates before Day 16 is
+release-complete. P01 is issue #38, separate.
 
 ## Previous G02 approach (retained history)
 
