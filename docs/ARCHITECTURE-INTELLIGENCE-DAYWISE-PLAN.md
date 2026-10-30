@@ -652,3 +652,115 @@ Next session and files to read:
 ```
 
 This document is a plan. It marks no implementation or live integration complete. The existing detailed technical plan remains available for reference; this daywise plan supplies the plain-language execution order.
+
+## BuildRAX 34-Day Roadmap Amendment — Days 12–34
+
+Recorded 2 October 2026 from the approved amendment table and supplied execution rules. The preceding roadmap is preserved verbatim as the original task specification. This appendix governs scheduling and integration where its instructions differ; it does not delete original acceptance criteria. Read [APPROACH.md](../APPROACH.md) before implementation.
+
+### Baseline and status
+
+Days 1–11 are completed/frozen at the merged implementation level. Preserve public contracts and working behavior; required compatibility changes need documented regression coverage. Frozen does not mean deployed or production-verified. Existing staging, worker, load and release gates remain outstanding where recorded.
+
+Baseline merge evidence: B00 PR #6, B01 #7, B02 #8, B03 #11, B04 #12, B05 #13, B06 #14, B07 #15, O01 #19, B08 #20, F01 #21; documentation follow-up #22. Earlier pending-merge statements above are historical and superseded by this record.
+
+Days 12–34 require issue-specific implementation and acceptance evidence. Existing selection/connection work is preserved under original sessions 12A/12B, with implementation on `feat/day12-selection-connections` (PR #23, commit `641f8bd`); review its current merge/check state before proceeding. It is not evidence that F02 or T01 is complete.
+
+### Preserved milestones
+
+| Milestone | Scheduled days |
+| --- | --- |
+| Reliable Structured Generation | 1–10, frozen |
+| Predictable Canvas and Understanding | 11–15; Day 11 frozen |
+| Scenarios, Review and Approved Changes | 16–22 |
+| Documentation and Document Input | 23–26 |
+| Repository Evidence and Synchronization | 27–30 |
+| Views and Operational Readiness | 31–34 |
+
+Amendment work can cross milestone boundaries. Days are planning slots, not permission to skip prerequisites or fixed delivery promises. Each table item gets its own bounded GitHub Issue and branch; split oversized items into linked issues before coding.
+
+### Amended execution inventory
+
+Each task ID below has exactly one scheduling row. Original task specifications remain in the execution-plan cards and the original sessions referenced in the coverage map below.
+
+| Day | Original work retained | Amendment added |
+| --- | --- | --- |
+| 12 | F02 — layout and canvas readability | T01 — structured Template Registry and clone/customize/variant workflow |
+| 13 | F03 — drawing and editing performance | A01 — upgrade AI Gateway into task-aware AI Router |
+| 14 | G01 — deterministic graph engine | RS01 — Research Intelligence v0 |
+| 15 | G02 — Explore, route probe and search | RS02 — Jev research judge, sufficiency checks and architecture alternatives |
+| 16 | G03 — scenarios and playback | P01 — Presentation IR objects: notes, focus, highlights, groups and annotations |
+| 17 | G04 — failure-impact analysis | G01A — complete deterministic presentation traversal APIs |
+| 18 | R01 — validation and findings | F01A — common copy, duplicate, layer and context-menu commands |
+| 19 | R02 — actionable Review mode | P02 — sticky-note brainstorming layer |
+| 20 | C01 — semantic operations and diff | G02A — Design/Explore/Present modes and focused architecture presentation |
+| 21 | C02 — safe architecture changes | G03A — presentation-oriented scenario/dataflow playback |
+| 22 | C03 — history/shared comparison | G02B — route probe and unified architecture search |
+| 23 | D01 — version-aware documents | C03A — History Before/Delta/After integration using the shared diff engine |
+| 24 | D02 — scoped document refinement | O02A — read-only sharing with Presentation Mode |
+| 25 | I01 — isolated document parser | RS03 — research, template and architecture-alternative integration |
+| 26 | I02 — document-derived architecture | H02A — GitHub authorization and repository scope selection |
+| 27 | H01 — repository fixture analysis | H01A — language inventory and universal code-evidence model |
+| 28 | H02 — read-only GitHub integration | H01B — strong TypeScript/JavaScript and Python adapters |
+| 29 | H03 — repository-derived architecture | H01C — Java, Go and C# adapters |
+| 30 | H04 — incremental repository analysis | H01D — infrastructure and deployability evidence |
+| 31 | V01 — derived views | H01E — cross-language resolver and Repository Evidence Graph |
+| 32 | O02 — dashboard and sharing | H03A — Evidence Graph → Architecture and Canvas → Source trace |
+| 33 | F04 — navigation, responsive UX and recovery | H04A — changed-file accumulator and architecture-impact notification |
+| 34 | O03 — integrated beta validation | No new feature; validate the complete amended product |
+
+### Original session coverage and numbering reconciliation
+
+The supplied amendment uses the technical execution-plan numbering, which differs from the original plain-English roadmap. Use task IDs for new issues. These references assign every original Day 12–34 session pair once; they do not repeat its task body.
+
+| Original sessions | Single retained owner |
+| --- | --- |
+| 12A/12B | Selection/connections bridge, PR #23; retain before further canvas work |
+| 13A/13B | F02 |
+| 14A/14B | F03 |
+| 15A/15B | G01 |
+| 16A/16B | G02 |
+| 17A/17B | G03 |
+| 18A/18B | G04 |
+| 19A/19B | R01 |
+| 20A/20B | R02 |
+| 21A/21B | C01 |
+| 22A/22B | C02 |
+| 23A/23B | C03; navigation behavior remains required, with F04 regression verification |
+| 24A/24B | D01 |
+| 25A/25B | D02 |
+| 26A/26B | I01 |
+| 27A/27B | I02 |
+| 28A/28B | H01 |
+| 29A/29B | H02 |
+| 30A/30B | H03 |
+| 31A/31B | H04 |
+| 32A/32B | V01; dashboard subwork integrates with O02 without a second implementation |
+| 33A/33B | F04; sharing subwork integrates with O02/O02A without a second implementation |
+| 34A/34B | O03 |
+
+### Integration boundaries and dependency gates
+
+- Preserve Evidence IR → Requirement IR → Architecture IR → Presentation IR. Architecture IR is semantic truth; React Flow is a presentation/interaction adapter. Repository adapters and research produce evidence before requirements or architecture proposals.
+- Extend existing gateway, pattern/template catalog, graph utilities, command/history, persistence, versioning and sharing systems. Do not create parallel implementations. Inspect existing contracts before introducing any schema or database object.
+- T01 depends on the B05 foundation and existing persistence/IR contracts. Adapt the existing template catalog into structured, validated, versioned records. Clone-on-use must preserve canonical templates, remap IDs/references, support customization and record variant lineage. Test canonical immutability, valid clones, variant compatibility and save/reload.
+- A01 extends B06/B07/O01: centralize task routing, schema validation, bounded retries/fallback, cancellation, correlation, usage/cost and provider health. Feature modules cannot call providers directly. Test invalid output, unavailable providers, cancellation and budget exhaustion.
+- RS01 depends on A01 and the Context Compiler. Use a generic search adapter, freshness-based need detection, deterministic filtering, attributed Research Evidence and bounded ContextPacks. Test no-search cases, stale/insufficient sources and injection-resistant extraction. RS02 consumes that evidence and tests sufficiency/alternative judgments without direct architecture mutation. “Jev” is retained as the supplied label; its meaning is unresolved and must be clarified before selecting a product or provider. RS03 integrates RS01/RS02/T01 with the existing validated proposal and approval workflow; no automatic template publication.
+- Inspect the existing presentation and undo/save contracts before F02/F03. Establish any minimum compatible presentation/command foundation within their issues before using it; P01 extends that same foundation. F01A adds command capabilities, not a competing command engine. Validate execute/undo/redo, persistence impact, ID remapping and semantic versus visual classification for each mutation.
+- P01 depends on compatible version persistence and those command contracts; P02 depends on P01. Notes, highlights, annotations and visual groups must not change semantic checksums. Define persisted presentation separately from transient focus/selection; test reload, undo and old-version readability.
+- G01 owns graph algorithms. G01A adapts their results for presentation after G01/P01. G02 delivers basic Explore, route and search behavior; G02B completes the unified interaction across available architecture/evidence records using the same APIs. G02A adds coordinated mode/focus policy after G02/P01. G03 owns scenario state and deterministic playback; G03A reuses it for presentation after G03/G02A. Test bounded cyclic/disconnected paths, read-only modes, cancellation, reduced motion and zero model calls during traversal/playback.
+- C01 owns the single diff/operation engine, C02 validated preview/apply, C03 history/restore behavior, and C03A its Before/Delta/After integration. O02A extends existing authorized sharing with G02A presentation behavior; O02 owns dashboard/sharing management. Reuse existing authorization and test that shared presentation cannot mutate or reveal private evidence.
+- H02A extends existing authorization and scope controls ahead of scanning: repository, branch, include/exclude scope and immutable commit. H02 connects the scanner and jobs; neither creates a second GitHub authentication system. H01 is the fixture harness; H01A defines language-neutral evidence before H01B/H01C language adapters and H01D deployability detectors. Adapters never emit Architecture IR or execute repository code.
+- H01E must be completed before the full polyglot H03/H04 acceptance gates, despite its nominal Day 31 slot. Pull that prerequisite forward when executing those issues; do not mark partial language support complete. H03 uses the resulting graph for validated architecture proposals. H03A completes source-trace integration; H04 owns changed-file analysis and explicit approved drift application; H04A adds accumulation and notifications. Test multi-language references, scope exclusions, commit pinning, rename/delete, revocation, stale proposals and preservation of manual layout.
+- The supplied table preserves scheduling labels; dependency completion takes priority. Split issues or extend working sessions rather than compress unfinished features into Day 34. No product capability is marked complete by inclusion in this appendix.
+
+### Execution, acceptance and deferred scope
+
+Use roadmap → milestone → bounded GitHub Issue → branch → tested PR → explicit merge approval → main → separately authorized release. Short branch prefixes are `feat/`, `fix/`, `chore/`, `docs/`, `test/` and `experiment/`. Record day/task IDs and a short progress note for every branch. This supersedes the historical fresh-variant workflow above.
+
+Each issue needs an approach written before or alongside code, existing subsystem references, dependencies, security/compatibility impact, tests and manual verification evidence. Tests must cover applicable normal, empty, loading, failure, retry, unauthorized and interrupted states. UI work includes keyboard, relevant responsive layouts and light/dark checks. Database changes require compatible migrations and tenant-isolation/access tests. APIs require schemas, authorization, conflict/idempotency behavior, limits and safe observability. Never log credentials, private source payloads or raw model reasoning. Local verification, PR readiness, merge and production release are distinct statuses.
+
+Unresolved P0/P1 defects affecting an issue's behavior block its readiness; unrelated known defects stay tracked and block release where applicable. Publishing, merging and deployment remain subject to the user's authorization; a planning entry is not authorization to perform them.
+
+Deferred: automatic GitHub Architecture IR synchronization, automatic internet-driven template publication, multiplayer, comments/mentions/review threads, Terraform/HCL analysis, Rust/PHP/Ruby/Kotlin/Scala/Elixir/C/C++/Swift/Dart adapters, multi-provider deep research, automatic contradiction resolution, advanced optimization and full billing. H04 retains the original user-approved Apply/Ignore workflow; it never silently synchronizes architecture.
+
+Day 34 is validation-only for product scope: integrated journeys, security/RLS, polyglot fixtures, source traceability, measured performance/concurrency, accessibility, deployment/recovery verification and release documentation. The original aggregate verification-command task is test infrastructure. Release-blocking regression fixes require rerunning affected gates; unfinished major features move to a later milestone. Stable release tagging requires a separate release decision.

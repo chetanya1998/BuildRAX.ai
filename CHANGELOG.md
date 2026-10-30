@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Roadmap amendment — Days 12–34
+
+- Branch: `docs/roadmap-amendment-days12-34`; documentation prepared for review.
+- Appended the approved task inventory and preserved the original roadmap text
+  and all original sessions. Recorded Days 1–11 as the frozen merged baseline,
+  with deployment verification separate from implementation completion.
+- Defined dependency gates, shared-subsystem boundaries, original-session
+  mapping, and Day 34's validation-only product scope.
+- References: [roadmap amendment](docs/ARCHITECTURE-INTELLIGENCE-DAYWISE-PLAN.md#buildrax-34-day-roadmap-amendment--days-1234)
+  and [implementation approach](APPROACH.md). This entry delivers planning
+  documentation, not T01 or any other new product feature.
+
 ### Predictable canvas interactions
 
 #### Day 11 · F01 — Canvas interaction states and feedback
