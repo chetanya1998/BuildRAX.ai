@@ -75,6 +75,14 @@ the later G02A/G03A coordinated presentation modes are not implemented here.
 
 ## Remaining G03 / Day 16 work
 
+8 November update: the dedicated background/switch/close and stale-definition
+browser tests now pass on Chromium and mobile WebKit. Real local SQL-role saves,
+version readback and share RPCs pass after the documented persistence fixes.
+The unstable draft migration mock is corrected; no production migration behavior
+was changed for that test issue. See [local verification](DAY-16-LOCAL-DATABASE-VERIFICATION.md).
+The older outstanding-browser list below is retained as historical context;
+hosted authentication/sharing, P01-specific acceptance and integration still remain.
+
 Verify authenticated cloud saves and real share routes with authorized evidence.
 Stale definitions, backgrounding and unmount have unit coverage; dedicated browser
 tests for those cases remain. Manual scenario authoring is a later roadmap extension.

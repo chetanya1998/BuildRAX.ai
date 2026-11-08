@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Day 16 — local persistence and interruption verification (8 November 2026)
+
+- Fix semantic snapshot saves failing on ambiguous SQL columns and shared links
+  reading a cleared legacy payload; retain existing authorization and artifacts.
+- Add real local scenario/version/share tests and browser interruption/stale-flow
+  checks. Correct unstable migration mocks and mobile recovery/sign-in fixtures.
+- 173 SQL assertions, nine scenario persistence assertions, 240 unit tests and
+  18 focused desktop/mobile browser checks passed; production remained untouched.
+- [Verification and remaining gates](docs/DAY-16-LOCAL-DATABASE-VERIFICATION.md).
+
 ### Day 16 / G03 — versioned scenario and playback core
 
 - Issue #37, branch `feat/g03-scenario-playback-core`, based on G02 `e845b35`.
