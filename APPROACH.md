@@ -1,5 +1,15 @@
 # Day 16 / G03 — scenario and playback core
 
+8 November publication checkpoint: keep production untouched and verify against
+a disposable local database. Fix semantic-save column ambiguity and read shared
+diagrams from the existing canonical artifact link via one forward migration.
+Preserve signatures, RLS, token checks and immutable history. Shared fixes and
+test-fixture corrections are a separate commit so P01 can reuse them without
+importing G03. Add real snapshot persistence and interruption/stale-flow browser
+acceptance. See [local verification](docs/DAY-16-LOCAL-DATABASE-VERIFICATION.md).
+Day 16 still has P01/shared-view/dependency acceptance gates; this is publication,
+not merge or deployment. Historical approach below describes the earlier UI scope.
+
 19 October continuation: connect the existing state machine to the editor with
 an explicit save-suggestions transaction, picker and playback controls. Reuse
 the current dimming adapter; keep timers, focus and viewport transient. Disable
