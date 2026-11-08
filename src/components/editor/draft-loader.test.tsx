@@ -6,8 +6,9 @@ import { architectureIRFromDiagram, canonicalSha256, createArchitectureSnapshot,
 import { deleteDraft, loadDraft, type DraftRecord } from "@/lib/storage/drafts";
 import { DraftLoader } from "./draft-loader";
 
-const replace = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
+const router = vi.hoisted(() => ({ replace: vi.fn() }));
+const { replace } = router;
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/lib/storage/drafts", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/storage/drafts")>(), loadDraft: vi.fn(), deleteDraft: vi.fn() }));
 vi.mock("@/lib/storage/private-assets", () => ({
   persistPrivatePresentationImages: vi.fn(async (_target, value) => value),
@@ -38,7 +39,7 @@ describe("complete guest migration", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(await successfulBody(record)), { status: 200, headers: { "content-type": "application/json" } })));
     render(<DraftLoader draftId={record.id} migrate />);
     await waitFor(() => expect(deleteDraft).toHaveBeenCalledWith(record.id));
-    expect(replace).toHaveBeenCalledWith("/projects/project-one/canvas");
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/projects/project-one/canvas"));
   });
 
   it("retains the browser draft when any verification result differs", async () => {

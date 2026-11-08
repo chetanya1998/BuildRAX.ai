@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
 
-test("landing sign-in uses the dedicated auth surface", async ({ page }) => {
+test("landing sign-in uses the dedicated auth surface", async ({ page, isMobile }) => {
   await page.goto("/");
+  if (isMobile) await page.getByRole("button", { name: "Open navigation", exact: true }).click();
   await page.getByRole("link", { name: "Sign in" }).first().click();
   await expect(page).toHaveURL(/\/sign-in$/);
   await expect(page.getByRole("heading", { name: "Continue to BuildRAX" })).toBeVisible();
