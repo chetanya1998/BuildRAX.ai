@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Complete development handoff — 8 November 2026
+
+- Add the [full development context and execution guide](docs/DEVELOPMENT-HANDOFF-2026-11-08.md),
+  preserving the completed/frozen Days 1–11 and all original/amended Day 12–34
+  tasks with separate session outcomes, tests, dependencies and merge gates.
+- Reference the approved amendment on `docs/roadmap-amendment-days12-34`
+  (`f60a12a`); original roadmap text remains unchanged.
+- Reconcile current GitHub branch/PR status, local Day 16 persistence/browser
+  evidence, unfinished P01/research/template work and production-only constraints.
+- Correct stale merge labels in the production feature matrix. Documentation
+  publication does not merge feature code or authorize deployment.
+
 ### Day 13 / F03 — bounded freehand preview
 
 - Branch: `feat/f03-freehand-buffering`, stacked on inspector work; not merged.
