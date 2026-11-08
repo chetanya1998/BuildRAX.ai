@@ -1,4 +1,19 @@
-# Day 13 / F03 — freehand buffering
+# Development handoff — 8 November 2026
+
+Branch: `docs/implementation-handoff-2026-11-08`, based on GitHub main `c21625c`.
+Publish a consolidated, evidence-based continuation guide without combining
+feature branches or changing product behavior. Preserve the original roadmap;
+reference the approved amendment at `f60a12a`, retain the frozen Days 1–11,
+and reconcile original day numbering with task IDs. Document all remaining
+original/amended tasks, A/B/C session outcomes, dependencies, acceptance gates,
+local verification, branch/PR states and unresolved deployment work.
+
+The configured Supabase is production: tests remain local. Existing development
+is published separately; merges still require approval. Validate task coverage,
+links and source-card preservation, then push this documentation branch.
+See [complete handoff](docs/DEVELOPMENT-HANDOFF-2026-11-08.md).
+
+## Previous Day 13 / F03 approach (retained history)
 
 Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.
 Delivery: one F03 editor PR to main includes inspector and freehand work;
