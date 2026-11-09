@@ -1,0 +1,36 @@
+import { expect, test } from "@playwright/test";
+
+for (const theme of ["light", "dark"]) test(`Explore is read-only and searchable in ${theme}`, async ({ page }, testInfo) => {
+  await page.addInitScript((value) => localStorage.setItem("buildrax-theme", value), theme);
+  await page.setViewportSize({ width: theme === "light" ? 1440 : 1024, height: 1000 });
+  await page.goto("/templates");
+  await page.getByRole("button", { name: "Use template" }).first().click();
+  await expect(page.locator(".react-flow__node-semantic").first()).toBeVisible();
+  const count = await page.locator(".react-flow__node-semantic").count();
+  const calls: string[] = [];
+  page.on("request", (request) => { if (request.url().includes("/api/v1/ai/") || request.url().includes("/generation-jobs")) calls.push(request.url()); });
+  await page.getByRole("button", { name: "Explore architecture", exact: true }).click();
+  await expect(page.getByRole("complementary", { name: "Explore architecture" })).toBeVisible();
+  await expect(page.getByLabel("Diagram title")).toHaveAttribute("readonly", "");
+  await expect(page.getByRole("button", { name: "Auto layout", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open AI architecture change" })).toHaveCount(0);
+  await page.getByLabel("Search architecture").fill("saas-service");
+  await page.getByRole("button", { name: "component Tenant service", exact: true }).click();
+  const node = page.locator('[data-id="saas-service"]');
+  const original = await node.evaluate((element) => (element as HTMLElement).style.transform);
+  await node.focus();
+  await page.keyboard.press("Delete");
+  await page.keyboard.press("Shift+ArrowRight");
+  await page.keyboard.press("ControlOrMeta+d");
+  expect(await node.evaluate((element) => (element as HTMLElement).style.transform)).toBe(original);
+  await expect(page.locator(".react-flow__node-semantic")).toHaveCount(count);
+  await page.getByRole("button", { name: "Highlight downstream" }).click();
+  await page.getByRole("button", { name: "Reset focus" }).click();
+  await page.getByRole("button", { name: "Exit Explore" }).click();
+  await page.getByRole("button", { name: "Auto layout", exact: true }).waitFor();
+  await page.locator("body").click({ position: { x: 5, y: 60 } });
+  await page.keyboard.press("ControlOrMeta+k");
+  await expect(page.getByLabel("Search architecture")).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath(`g02-${theme}.png`), fullPage: true });
+  expect(calls).toEqual([]);
+});

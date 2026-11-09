@@ -1,10 +1,12 @@
-.screen { height: 100dvh; min-height: 640px; background: var(--bg); display: grid; grid-template-rows: 58px minmax(0, 1fr); overflow: hidden; }
+.screen { height: 100dvh; min-height: 640px; background: var(--bg); display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: 58px minmax(0, 1fr); overflow: hidden; }
 .topbar { z-index: 20; display: flex; align-items: center; gap: 12px; padding: 0 14px; border-bottom: 1px solid var(--border); background: var(--surface); }
 .crumb { min-width: 0; display: flex; align-items: center; gap: 9px; }
-.crumb input { width: min(32vw, 310px); border: 0; background: transparent; color: var(--text); font-weight: 700; outline: 0; text-overflow: ellipsis; }
+.crumb input { min-width: 0; width: min(32vw, 310px); border: 0; background: transparent; color: var(--text); font-weight: 700; outline: 0; text-overflow: ellipsis; }
 .status { display: flex; align-items: center; gap: 6px; color: var(--text-muted); font-size: 11px; white-space: nowrap; }
 .statusDot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); }
 .topActions { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+.topActions .exploreToggle { display: inline-flex!important; }
+.canvas[data-exploring="true"] :global(.react-flow__node) { cursor: pointer; }
 .topButton { height: 36px; display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 0 12px; cursor: pointer; font-size: 12px; font-weight: 650; }
 .topButton:hover { border-color: var(--border-strong); }
 .projectSwitcher { position: relative; }

@@ -1,0 +1,18 @@
+.panel { position: absolute; z-index: 16; top: 14px; bottom: 74px; right: 14px; width: min(420px, calc(100% - 28px)); overflow: auto; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg); font-size: 13px; }
+.panel header, .actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.panel p { margin: 10px 0; color: var(--text-secondary); overflow-wrap: anywhere; }
+.panel h2, .panel h3, .panel h4 { margin: 10px 0; }
+.panel label { display: grid; gap: 6px; margin: 12px 0; }
+.panel input, .panel select { width: 100%; min-width: 0; padding: 9px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 8px; }
+.panel button { text-align: left; white-space: normal; overflow-wrap: anywhere; padding: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; }
+.panel button:disabled { opacity: .5; cursor: default; }
+.panel button:focus-visible, .panel input:focus-visible, .panel select:focus-visible { outline: 2px solid var(--text-secondary); outline-offset: 2px; }
+.panel small { display: block; color: var(--text-secondary); }
+.panel ul { padding: 0; list-style: none; }
+.panel li { margin: 6px 0; }
+.results { max-height: 220px; overflow: auto; }
+.results button { width: 100%; }
+.panel section { border-top: 1px solid var(--border); margin-top: 14px; }
+.panel dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.panel dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .panel { bottom: 16px; max-height: 70%; } }
