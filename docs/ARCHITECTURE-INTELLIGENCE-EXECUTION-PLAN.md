@@ -253,9 +253,9 @@ That work does not complete this layout-focused card, which remains next.
 ### F03 — Reduce drawing and editing overhead
 
 **Depends on:** F01.  
-**Status:** In progress on `feat/f03-inspector-transactions`. Inspector text
-transactions are locally verified, pending merge. Freehand buffering and
-image-heavy profiling remain open. See [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md).
+**Status:** Inspector text transactions and freehand buffering merged through
+PR #32 (`c21625c`). Image-heavy profiling remains open.
+See [Day 13 progress](DAY-13-F03-INSPECTOR-TRANSACTIONS.md).
 
 **Implement:** Buffer freehand points in a lightweight overlay and commit on pointer-up. Use bounded point reduction, memoized selectors and asset references. Group inspector edits on blur/Enter/debounce. Retain snapshot undo until command migration is justified.
 
@@ -264,7 +264,8 @@ image-heavy profiling remain open. See [Day 13 progress](DAY-13-F03-INSPECTOR-TR
 ### G01 — Implement the deterministic graph engine
 
 **Depends on:** B03.  
-**Status:** Not started.
+**Status:** Implemented and locally verified on `feat/g01-deterministic-graph`;
+pending merge. See [Day 14 G01 progress](DAY-14-G01-GRAPH-ENGINE.md).
 
 **Implement:** Build a typed TypeScript adjacency engine over IR. Provide directed incoming/outgoing, upstream/downstream, dependencies, shortest path, bounded all-path search, cycles, orphans, connected components and impact analysis. Define dependency direction independently of visual arrow direction.
 
