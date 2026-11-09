@@ -1,4 +1,41 @@
-# Day 15 / G02 — Explore, route probe and architecture search
+# Day 16 / G03 — scenario and playback core
+
+8 November publication checkpoint: keep production untouched and verify against
+a disposable local database. Fix semantic-save column ambiguity and read shared
+diagrams from the existing canonical artifact link via one forward migration.
+Preserve signatures, RLS, token checks and immutable history. Shared fixes and
+test-fixture corrections are a separate commit so P01 can reuse them without
+importing G03. Add real snapshot persistence and interruption/stale-flow browser
+acceptance. See [local verification](docs/DAY-16-LOCAL-DATABASE-VERIFICATION.md).
+Day 16 still has P01/shared-view/dependency acceptance gates; this is publication,
+not merge or deployment. Historical approach below describes the earlier UI scope.
+
+19 October continuation: connect the existing state machine to the editor with
+an explicit save-suggestions transaction, picker and playback controls. Reuse
+the current dimming adapter; keep timers, focus and viewport transient. Disable
+editing while playing or paused, restore the prior view on exit/unmount, pause
+on backgrounding, cancel on stale refs and respect reduced motion. No provider
+calls. P01 UI is separately committed as `7592788`, not included in this branch.
+
+Milestone: Scenarios, Review and Approved Changes. Issue #37.
+Branch: `feat/g03-scenario-playback-core`, stacked on G02 `e845b35` (and G01).
+Extend versioned Architecture IR with optional bounded scenario definitions,
+mirror them through the existing diagram adapter, and reuse G01 for valid walks.
+Do not add defaults to old artifacts or change their checksum. Ordered steps
+retain exact flow bindings and requirement/evidence IDs; changed/deleted flows
+invalidate playback without making a stale saved architecture unreadable.
+
+Seed explicit proposals from registered patterns, never automatically mutate
+templates or call a model. Implement a deterministic, cancellable playback state
+machine; the UI now supplies scheduling, controls, focus restoration and rendering
+without a second playback engine. No parallel persistence/history, new endpoint,
+migration or deployment.
+Test backward compatibility, round trips, stale and unknown refs, order, bounds,
+cycles, direction, play/pause/step/restart/exit and reduced-motion output. This
+implementation still needs hosted/dependency integration gates before Day 16 is
+release-complete. P01 is issue #38, separate.
+
+## Previous G02 approach (retained history)
 
 Branch: `feat/g02-explore-route-search`, stacked on tested G01 `bca434f`.
 Extend the existing editor with a transient read-only Explore panel. Reuse G01

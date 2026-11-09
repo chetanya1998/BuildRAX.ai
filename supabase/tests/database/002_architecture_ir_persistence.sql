@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path to extensions, public, auth;
 
-select plan(45);
+select plan(55);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.artifact_blobs'::regclass), 'artifact blobs have RLS');
 select ok((select relrowsecurity from pg_class where oid = 'public.architecture_ir_versions'::regclass), 'IR versions have RLS');
@@ -251,6 +251,53 @@ select throws_ok(
   $$select public.finalize_legacy_architecture_payloads('NOT_CONFIRMED', (select verification_token from public.verify_architecture_persistence()))$$,
   '22023', 'Backup confirmation and verification token are required', 'legacy payload cleanup requires explicit backup confirmation'
 );
+
+-- A semantic edit must invalidate prior reviews/documents and remain shareable.
+update architecture_fixture set
+  ir = jsonb_set(ir, '{intent,title}', '"Revised architecture"'),
+  diagram_v2 = jsonb_set(jsonb_set(diagram_v2, '{title}', '"Revised architecture"'), '{version}', '3');
+update architecture_fixture set
+  ir_hash = public.canonical_jsonb_sha256(ir),
+  diagram_v2_hash = public.canonical_jsonb_sha256(diagram_v2),
+  save_v2_request_hash = public.canonical_jsonb_sha256(jsonb_build_object('baseVersion', 2, 'baseIrVersion', 1, 'ir', ir, 'presentation', presentation_v2));
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '33333333-3333-4333-8333-333333333333', true);
+select lives_ok($test$
+  select * from public.save_architecture_snapshot(
+    '66666666-6666-4666-8666-666666666666', 2, 1,
+    '10101010-1010-4010-8010-101010101010', (select save_v2_request_hash from architecture_fixture),
+    (select ir from architecture_fixture), (select ir_hash from architecture_fixture),
+    (select presentation_v2 from architecture_fixture), (select presentation_v2_hash from architecture_fixture),
+    (select diagram_v2 from architecture_fixture), (select diagram_v2_hash from architecture_fixture),
+    'manual-edit', '1.1.0', '1.0.0', null
+  )
+$test$, 'semantic save succeeds with unambiguous column references');
+select is((select current_ir_version from public.diagrams where id = '66666666-6666-4666-8666-666666666666'), 2, 'semantic save advances IR version');
+select ok((select bool_and(stale_at is not null) from public.review_runs where diagram_id = '66666666-6666-4666-8666-666666666666'), 'previous reviews become stale');
+select ok((select stale_at is not null from public.documents where diagram_id = '66666666-6666-4666-8666-666666666666'), 'previous document becomes stale');
+insert into public.share_links(project_id, token_hash, created_by)
+  select project_id, 'snapshot-share-fixture', '33333333-3333-4333-8333-333333333333'
+  from public.diagrams where id = '66666666-6666-4666-8666-666666666666';
+select ok((select payload is null from public.diagram_versions where diagram_id = '66666666-6666-4666-8666-666666666666' and version = 3), 'canonical artifact has no compatibility payload');
+reset role;
+grant select on architecture_fixture to anon;
+set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
+select is((select diagram_payload from public.read_shared_diagram('snapshot-share-fixture')), (select diagram_v2 from architecture_fixture), 'anonymous share reads current canonical artifact');
+select is((select count(*) from public.read_shared_diagram('invalid-token')), 0::bigint, 'invalid token reveals nothing');
+reset role;
+update public.share_links set expires_at = now() - interval '1 minute' where token_hash = 'snapshot-share-fixture';
+set local role anon;
+select is((select count(*) from public.read_shared_diagram('snapshot-share-fixture')), 0::bigint, 'expired token reveals nothing');
+reset role;
+update public.share_links set expires_at = null, revoked_at = now() where token_hash = 'snapshot-share-fixture';
+set local role anon;
+select is((select count(*) from public.read_shared_diagram('snapshot-share-fixture')), 0::bigint, 'revoked token reveals nothing');
+reset role;
+update public.share_links set revoked_at = null where token_hash = 'snapshot-share-fixture';
+update public.projects set deleted_at = now() where id = (select project_id from public.diagrams where id = '66666666-6666-4666-8666-666666666666');
+set local role anon;
+select is((select count(*) from public.read_shared_diagram('snapshot-share-fixture')), 0::bigint, 'deleted project reveals nothing');
 
 select * from finish();
 rollback;

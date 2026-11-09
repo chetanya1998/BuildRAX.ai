@@ -113,7 +113,7 @@ test("a second tab cannot overwrite a newer locally confirmed canvas", async ({ 
 });
 
 test("unavailable IndexedDB is an actionable error, not a never-ending loading screen", async ({ page }) => {
-  await page.addInitScript(() => { indexedDB.open = () => { throw new DOMException("Test blocked storage", "SecurityError"); }; });
+  await page.addInitScript(() => { IDBFactory.prototype.open = () => { throw new DOMException("Test blocked storage", "SecurityError"); }; });
   await page.goto("/draft/blocked-storage-fixture");
   await expect(page.getByRole("alert").filter({ hasText: "Browser storage could not be read" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Retry opening draft" })).toBeVisible();

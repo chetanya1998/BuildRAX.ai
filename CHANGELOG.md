@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+### Day 16 — local persistence and interruption verification (8 November 2026)
+
+- Fix semantic snapshot saves failing on ambiguous SQL columns and shared links
+  reading a cleared legacy payload; retain existing authorization and artifacts.
+- Add real local scenario/version/share tests and browser interruption/stale-flow
+  checks. Correct unstable migration mocks and mobile recovery/sign-in fixtures.
+- 173 SQL assertions, nine scenario persistence assertions, 240 unit tests and
+  18 focused desktop/mobile browser checks passed; production remained untouched.
+- [Verification and remaining gates](docs/DAY-16-LOCAL-DATABASE-VERIFICATION.md).
+
+### Day 16 / G03 — versioned scenario and playback core
+
+- Issue #37, branch `feat/g03-scenario-playback-core`, based on G02 `e845b35`.
+- Optional versioned semantic scenarios survive existing compilation, snapshots
+  and recovery. Exact flow bindings invalidate stale playback without discarding
+  saved definitions. Pattern-based proposals and playback require no AI calls.
+- Added explicit save/picker UI, deterministic playback controls, finite pulse,
+  reduced motion, read-only guards, interruption cleanup and viewport restoration.
+- Verified locally: 240 tests, 41 Chromium passes (one skip), focused desktop/mobile
+  light/dark playback checks, lint, typecheck and release scan. No push or merge.
+- P01 remains separate on `feat/p01-presentation-objects` at `7592788`.
+  Hosted/dependency integration and acceptance gaps remain; Day 16 is not released.
+  [Progress and limits](docs/DAY-16-G03-SCENARIO-CORE.md).
+
 ### Day 15 / G02 — read-only Explore
 
 - Branch: `feat/g02-explore-route-search`, stacked on G01; not merged or deployed.

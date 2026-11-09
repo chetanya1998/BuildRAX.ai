@@ -66,6 +66,8 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { FreehandPreview, type FreehandPreviewHandle } from "./freehand-preview";
+import { ScenarioPanel, type ScenarioFrame } from "./scenario-panel";
+import { seedPatternScenarios } from "@/lib/architecture-ir/scenarios";
 import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -338,7 +340,10 @@ type EditorProps = { initialDiagram: Diagram; initialIR?: ArchitectureIR; initia
 function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceability, initialIrVersion = 0, initialDocument = "", initialDocumentVersion = 0, initialDocumentSource = "legacy", readOnly: accessReadOnly = false, persisted = false, projectId, projectOptions = [], initialRecovery, recoveredUnsynced = false }: EditorProps) {
   const [exploring, setExploring] = useState(accessReadOnly);
   const [exploreFocus, setExploreFocus] = useState<ExploreFocus>(emptyExploreFocus);
-  const readOnly = accessReadOnly || exploring;
+  const [showScenarios, setShowScenarios] = useState(false);
+  const [scenarioFrame, setScenarioFrame] = useState<ScenarioFrame | null>(null);
+  const scenarioPreview = useRef(false);
+  const readOnly = accessReadOnly || exploring || Boolean(scenarioFrame?.step);
   const readOnlyRef = useRef(readOnly);
   readOnlyRef.current = readOnly;
   const [diagram, setDiagram] = useState(() => diagramSchema.parse(initialDiagram));
@@ -522,11 +527,13 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const slashQuery = slashMatch?.[1]?.toLowerCase() ?? "";
   const semanticMermaid = useMemo(() => architectureIRToMermaid(architectureIRFromDiagram(diagram, irBase.current)), [diagram]);
   const exploreIR = useMemo(() => exploring ? architectureIRFromDiagram(diagram, irBase.current) : null, [diagram, exploring]);
-  const focused = exploring && Boolean(exploreFocus.componentIds.length || exploreFocus.flowIds.length);
-  const visibleNodes = useMemo(() => focused ? renderNodes.map((node) => ({ ...node, style: { ...node.style, opacity: !exploreFocus.componentIds.includes(node.id) ? .25 : 1 } })) : renderNodes, [renderNodes, focused, exploreFocus.componentIds]);
+  const scenarioIR = useMemo(() => showScenarios ? architectureIRFromDiagram(diagram, irBase.current) : null, [diagram, showScenarios]);
+  const activeFocus = scenarioFrame?.step ? scenarioFrame.focus : exploreFocus;
+  const focused = (exploring || Boolean(scenarioFrame?.step)) && Boolean(activeFocus.componentIds.length || activeFocus.flowIds.length);
+  const visibleNodes = useMemo(() => focused ? renderNodes.map((node) => ({ ...node, style: { ...node.style, opacity: !activeFocus.componentIds.includes(node.id) ? .25 : 1 } })) : renderNodes, [renderNodes, focused, activeFocus.componentIds]);
 
   function toggleExplore() {
-    if (hasTransientInteraction(interaction) || loadingPanel || dragSnapshot) return;
+    if (showScenarios || hasTransientInteraction(interaction) || loadingPanel || dragSnapshot) return;
     dispatchInteraction({ type: "activate-tool", tool: "select" });
     setPanel(null); setInspectorOpen(false); setAiExpanded(false); setExploreFocus(emptyExploreFocus());
     setExploring((current) => accessReadOnly || !current);
@@ -642,7 +649,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     return source && target ? { source: source.id, target: target.id, valid: validateConnection(source, target).valid } : undefined;
   }, [connectionHoverTargetId, diagram.nodes, pendingConnectionSourceId]);
   const edges = useMemo(() => flowEdges(diagram, selectedId, connectionPreview), [connectionPreview, diagram, selectedId]);
-  const visibleEdges = useMemo(() => focused ? edges.map((edge) => ({ ...edge, style: { ...edge.style, opacity: !exploreFocus.flowIds.includes(edge.id) ? .2 : 1, strokeWidth: exploreFocus.flowIds.includes(edge.id) ? 4 : edge.style?.strokeWidth } })) : edges, [edges, focused, exploreFocus.flowIds]);
+  const visibleEdges = useMemo(() => focused ? edges.map((edge) => ({ ...edge, animated: false, style: { ...edge.style, opacity: !activeFocus.flowIds.includes(edge.id) ? .2 : 1, strokeWidth: activeFocus.flowIds.includes(edge.id) ? 4 : edge.style?.strokeWidth } })) : edges, [edges, focused, activeFocus.flowIds]);
 
   useEffect(() => {
     setRenderNodes((current) => modelNodes.map((next) => {
@@ -688,7 +695,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k" || hasTransientInteraction(interaction) || loadingPanel || dragSnapshot) return;
+      if (event.defaultPrevented || showScenarios || !(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k" || hasTransientInteraction(interaction) || loadingPanel || dragSnapshot) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
       event.preventDefault();
@@ -698,7 +705,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [interaction, loadingPanel, dragSnapshot]);
+  }, [interaction, loadingPanel, dragSnapshot, showScenarios]);
 
   useEffect(() => {
     // React Flow's built-in arrow handler changes render nodes only. Own this
@@ -1040,7 +1047,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }
 
   function saveViewport(viewport: { x: number; y: number; zoom: number }) {
-    if (readOnlyRef.current) return;
+    if (readOnlyRef.current || scenarioPreview.current) return;
     const previous = latest.current.viewport;
     if (Math.abs(previous.x - viewport.x) < 1 && Math.abs(previous.y - viewport.y) < 1 && Math.abs(previous.zoom - viewport.zoom) < .001) return;
     setDiagram((current) => ({ ...current, viewport }));
@@ -1456,7 +1463,8 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
     <header className={styles.topbar}>
       <Brand /><span>/</span><div className={styles.crumb}><input aria-label="Diagram title" value={diagram.title} readOnly={readOnly} onChange={(event) => setDiagram((current) => ({ ...current, title: event.target.value }))} onBlur={() => commit((current) => current)} /><span className={styles.status} aria-label="Browser recovery status"><span className={styles.statusDot} />{readOnly ? "Read only" : localRecovery.error ? "Browser recovery failed" : localRecovery.status === "saved" ? "Saved locally" : "Saving locally…"}{persisted && ` · Cloud ${cloudSave.state.replace("auth-required", "sign-in required")}`}</span></div>
       <div className={styles.topActions}>
-        <button className={`${styles.topButton} ${styles.exploreToggle}`} aria-label={exploring ? "Exit Explore" : "Explore architecture"} aria-pressed={exploring} disabled={accessReadOnly || hasTransientInteraction(interaction) || loadingPanel || Boolean(dragSnapshot)} onClick={toggleExplore}>{exploring ? "Exit Explore" : "Explore"}</button>
+        <button className={`${styles.topButton} ${styles.exploreToggle}`} aria-label={exploring ? "Exit Explore" : "Explore architecture"} aria-pressed={exploring} disabled={accessReadOnly || showScenarios || hasTransientInteraction(interaction) || loadingPanel || Boolean(dragSnapshot)} onClick={toggleExplore}>{exploring ? "Exit Explore" : "Explore"}</button>
+        <button className={`${styles.topButton} ${styles.exploreToggle}`} aria-label="Open scenarios" disabled={showScenarios || hasTransientInteraction(interaction) || loadingPanel || Boolean(dragSnapshot)} onClick={() => { setShowScenarios(true); setPanel(null); setInspectorOpen(false); setAiExpanded(false); dispatchInteraction({ type: "activate-tool", tool: "select" }); }}>Scenarios</button>
         {!readOnly && <>{persisted && projectOptions.length > 0 ? <details className={styles.projectSwitcher}><summary className={styles.topButton}><FolderKanban size={14} /><span>Switch project</span></summary><nav aria-label="Switch project">{projectOptions.map((project) => project.id === projectId ? <span key={project.id} aria-current="page">{project.name}<small>Current</small></span> : <a key={project.id} href={`/projects/${project.id}/canvas`}>{project.name}</a>)}<a href="/dashboard">View all projects</a></nav></details> : <ButtonLink href="/dashboard" variant="secondary"><FolderKanban size={14} /><span>Projects</span></ButtonLink>}
           <button className={styles.topButton} aria-label="Auto layout" onClick={runLayout}><LayoutDashboard size={14} /><span>Auto layout</span></button><button className={styles.topButton} aria-label="Review" onClick={runReview}><ShieldCheck size={14} /><span>Review</span></button><button className={styles.topButton} aria-label="Docs" onClick={() => setPanel("docs")}><FileText size={14} /><span>Docs</span></button><button className={styles.topButton} aria-label="Export" onClick={() => setPanel("export")}><Download size={14} /><span>Export</span></button>
           {persisted && <button className={styles.topButton} aria-label="History" onClick={() => void openHistory()}><History size={14} /><span>History</span></button>}{persisted && projectId && <button className={styles.topButton} onClick={() => void toggleShareLink()}><Share2 size={14} /><span>{shareLink ? "Revoke share" : "Share"}</span></button>}
@@ -1479,10 +1487,14 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
           onEdgeDoubleClick={(_, edge) => { if (readOnly) return; selectOnly(edge.id); setInspectorOpen(true); }}
           onNodeDragStart={() => { if (!readOnly) setDragSnapshot(structuredClone(diagram)); }} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPointerMove={updateDrawing} onPointerDown={startDrawing} onPointerUp={finishDrawing} onLostPointerCapture={() => { if (strokePointer.current !== null) cancelPointerInteraction(); }} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "connect" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
           <FreehandPreview ref={freehandPreview} active={tool === "freehand" && !readOnly} />
+          {scenarioIR && <ScenarioPanel ir={scenarioIR} diagram={diagram} traceability={traceabilityBase.current} readOnly={readOnly} onFrame={setScenarioFrame} previewRef={scenarioPreview} onClose={() => setShowScenarios(false)} onSave={() => commit((current) => {
+            const proposals = seedPatternScenarios(architectureIRFromDiagram(current, irBase.current), traceabilityBase.current).slice(0, 20 - (current.scenarios?.length ?? 0));
+            return proposals.length ? { ...current, scenarios: [...(current.scenarios ?? []), ...proposals] } : current;
+          })} />}
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>
       </div>
-      {exploreIR && <ExplorePanel key={JSON.stringify(exploreIR)} ir={exploreIR} traceability={traceabilityBase.current} selectedId={selectedId} onFocus={focusExplore} />}
+      {exploreIR && !showScenarios && <ExplorePanel key={JSON.stringify(exploreIR)} ir={exploreIR} traceability={traceabilityBase.current} selectedId={selectedId} onFocus={focusExplore} />}
       <div className={styles.mobileNotice}>Mobile light-edit mode: pan, zoom, select and edit labels. Use desktop for drawing and connection creation.</div>
       {!readOnly && <><input ref={imageInputRef} className={styles.visuallyHidden} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" onChange={(event) => { addImage(event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /><div className={styles.toolbar} aria-label="Canvas tools">{toolbar.map((item, index) => { const isDrawingFreehand = item.tool === "freehand" && drawDraft?.kind === "freehand"; const label = isDrawingFreehand ? "Drawing freehand — release to finish" : item.label; return <span key={item.tool} style={{ display: "contents" }}>{index === 3 || index === 7 || index === 9 ? <span className={styles.toolDivider} /> : null}<button className={`${styles.tool} ${tool === item.tool ? styles.toolActive : ""} ${isDrawingFreehand ? styles.toolDrawing : ""}`} title={label} data-tooltip={label} aria-label={label} aria-pressed={tool === item.tool} onClick={() => activateTool(item.tool)}>{item.icon}</button></span>; })}<span className={styles.toolDivider} /><button className={styles.tool} title="Add image" data-tooltip="Add image" aria-label="Add image" onClick={() => imageInputRef.current?.click()}><ImagePlus size={17} /></button><button className={`${styles.tool} ${panel === "components" ? styles.toolActive : ""}`} title="Components (N)" data-tooltip="Components (N)" aria-label="Open semantic components" aria-pressed={panel === "components"} onClick={() => setPanel(panel === "components" ? null : "components")}><Boxes size={18} /></button></div><div className={styles.toolHint} role="status" aria-live="polite" data-interaction={interactionName(interaction)}>{toolHint}</div></>}
       {!readOnly && tool === "arrow" && <div className={styles.arrowPicker} role="group" aria-label="Arrow style"><button className={arrowStyle === "end" ? styles.pickerActive : ""} aria-label="End arrow" onClick={() => setArrowStyle("end")}>→</button><button className={arrowStyle === "start" ? styles.pickerActive : ""} aria-label="Start arrow" onClick={() => setArrowStyle("start")}>←</button><button className={arrowStyle === "both" ? styles.pickerActive : ""} aria-label="Both-end arrow" onClick={() => setArrowStyle("both")}>↔</button><button className={arrowStyle === "none" ? styles.pickerActive : ""} aria-label="Headless arrow" onClick={() => setArrowStyle("none")}>—</button><span className={styles.bottomDivider} />{(["solid", "dashed", "dotted"] as const).map((texture) => <button key={texture} className={arrowTexture === texture ? styles.pickerActive : ""} aria-label={`${texture} arrow`} onClick={() => setArrowTexture(texture)}>{texture === "solid" ? "━" : texture === "dashed" ? "┄" : "┈"}</button>)}</div>}
