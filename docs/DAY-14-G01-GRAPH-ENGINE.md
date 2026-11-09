@@ -2,6 +2,17 @@
 
 ## Status — 8 October 2026
 
+9 November review checkpoint: published branch, still unmerged. Fresh lint,
+typecheck, all 211 tests and the production Webpack build passed. Reviewed the
+graph implementation, topology/schema bounds, G02 route/search callers and G03
+scenario callers: no blocking finding identified for the supported bounded IR.
+The review covers deterministic behavior, direction/dependency separation,
+immutability, cancellation and truncation; it does not claim production load
+measurements. A01's historical accounting regression is fixed at `95f8345` and
+its GitHub quality run passed; RS01 remains a separate feature/activation path.
+Prepare this PR to main first, then retarget/retest G02 and G03 after approval.
+Historical status below is retained for chronology.
+
 - Branch: `feat/g01-deterministic-graph`, based on `main` at `c21625c`.
 - Implemented and verified locally; not pushed, merged or deployed.
 - Separate G01 review unit. RS01 Research Intelligence remains pending A01
