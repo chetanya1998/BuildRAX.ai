@@ -1,4 +1,48 @@
-# Day 13 / F03 — freehand buffering
+# Day 16 / P01 — compatible presentation object contracts
+
+9 November acceptance continuation: reuse shared persistence fix `2e0cec7`
+(P01 cherry-pick `4f6170e`). Verify flat group move/undo/redo/reload, deletion and
+explicit repair of orphan targets on desktop/mobile. Exercise all five object
+kinds through actual local SQL saves/readback/sharing and check unchanged semantic
+version/checksum. Verify the share-page read-only contract and rendering without
+adding a test-only public route. Keep G03 independent, production untouched, and
+record fresh checks before preparing the separate PR. Broader T01/F02/F03 and
+research work stays separately tracked; no merge is authorized.
+
+Local continuation results: 213 unit passes, 67 desktop/mobile browser passes
+(23 expected skips), 173 SQL checks and 11 real P01 persistence assertions.
+Fixed mobile save-loop/panel overlap and the reproduced pre-hydration input loss.
+Lint, typecheck, release scan and production Webpack build pass. See
+[current acceptance](docs/DAY-16-P01-ACCEPTANCE.md) for limits and next sessions.
+
+Continuation: integrate a presentation panel and viewport renderer using the
+existing editor commit/undo and recovery paths. Provide explicit form-based
+creation/editing, repair, deletion, visual duplication and flat group movement.
+Saved focus must restore the prior viewport on exit without persisting the
+temporary view. Read-only surfaces render objects but cannot author them.
+Verify browser undo/redo/reload, all object kinds and zero AI requests. Keep
+G03 UI remains on its separate feature branch; do not change audit artifacts.
+
+Milestone: Scenarios, Review and Approved Changes. Issue #38.
+Branch: `feat/p01-presentation-objects`, independently based on main `c21625c`.
+Extend the existing Presentation IR and materialized diagram with optional typed
+notes, annotations, highlights, flat visual groups and saved focus definitions.
+Do not add fields to old records, semantic IR, or checksums of old artifacts.
+Keep active focus/selection/playback transient and reject those persisted fields.
+
+Preserve unresolved target references as explicit warnings so graph deletions
+cannot erase notes or block unrelated edits. New object commands must resolve
+their targets, honor read-only mode and revision conflicts, and return a validated
+Diagram for the existing commit/undo path. No second history/persistence engine.
+Require complete fresh ID maps for cloning; never copy old reference IDs silently.
+Test schema bounds, snapshot/recovery round trips, unchanged semantic checksums,
+legacy compatibility, command immutability and remapping. Renderer and form-based
+authoring now use the common commit path. Browser checks cover undo/reload and
+all object kinds; hosted share acceptance remains follow-up work. The subsequent
+shared save/share SQL fix is documented above; no new object tables, public
+endpoint, deployment or merge. G03 issue #37 stays separate.
+
+## Previous F03 approach (retained history)
 
 Branch: `feat/f03-freehand-buffering`, stacked on inspector commit `ec628d1`.
 Delivery: one F03 editor PR to main includes inspector and freehand work;

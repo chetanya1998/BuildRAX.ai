@@ -66,6 +66,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useId, useMemo, useReducer, useRef, useState } from "react";
 import { FreehandPreview, type FreehandPreviewHandle } from "./freehand-preview";
+import { PresentationTools } from "./presentation-tools";
 import { Brand } from "@/components/ui/brand";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -376,6 +377,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   const [componentPalettePosition, setComponentPalettePosition] = useState({ x: 86, y: 78 });
   const [draggingComponentPalette, setDraggingComponentPalette] = useState(false);
   const latest = useRef(diagram);
+  const presentationPreview = useRef(false);
   const canvasBoundsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1013,6 +1015,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
   }
 
   function saveViewport(viewport: { x: number; y: number; zoom: number }) {
+    if (presentationPreview.current || readOnly) return;
     const previous = latest.current.viewport;
     if (Math.abs(previous.x - viewport.x) < 1 && Math.abs(previous.y - viewport.y) < 1 && Math.abs(previous.zoom - viewport.zoom) < .001) return;
     setDiagram((current) => ({ ...current, viewport }));
@@ -1439,6 +1442,7 @@ function ArchitectureEditorInner({ initialDiagram, initialIR, initialTraceabilit
       <div ref={canvasBoundsRef} className={`${styles.canvas} ${inspectorOpen && (selectedNode || selectedConnector) && panel === null ? styles.canvasWithInspector : ""}`} data-side-panel={panel === "export" || panel === "review" || panel === "history"} data-tool={tool} data-interaction={interactionName(interaction)} onDragOver={onCanvasDragOver} onDrop={onCanvasDrop} onDoubleClick={onCanvasDoubleClick} onPointerCancel={cancelPointerInteraction}>
         <ReactFlow<EditorNode, Edge> className={styles.reactFlow} nodes={renderNodes} edges={edges} nodeTypes={nodeTypes} onInit={setInstance} onNodesChange={onNodesChange} onConnect={onConnect} onConnectStart={onConnectStart} onConnectEnd={onConnectEnd} onNodeClick={onCanvasNodeClick} onNodeMouseEnter={onCanvasNodeMouseEnter} onNodeMouseLeave={onCanvasNodeMouseLeave} onNodeDoubleClick={(_, node) => { if (tool !== "select") return; selectOnly(node.id); if (node.type === "semantic") { dispatchInteraction({ type: "begin-node-rename", id: node.id }); setInspectorOpen(false); } else if ((node.data as PrimitiveFlowNode["data"]).primitive.kind === "text") { activatePrimitiveTextEdit(node.id); } else { setInspectorOpen(true); } }} onEdgeClick={(_, edge) => { if (tool === "eraser") removeById(edge.id, true); else { selectOnly(edge.id); setInspectorOpen(false); } }} onEdgeDoubleClick={(_, edge) => { selectOnly(edge.id); setInspectorOpen(true); }} onNodeDragStart={() => setDragSnapshot(structuredClone(diagram))} onNodeDragStop={finishNodeDrag} onPaneClick={onPaneClick} onPointerMove={updateDrawing} onPointerDown={startDrawing} onPointerUp={finishDrawing} onLostPointerCapture={() => { if (strokePointer.current !== null) cancelPointerInteraction(); }} onMove={(_, viewport) => setZoom((current) => current === Math.round(viewport.zoom * 100) ? current : Math.round(viewport.zoom * 100))} onMoveEnd={(_, viewport) => saveViewport(viewport)} panOnDrag={tool === "pan" || readOnly} panActivationKeyCode="Space" nodesDraggable={!readOnly && tool === "select" && editingTextId === null} nodesConnectable={!readOnly && (tool === "select" || tool === "connect" || tool === "line" || tool === "arrow")} elementsSelectable={tool === "select" || readOnly} selectionOnDrag={!readOnly && tool === "select"} selectionMode={SelectionMode.Partial} multiSelectionKeyCode="Shift" deleteKeyCode={null} snapToGrid={false} fitView={!initialRecovery?.revision && (diagram.nodes.length > 0 || diagram.primitives.length > 0)} fitViewOptions={{ padding: .18, maxZoom: 1 }} defaultViewport={diagram.viewport} minZoom={.15} maxZoom={2.5}>
           <FreehandPreview ref={freehandPreview} active={tool === "freehand" && !readOnly} />
+          <PresentationTools diagram={diagram} readOnly={readOnly} selectedIds={selectedNodeIds.length ? selectedNodeIds : selectedId ? [selectedId] : []} commit={commit} previewRef={presentationPreview} />
           <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="var(--border-strong)" />{showMiniMap && <MiniMap pannable zoomable bgColor="var(--surface)" maskColor="color-mix(in srgb, var(--bg) 74%, transparent)" nodeColor={(node) => node.type === "semantic" ? categoryMeta[(node.data as SemanticFlowNode["data"]).component.category].color : "var(--text-secondary)"} />}
         </ReactFlow>
       </div>

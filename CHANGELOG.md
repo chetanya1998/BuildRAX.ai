@@ -2,6 +2,36 @@
 
 ## Unreleased
 
+### Day 16 / P01 — acceptance continuation (9 November 2026)
+
+- Reuse the shared snapshot save/share SQL fix independently of G03.
+- Fix mobile canvas save-loop and presentation-panel/minimap overlap; guard
+  start-form inputs until hydration so early text is not lost.
+- Add light/dark group-move and orphan-repair browser checks, all-five-object
+  local database persistence and read-only share/render contracts.
+- Verified 213 unit tests, 67 desktop/mobile browser passes (23 expected skips),
+  173 SQL checks and 11 actual P01 snapshot SQL assertions; lint, typecheck and
+  release scan and production Webpack build pass. Hosted/full-stack acceptance
+  and main merge remain pending.
+- [Current acceptance and remaining work](docs/DAY-16-P01-ACCEPTANCE.md).
+
+### Day 16 / P01 — compatible presentation object contracts (historical checkpoint)
+
+- Issue #38; `feat/p01-presentation-objects`, independent of G03 and based on
+  main `c21625c`. Typed notes, annotations, highlights, flat groups and saved
+  focus definitions extend the existing presentation/diagram snapshot.
+- Preserve old records and semantic checksums; retain unresolved targets for
+  repair. Add immutable, revision-checked transforms for the existing commit
+  path and strict clone-ID remapping, without a separate history engine.
+- Added viewport rendering and form-based authoring through common undo/save,
+  explicit target repair, visual duplication, flat group movement and transient
+  focus restoration. Fixed mobile notice overlap and group manual-position flags.
+- Verification: 209 unit tests, 39 Chromium checks and four focused desktop/mobile
+  P01 checks passed; lint, typecheck, release scan and Webpack build passed.
+  Broader mobile failures and hosted sharing remain unverified; build cache hit
+  disk-space warnings. Not pushed, merged or released.
+  [Progress and limits](docs/DAY-16-P01-PRESENTATION-CONTRACTS.md).
+
 ### Day 13 / F03 — bounded freehand preview
 
 - Branch: `feat/f03-freehand-buffering`, stacked on inspector work; not merged.

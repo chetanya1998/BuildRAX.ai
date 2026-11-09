@@ -318,11 +318,11 @@ export function StartExperience({ initialTemplate, authenticated = false }: { in
       <section className={styles.intro}><span className={styles.kicker}>Start with the system you can explain</span><h1>Turn your product idea into a clear architecture.</h1><p>Tell BuildRAX what you are building. Add the stack, scale and constraints that matter, then refine every choice on the canvas.</p></section>
       <div className={styles.composer}>
         <label className="sr-only" htmlFor="architecture-prompt">Architecture prompt</label>
-        <textarea id="architecture-prompt" maxLength={3000} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="A multi-tenant AI support platform using Next.js, FastAPI, PostgreSQL, Redis and OpenAI…" />
+        <textarea id="architecture-prompt" disabled={!hydrated} maxLength={3000} value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="A multi-tenant AI support platform using Next.js, FastAPI, PostgreSQL, Redis and OpenAI…" />
         <div className={styles.composerFooter}><span className={styles.count}>{prompt.length.toLocaleString()} / 3,000</span><div><Button variant="tertiary" onClick={blankCanvas} disabled={!hydrated || state === "generating"}><PencilRuler size={15} /> Blank canvas</Button> <Button onClick={generate} disabled={!hydrated || state === "generating"}>Generate architecture <ArrowRight size={15} /></Button></div></div>
       </div>
       <span className={`${styles.handNote} ${styles.promptNote}`}>add context for a sharper first draft <ArrowBendRightDown size={29} weight="light" /></span>
-      <fieldset className={styles.contextPanel}>
+      <fieldset className={styles.contextPanel} disabled={!hydrated}>
         <legend>Optional architecture context</legend>
         <p>Leave a field unspecified when it is unknown. BuildRAX will not silently turn an unknown into a requirement.</p>
         <div className={styles.contextGrid}>
