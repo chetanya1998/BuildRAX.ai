@@ -13,7 +13,7 @@ import {
 } from "@/lib/architecture-ir/snapshot";
 import { ARCHITECTURE_COMPILER_VERSION, SEMANTIC_CATALOG_VERSION, architectureIRSchema } from "@/lib/architecture-ir/schema";
 import { diagramSchema } from "@/lib/domain/schema";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { verifyPrivatePresentationAssets } from "@/lib/server/private-assets";
@@ -39,7 +39,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const id = z.string().uuid().parse((await params).id);
     const raw = await readJson(request);
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const { data: current, error: currentError } = await supabase
       .from("diagrams")
       .select("id, current_version, current_ir_version, created_at, projects!inner(workspace_id)")

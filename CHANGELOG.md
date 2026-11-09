@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### P0 — production configuration gate
+
+- Branch: `fix/p0-production-config`. Live production had no Supabase or
+  signing secrets, so guest generation, review, sign-in and save all returned 503.
+- `npm run config:check` fails Netlify production builds that are missing required
+  variables; `src/instrumentation.ts` logs them at startup; `GET /api/health`
+  reports capability readiness without naming variables.
+- Configuration 503s now show friendly copy (`code: "service_unavailable"`) and
+  log the operator detail server-side; `/start` points to templates and blank canvas.
+- Guests without a Supabase session are no longer rejected as an auth outage.
+- CI also runs on pushes to `main`. Required variables:
+  [Netlify environment](docs/NETLIFY-ENVIRONMENT.md).
+
 ### Day 14 / G01 — dependency review (9 November 2026)
 
 - Rechecked graph algorithms, schema limits and G02/G03 consumers; no blocking

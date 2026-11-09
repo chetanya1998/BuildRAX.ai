@@ -4,7 +4,7 @@ import { architectureIRFromDiagram, architecturePresentationSchema, validateArch
 import { architectureIRSchema } from "@/lib/architecture-ir/schema";
 import { runArchitectureReview } from "@/lib/ai/gateway";
 import { diagramSchema } from "@/lib/domain/schema";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { assertSharedRateLimit } from "@/lib/server/rate-limit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     let reviewRunId: string | null = null;
     if (body.persist) {
       const supabase = await createSupabaseServerClient();
-      if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+      if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
       const { data, error } = await supabase.rpc("persist_architecture_review", {
         target_diagram: body.diagram.id,
         target_diagram_version: body.diagram.version,

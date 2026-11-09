@@ -2,13 +2,13 @@ import "server-only";
 
 import { canonicalSha256 } from "@/lib/architecture-ir/snapshot";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { HttpError } from "@/lib/server/http";
+import { HttpError, ServiceUnavailableError } from "@/lib/server/http";
 import type { RequestIdentity } from "@/lib/server/request-identity";
 import type { GenerationJobRecord, GenerationMode } from "./schema";
 
 function adminClient() {
   const admin = createSupabaseAdminClient();
-  if (!admin) throw new HttpError(503, "Durable generation storage is not configured.", { "retry-after": "30" });
+  if (!admin) throw new ServiceUnavailableError("Durable generation storage is not configured.");
   return admin;
 }
 

@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import { ServiceUnavailableError } from "./http";
 
 export const generationReceiptSchema = z.object({
   requestId: z.string().uuid(),
@@ -16,7 +17,7 @@ export type GenerationReceipt = z.infer<typeof generationReceiptSchema>;
 function secret() {
   const configured = process.env.GENERATION_RECEIPT_SECRET || (process.env.NODE_ENV !== "production" ? process.env.RATE_LIMIT_HMAC_SECRET : undefined);
   if (configured) return configured;
-  if (process.env.NODE_ENV === "production") throw new Error("GENERATION_RECEIPT_SECRET must be configured in production.");
+  if (process.env.NODE_ENV === "production") throw new ServiceUnavailableError("GENERATION_RECEIPT_SECRET is not configured.");
   return "local-development-receipt-only";
 }
 

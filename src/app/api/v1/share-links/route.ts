@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { hashShareToken } from "@/lib/server/share-token";
 
@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   try {
     const body = createRequest.parse(await readJson(request));
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new HttpError(401, "Authentication required.");
     const token = randomBytes(32).toString("base64url");
@@ -26,7 +26,7 @@ export async function DELETE(request: Request) {
   try {
     const body = z.object({ id: z.string().uuid() }).strict().parse(await readJson(request));
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new HttpError(401, "Authentication required.");
     const { error } = await supabase.from("share_links").update({ revoked_at: new Date().toISOString() }).eq("id", body.id);

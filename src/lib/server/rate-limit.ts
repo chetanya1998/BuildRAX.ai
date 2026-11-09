@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { HttpError } from "./http";
+import { HttpError, ServiceUnavailableError } from "./http";
 import { resolveRequestIdentity } from "./request-identity";
 
 type Bucket = { count: number; resetAt: number };
@@ -75,10 +75,10 @@ export async function assertSharedRateLimit(request: Request, scope: string, opt
       return { identity, remaining: admission.remaining, retryAfterSeconds: admission.retry_after_seconds };
     }
     if (process.env.NODE_ENV === "production") {
-      throw new HttpError(503, "Shared request protection is temporarily unavailable.", { "retry-after": "30" });
+      throw new ServiceUnavailableError("Shared request protection is temporarily unavailable.");
     }
   } else if (process.env.NODE_ENV === "production") {
-    throw new HttpError(503, "Shared request protection is not configured.", { "retry-after": "30" });
+    throw new ServiceUnavailableError("Shared request protection is not configured.");
   }
 
   // Local development and tests retain a bounded fallback. Production never

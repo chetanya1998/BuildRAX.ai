@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { apiError, HttpError } from "@/lib/server/http";
+import { apiError, HttpError, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PRIVATE_ASSET_BUCKET, parsePrivateAssetReference } from "@/lib/storage/asset-references";
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
     if (!asset) throw new HttpError(400, "Private asset reference is invalid.");
     const supabase = await createSupabaseServerClient();
     const admin = createSupabaseAdminClient();
-    if (!supabase || !admin) throw new HttpError(503, "Private asset storage is not configured.");
+    if (!supabase || !admin) throw new ServiceUnavailableError("Private asset storage is not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     let authorized = false;
     if (user) {

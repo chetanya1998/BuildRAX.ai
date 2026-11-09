@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const updateRequest = z.object({ read: z.boolean() }).strict();
@@ -10,7 +10,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const id = z.string().uuid().parse((await params).id);
     const input = updateRequest.parse(await readJson(request));
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new HttpError(401, "Authentication required.");
     const { data, error } = await supabase.from("user_notifications")

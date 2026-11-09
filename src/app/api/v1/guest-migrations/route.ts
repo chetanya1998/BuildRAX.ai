@@ -13,7 +13,7 @@ import {
 } from "@/lib/architecture-ir/snapshot";
 import { ARCHITECTURE_COMPILER_VERSION, SEMANTIC_CATALOG_VERSION, architectureIRSchema } from "@/lib/architecture-ir/schema";
 import { diagramSchema } from "@/lib/domain/schema";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { generationReceiptSchema, verifyGenerationReceipt } from "@/lib/server/generation-receipt";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -57,7 +57,7 @@ export async function persistArchitectureProject(request: Request, responseKey: 
     const legacyData = !modern.success && legacy?.success ? legacy.data : undefined;
 
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new HttpError(401, "Authentication required.");
 
@@ -137,7 +137,7 @@ export async function persistArchitectureProject(request: Request, responseKey: 
       const receipt = generationReceipt ?? (modern.success ? modern.data.generationOrigin?.architecture.generationReceipt : undefined);
       if (!receipt) throw new HttpError(422, "Generation receipt is unavailable.");
       const admin = createSupabaseAdminClient();
-      if (!admin) throw new HttpError(503, "Generation provenance storage is not configured.");
+      if (!admin) throw new ServiceUnavailableError("Generation provenance storage is not configured.");
       const recorded = await admin.from("ai_runs").upsert({
         user_id: user.id,
         kind: "generation",

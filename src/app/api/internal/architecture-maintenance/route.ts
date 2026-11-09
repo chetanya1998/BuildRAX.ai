@@ -2,7 +2,7 @@ import { gunzipSync, gzipSync } from "node:zlib";
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { canonicalSha256, canonicalStringify } from "@/lib/architecture-ir/snapshot";
-import { apiError, HttpError } from "@/lib/server/http";
+import { apiError, HttpError, ServiceUnavailableError } from "@/lib/server/http";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 60;
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
   try {
     authorize(request);
     const admin = createSupabaseAdminClient();
-    if (!admin) throw new HttpError(503, "Maintenance storage is not configured.");
+    if (!admin) throw new ServiceUnavailableError("Maintenance storage is not configured.");
     const scheduled = await admin.rpc("schedule_architecture_archives", { reference_time: new Date().toISOString() });
     if (scheduled.error) throw new HttpError(500, "Archive scheduling failed.");
     const leased = await admin.rpc("lease_artifact_archive_jobs", { worker_id: workerId, batch_size: 10 });

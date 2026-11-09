@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { assertArchitecturePayloadSizes, canonicalSha256, createArchitectureSnapshot } from "@/lib/architecture-ir/snapshot";
 import { ARCHITECTURE_COMPILER_VERSION, SEMANTIC_CATALOG_VERSION, architectureIRSchema } from "@/lib/architecture-ir/schema";
-import { apiError, HttpError, readJson } from "@/lib/server/http";
+import { apiError, HttpError, readJson, ServiceUnavailableError } from "@/lib/server/http";
 import { readArchitectureVersion } from "@/lib/supabase/architecture-artifacts";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -16,7 +16,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!Number.isInteger(version) || version < 1) throw new HttpError(400, "Version must be a positive integer.");
     const input = restoreRequest.parse(await readJson(request));
     const supabase = await createSupabaseServerClient();
-    if (!supabase) throw new HttpError(503, "Persistence is not configured.");
+    if (!supabase) throw new ServiceUnavailableError("Persistence is not configured.");
     const [source, currentResult] = await Promise.all([
       readArchitectureVersion(supabase, id, version),
       supabase.from("diagrams").select("current_version, current_ir_version, created_at").eq("id", id).maybeSingle(),

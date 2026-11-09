@@ -45,6 +45,9 @@ async function responseBody(response: Response) {
 }
 
 function responseError(response: Response, body: unknown) {
+  if (body && typeof body === "object" && (body as { code?: unknown }).code === "service_unavailable") {
+    return `${generationErrorMessage(body)} You can still begin from a template or a blank canvas.`;
+  }
   const retryAfter = response.headers.get("retry-after");
   const suffix = retryAfter && /^\d+$/.test(retryAfter) ? ` Try again in ${retryAfter} seconds.` : "";
   return `${generationErrorMessage(body)}${suffix}`;

@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const supabase = vi.hoisted(() => ({ createSupabaseServerClient: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: supabase.createSupabaseServerClient }));
 
+import { AuthSessionMissingError } from "@supabase/supabase-js";
+import { SERVICE_UNAVAILABLE_MESSAGE } from "./http";
 import { GUEST_IDENTITY_COOKIE, issueGuestIdentity, resolveRequestIdentity, verifyGuestIdentity } from "./request-identity";
 
 function authenticatedClient(userId: string, workspaceId: string | null = null) {
@@ -50,7 +52,7 @@ describe("signed request identity", () => {
     vi.setSystemTime(new Date("2026-09-22T00:00:00Z"));
     const expiring = issueGuestIdentity(60_000);
     vi.setSystemTime(new Date("2026-09-22T00:01:01Z"));
-    expect(() => verifyGuestIdentity(expiring.token)).toThrow("Guest session expired.");
+    expect(() => verifyGuestIdentity(expiring.token)).toThrow("Your guest session expired.");
   });
 
   it("prefers an authenticated account and preserves the B07 subject key", async () => {
@@ -75,6 +77,18 @@ describe("signed request identity", () => {
     vi.stubEnv("RATE_LIMIT_HMAC_SECRET", "");
     vi.stubEnv("NODE_ENV", "production");
     const request = new Request("http://localhost", { headers: { "x-buildrax-guest-token": "invalid.token" } });
-    await expect(resolveRequestIdentity(request)).rejects.toMatchObject({ status: 503 });
+    await expect(resolveRequestIdentity(request)).rejects.toMatchObject({ status: 503, message: SERVICE_UNAVAILABLE_MESSAGE });
+  });
+
+  it("treats a configured Supabase client without a session as a guest", async () => {
+    supabase.createSupabaseServerClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: new AuthSessionMissingError() }) } });
+    const guest = issueGuestIdentity();
+    const identity = await resolveRequestIdentity(new Request("http://localhost", { headers: { "x-buildrax-guest-token": guest.token } }));
+    expect(identity).toMatchObject({ kind: "guest", userId: null });
+  });
+
+  it("reports a real auth outage as temporarily unavailable", async () => {
+    supabase.createSupabaseServerClient.mockResolvedValue({ auth: { getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: new Error("upstream down") }) } });
+    await expect(resolveRequestIdentity(new Request("http://localhost"))).rejects.toMatchObject({ status: 503 });
   });
 });
