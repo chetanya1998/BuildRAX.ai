@@ -2,7 +2,20 @@
 
 ## Unreleased
 
-### Day 16 / P01 — compatible presentation object contracts
+### Day 16 / P01 — acceptance continuation (9 November 2026)
+
+- Reuse the shared snapshot save/share SQL fix independently of G03.
+- Fix mobile canvas save-loop and presentation-panel/minimap overlap; guard
+  start-form inputs until hydration so early text is not lost.
+- Add light/dark group-move and orphan-repair browser checks, all-five-object
+  local database persistence and read-only share/render contracts.
+- Verified 213 unit tests, 67 desktop/mobile browser passes (23 expected skips),
+  173 SQL checks and 11 actual P01 snapshot SQL assertions; lint, typecheck and
+  release scan and production Webpack build pass. Hosted/full-stack acceptance
+  and main merge remain pending.
+- [Current acceptance and remaining work](docs/DAY-16-P01-ACCEPTANCE.md).
+
+### Day 16 / P01 — compatible presentation object contracts (historical checkpoint)
 
 - Issue #38; `feat/p01-presentation-objects`, independent of G03 and based on
   main `c21625c`. Typed notes, annotations, highlights, flat groups and saved

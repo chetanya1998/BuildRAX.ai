@@ -3,8 +3,10 @@
 Milestone: Scenarios, Review and Approved Changes (Days 16–22).
 Issue: [#38](https://github.com/chetanya1998/BuildRAX.ai/issues/38).
 Branch: `feat/p01-presentation-objects`, independently based on main `c21625c`.
-Status: core and editor integration implemented locally; acceptance gates remain.
-G03 is separate on `feat/g03-scenario-playback-core` at `47e3984`, based on G02.
+Status: core/editor implementation and expanded local acceptance; unmerged.
+Current verification: [9 November acceptance](DAY-16-P01-ACCEPTANCE.md).
+G03 is separate on `feat/g03-scenario-playback-core` at `636e62d`, based on G02,
+in [PR #44](https://github.com/chetanya1998/BuildRAX.ai/pull/44).
 
 ## Existing subsystem extended
 
@@ -12,7 +14,10 @@ The existing Presentation IR has optional `objects`; the materialized Diagram
 has the corresponding optional `presentationObjects` adapter field. There is no
 new database, persistence path, history engine or semantic IR field. Existing
 versioned snapshots, API validation, payload limits, private asset handling and
-browser recovery remain authoritative. No migrations or authorization changes.
+browser recovery remain authoritative. Object contracts need no schema changes.
+The independent shared persistence fix was subsequently carried in `4f6170e`:
+forward migration `202610300015_snapshot_save_and_share.sql` repairs existing
+save/share functions without changing their authorization or signatures.
 
 Supported objects: positioned notes, anchored annotations, targeted highlights,
 flat visual groups and saved focus definitions. Definitions include schema
@@ -54,7 +59,7 @@ or unmount restores the prior viewport. Preview movement is excluded from saves.
 Read-only rendering has no authoring controls. No new persistence or AI calls.
 Mobile controls sit below the light-edit notice and avoid iOS input focus zoom.
 
-## Verification
+## Historical verification (19 October; superseded by 9 November acceptance)
 
 - Full regression suite: 209 tests across 38 files passed, including 13 P01 core
   and four editor tests.
@@ -82,12 +87,13 @@ Mobile controls sit below the light-edit notice and avoid iOS input focus zoom.
 
 ## Remaining before P01 / Day 16 readiness
 
-Investigate the broader mobile regression failures and verify hosted sharing.
+Local group/orphan browser coverage, real SQL saves and the read-only share-page
+contract are now covered by the linked 9 November acceptance report. Authenticated
+browser saving and actual hosted shared-view acceptance remain unverified; the
+configured Supabase project is production and the user requires local tests.
 Authoring is form-based, not inline canvas dragging; flow-target bounds are the
-endpoint bounding box, not a traced connector path. Group movement and orphan
-repair have unit coverage, but dedicated browser coverage is still needed.
+endpoint bounding box, not a traced connector path.
 Keep P02 sticky-note brainstorming and later G02A/G03A presentation behavior
-separate. Verify read-only/shared rendering and no private-evidence expansion.
-G03 also needs picker, save action, controls/timing, finite pulse, reduced-motion
-preference and prior-view restoration. Dependency integration, separate PRs,
-fresh CI and explicit merge approval remain; Day 16 is not complete.
+separate. G03 picker/playback controls and transient restoration are implemented
+on its separate branch, not imported into P01. Combined dependency acceptance,
+fresh CI and explicit merge approval remain; Day 16 is not release-complete.

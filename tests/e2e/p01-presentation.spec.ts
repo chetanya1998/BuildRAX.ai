@@ -9,6 +9,11 @@ test("presentation note transactions undo, redo, duplicate and recover without A
   page.on("request", (request) => { if (/\/api\/v1\/(ai|generation-jobs)/.test(request.url())) aiRequests.push(request.url()); });
   await page.getByRole("button", { name: "Presentation objects", exact: true }).click();
   await page.getByLabel("Object text").fill("Retention decision");
+  if (isMobile) {
+    const panel = await page.getByRole("region", { name: "Presentation objects" }).locator("..").boundingBox();
+    const minimap = await page.getByTestId("rf__minimap").boundingBox();
+    expect(panel!.y + panel!.height).toBeLessThanOrEqual(minimap!.y);
+  }
   await page.getByRole("button", { name: "Create object" }).click();
   await expect(page.locator('[data-presentation-kind="note"]')).toHaveText("Retention decision");
   if (isMobile) await page.keyboard.press("Control+z");

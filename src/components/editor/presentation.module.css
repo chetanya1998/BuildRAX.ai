@@ -1,4 +1,5 @@
 .panel { width: min(330px, calc(100vw - 100px)); max-height: calc(100dvh - 170px); overflow: auto; padding: 12px; border: 1px solid var(--border); border-radius: 12px; color: var(--text); background: var(--surface); box-shadow: var(--shadow-sm); font-size: 12px; }
+.panel:global(.react-flow__panel) { box-sizing: border-box; z-index: 6; }
 .panel header, .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px; }
 .panel header strong { margin-right: auto; }
 .panel button { min-height: 32px; border: 1px solid var(--border-strong); border-radius: 7px; padding: 5px 8px; background: var(--surface); color: var(--text); cursor: pointer; }
@@ -17,6 +18,6 @@
 .group { border-style: dashed; color: var(--text); }
 .group span { position: absolute; bottom: 100%; left: 0; background: var(--surface); padding: 3px 6px; white-space: nowrap; }
 .warning { color: var(--text); border-left: 3px solid #be7c16; padding-left: 8px; }
-@media (max-width: 700px) { .panel:global(.react-flow__panel.top) { top: 64px; max-height: calc(100dvh - 294px); } }
+@media (max-width: 700px) { .panel:global(.react-flow__panel.top) { top: 64px; max-height: calc(100% - 280px); } }
 /* Avoid iOS focus zoom obscuring the panel after editing. */
 @media (max-width: 700px) { .panel input, .panel select, .panel textarea { font-size: 16px; } }

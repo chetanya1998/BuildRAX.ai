@@ -5,6 +5,7 @@ import { architectureIRFromDiagram } from "@/lib/architecture-ir/snapshot";
 import type { PresentationObject } from "@/lib/architecture-ir/presentation-objects";
 import { PresentationTools } from "./presentation-tools";
 import { movePresentationGroup, objectBounds } from "./presentation-geometry";
+import { presentationFixture } from "@/test/presentation-fixture";
 
 const flow = vi.hoisted(() => ({ getViewport: () => ({ x: 10, y: 20, zoom: 1 }), setViewport: vi.fn().mockResolvedValue(true), fitBounds: vi.fn().mockResolvedValue(true) }));
 vi.mock("@xyflow/react", () => ({ useReactFlow: () => flow, Panel: ({ children }: { children: React.ReactNode }) => <div>{children}</div>, ViewportPortal: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
@@ -14,6 +15,19 @@ const focus: PresentationObject = { ...base, kind: "focus", name: "Service", tar
 function fixture() { return createDiagram("Visual", [createNode("backend-service", "a", "Service", 0, 0), createNode("backend-service", "b", "Other", 400, 0)]); }
 
 describe("P01 editor integration", () => {
+  it("renders every saved kind read-only without exposing mutation controls", () => {
+    const diagram = presentationFixture(); const commit = vi.fn();
+    render(<PresentationTools diagram={diagram} readOnly selectedIds={[]} commit={commit} previewRef={{ current: false }} />);
+    for (const kind of ["note", "annotation", "highlight", "group"]) expect(document.querySelector(`[data-presentation-kind="${kind}"]`)).not.toBeNull();
+    fireEvent.click(screen.getByText("Presentation objects"));
+    for (const object of diagram.presentationObjects!) {
+      fireEvent.change(screen.getByLabelText("Saved object"), { target: { value: object.id } });
+      expect(screen.queryByRole("textbox")).toBeNull();
+      expect(screen.queryByText(/Create object|Save object|Delete object|Duplicate visual object|Move group/)).toBeNull();
+    }
+    expect(screen.getByText("Open saved focus")).toBeEnabled();
+    expect(commit).not.toHaveBeenCalled();
+  });
   it("routes creation through the supplied common commit without changing semantic IR", () => {
     let diagram = fixture(); const ir = architectureIRFromDiagram(diagram);
     const commit = vi.fn((transform) => { diagram = transform(diagram); });

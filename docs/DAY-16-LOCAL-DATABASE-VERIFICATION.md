@@ -1,8 +1,9 @@
 # Day 16 local database verification and shared persistence fixes
 
-Checkpoint: 8 November 2026. Production testing is explicitly excluded by the user.
-Branch: `feat/g03-scenario-playback-core`; shared fix can be carried independently
-to P01. No production migrations, account creation or records were performed.
+Original checkpoint: 8 November 2026 on `feat/g03-scenario-playback-core`.
+P01 continuation: 9 November on `feat/p01-presentation-objects`, shared fix
+cherry-picked as `4f6170e`. Production testing is explicitly excluded by the user.
+No production migrations, account creation or records were performed.
 
 ## Defects reproduced and corrected
 
@@ -36,7 +37,8 @@ docker run --rm --name buildrax-day16-acceptance \
   -d public.ecr.aws/supabase/postgres:17.6.1.167
 # Wait until PostgreSQL is ready; local source supabase_db_buildrax-mvp must exist.
 node scripts/day16-db-check.mjs
-DAY16_DATABASE_TESTS=1 npm test -- src/lib/architecture-ir/scenarios.persistence.test.ts
+DAY16_DATABASE_TESTS=1 npm test -- src/lib/architecture-ir/presentation.persistence.test.ts
+# On the separate G03 branch, use scenarios.persistence.test.ts instead.
 # Only remove the disposable container created for this check:
 docker stop buildrax-day16-acceptance
 ```
@@ -47,7 +49,7 @@ Normal `npm test` skips the opt-in database test; SQL tests also run through the
 existing Supabase CI job. Use the explicit opt-in command before claiming the
 scenario/database integration passed.
 
-## Verified results
+## Historical G03 results (8 November)
 
 - All 15 repository migrations applied successfully to a fresh disposable DB.
 - 173 pgTAP assertions passed, including semantic version advancement, stale
@@ -64,9 +66,18 @@ scenario/database integration passed.
   scenario definitions after reload. These are focused results, not a claim that
   the entire mobile suite or hosted session journey has passed.
 
+## P01 results (9 November)
+
+All 15 migrations and 173 SQL assertions passed again against a fresh disposable
+local database. P01's actual snapshots passed 11 SQL assertions, including all
+five object types, owner saves, immutable old versions, exact readback, canonical
+sharing, invalid tokens, denied anonymous writes and outsider isolation. Moving
+a group changes the diagram/presentation while preserving semantic checksum and
+IR version. The additional two assertions extend the shared helper; the earlier
+G03 nine-assertion result above is historical, not a new G03 run.
+
 ## Remaining gates
 
-P01 needs the shared fixes and its own real snapshot/browser group-orphan checks.
 Browser authentication against Supabase, actual hosted shares, private-evidence
 integration, current-base CI, merge and deployment remain separate. Only local
 fixtures/SQL roles were used here. `audit-artifacts/` was not modified.

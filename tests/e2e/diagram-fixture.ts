@@ -26,3 +26,16 @@ export async function openDiagramFixture(page: Page, diagram: Diagram) {
   await page.goto(`/draft/${diagram.id}`);
   await expect(page.getByLabel("Browser recovery status")).toHaveText("Saved locally");
 }
+
+export async function readDiagramFixture(page: Page, id: string): Promise<Diagram> {
+  return page.evaluate((id) => new Promise((resolve, reject) => {
+    const request = indexedDB.open("buildrax-guest");
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction("drafts", "readonly").objectStore("drafts").get(id);
+      read.onsuccess = () => { db.close(); resolve(read.result.diagram); };
+      read.onerror = () => { db.close(); reject(read.error); };
+    };
+  }), id);
+}
