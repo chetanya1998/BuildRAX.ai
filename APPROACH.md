@@ -1,5 +1,11 @@
 # Day 14 / G01 — deterministic graph engine
 
+9 November: review the existing graph implementation and its G02/G03 callers
+before publishing a separate dependency PR. Preserve the engine unchanged unless
+a concrete failing case is found. Lint, typecheck, 211 tests and Webpack build
+passed at `bca434f`; no blocking review finding. No production/provider work.
+Keep G02/G03 stacked and obtain explicit approval before merging this prerequisite.
+
 Branch: `feat/g01-deterministic-graph`, from main `c21625c` (merged F03).
 Implement a pure typed adjacency engine over existing Architecture IR. Return
 IDs only, snapshot input topology, sort results deterministically, reject

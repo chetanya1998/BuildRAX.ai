@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Day 14 / G01 — dependency review (9 November 2026)
+
+- Rechecked graph algorithms, schema limits and G02/G03 consumers; no blocking
+  finding. Fresh lint, typecheck, 211 tests and Webpack build passed.
+- Prepare a separate G01 PR to main; G02/G03 remain dependent review units.
+  Merge and hosted release are not authorized by this review.
+
 ### Day 14 / G01 — deterministic graph engine
 
 - Branch: `feat/g01-deterministic-graph`; locally verified, pending merge.
